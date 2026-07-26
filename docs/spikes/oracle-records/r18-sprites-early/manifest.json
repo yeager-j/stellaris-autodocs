@@ -1,0 +1,59 @@
+{
+  "activation": {
+    "dlc_load": {
+      "disabled_dlcs": [],
+      "enabled_mods": [
+        "mod/oracle_probe.mod",
+        "mod/oracle_target-sprites-early.mod"
+      ]
+    },
+    "enabled_mods": [
+      "mod/oracle_probe.mod",
+      "mod/oracle_target-sprites-early.mod"
+    ]
+  },
+  "artifacts": {
+    "error.normalized.txt": "7ec982a19ee5131d517b776e30a0cfc181b1e4abfeb2fadfde89506d53551e25",
+    "oracle-facts.txt": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+  },
+  "canaries": {
+    "probe_complete": false,
+    "probe_loaded": false
+  },
+  "error_log": {
+    "distinct_messages": 15,
+    "raw_lines": 15,
+    "raw_sha256": "47ce9820b80c21cde2d67588232592b0744d910fa93d42b4e4497c28c4a59536"
+  },
+  "fact_count": 0,
+  "fixture_hashes": {
+    "probe": {
+      "common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+      "descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+      "events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda"
+    },
+    "target-sprites-early": {
+      "descriptor.mod": "a99efcca58b0864987ff4d4ae017566fc67db5f5aaf51bd6352f24205423ea61",
+      "interface/00_oracle_sprites.gfx": "48f583f0bfdd04c6b97d9800af60298a7b0d1c4125c97f72ae05010e9cf632dd"
+    }
+  },
+  "game_log_banner": "[23:28:07][game_application.cpp:248]: Game Version: Pegasus v4.4.6",
+  "purpose": "Discriminates the sprite enumeration model. Same override as r17 in a file that sorts BEFORE vanilla's alerts.gfx instead of after. A diagnostic means layer-ordered like localisation; silence means path-ordered like script registries.",
+  "run": "r18-sprites-early",
+  "staging_hashes": {
+    "activation.json": "33b288662cf95868a932387860e382ad070e7fc52375718cc7023ffe71b2a61c",
+    "probe/common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+    "probe/descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+    "probe/events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda",
+    "target-sprites-early/descriptor.mod": "a99efcca58b0864987ff4d4ae017566fc67db5f5aaf51bd6352f24205423ea61",
+    "target-sprites-early/interface/00_oracle_sprites.gfx": "48f583f0bfdd04c6b97d9800af60298a7b0d1c4125c97f72ae05010e9cf632dd"
+  },
+  "stellaris": {
+    "distPlatform": "steam",
+    "modsCompatibilityVersion": "4.4",
+    "rawVersion": "v4.4.6",
+    "version": "Pegasus v4.4.6 (fdde)"
+  },
+  "tier": 1,
+  "warnings": []
+}

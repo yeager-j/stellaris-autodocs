@@ -18,7 +18,9 @@ Evaluate the parser against:
 - Representative files containing duplicate keys, comparison operators, scripted variables, headers, arrays, objects, and mixed containers.
 - Deliberately malformed fixtures used to verify failure isolation and diagnostics.
 - The source needed by the agreed `tech_combat_computers_3` and ACOT Enigmalith MVP acceptance cases.
-- The complete technology-redefinition game-oracle fixture from the [resolver evaluation](./resolver-evaluation.md).
+- The complete script corpus from the [resolver evaluation](./resolver-evaluation.md), including duplicate registrations, whole-file collisions, scripted constants, and inline-script expansion fixtures.
+- Inline scripts in scalar and parameterized forms, nested inclusion, and missing references.
+- Definitions whose semantic identifier is an inner field, such as ship-component `key`, rather than the enclosing block name.
 
 ## Required evidence
 
@@ -32,6 +34,10 @@ The spike must establish whether the adapter can:
 6. Produce a stable app-owned representation that does not expose Jomini types beyond the parser boundary.
 7. Measure parsing time and memory use across vanilla and representative large mods.
 8. Preserve scripted-constant definitions and references distinctly enough for the resolver to produce static base values.
+9. Preserve the exact numeric lexeme and distinguish unresolved `@` references from ordinary blocks even where Stellaris itself later misinterprets the consuming definition.
+10. Preserve `inline_script` references, parameter bindings, and nesting as explicit syntax for later resolver expansion; the parser does not silently expand or discard them.
+11. Preserve both an enclosing block name and inner identifier fields so content-specific resolver policies can choose the correct semantic key.
+12. Produce the same app-owned parsed representation for a file regardless of absolute source root, filesystem enumeration order, or neighboring source contributor.
 
 Semantic preservation of comments is not required. Comments need only remain available through bounded excerpts from the retained raw source.
 

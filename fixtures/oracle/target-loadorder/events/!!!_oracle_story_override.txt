@@ -1,0 +1,33 @@
+namespace = story
+
+# Does a mod override a vanilla event by registering EARLIER than vanilla?
+#
+# `r9` showed a mod cannot replace `story.5` by redeclaring its identifier from a file named
+# `zz_oracle_story_override.txt`. Events are first-wins, and `zz_…` sorts after vanilla's
+# `story_events.txt`, so vanilla registered first and the mod's registration was rejected.
+#
+# That result rules out one mechanism, not the practice. Real mods clearly do override
+# vanilla events, and the installed corpus shows how they name the files that do it:
+#
+#     !_giga_overwritten_events.txt        !!!_AR_overwrite.txt
+#     !!_acot_exterminatus_events_override.txt   !!!!_xhk_virtkill.txt
+#     000_spawn_override.txt               01_l_cluster_plus_distar_overwrite_events.txt
+#
+# `!` is ASCII 0x21, ahead of digits and letters, so these files sort before almost every
+# vanilla event file. In a first-wins registry, sorting first IS winning. This file uses the
+# same convention to test that reading directly.
+#
+#   ORACLE log line, no popup -> registering earlier wins. A mod overrides a vanilla event
+#                                by winning the enumeration order, not by declaring intent.
+#   Vanilla popup appears     -> ordering is by layer, mods always register after Vanilla,
+#                                and file naming cannot change it.
+
+event = {
+	id = story.5
+	hide_window = yes
+	is_triggered_only = yes
+
+	immediate = {
+		log = "ORACLE|event_override_early|story.5|mod_body_evaluated"
+	}
+}

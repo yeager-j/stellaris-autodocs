@@ -1,0 +1,68 @@
+{
+  "activation": {
+    "dlc_load": {
+      "disabled_dlcs": [],
+      "enabled_mods": [
+        "mod/oracle_probe.mod",
+        "mod/oracle_target-events-runtime.mod"
+      ]
+    },
+    "enabled_mods": [
+      "mod/oracle_probe.mod",
+      "mod/oracle_target-events-runtime.mod"
+    ]
+  },
+  "artifacts": {
+    "error.normalized.txt": "3bcbdec5cbeef0a3e99173a7498daef365dece67d8a2871dd85649df60c4576c",
+    "oracle-facts.txt": "e00a399ae210460d6a21974d3cbf0281afe0da19dcc8c73849a490110cb500f9",
+    "tech-status.json": "120b5bb658311942ddb51b4f141d6e756f7a3aa4efdc44a63c3e768516bf148e"
+  },
+  "canaries": {
+    "probe_complete": true,
+    "probe_loaded": true
+  },
+  "error_log": {
+    "distinct_messages": 24,
+    "raw_lines": 24,
+    "raw_sha256": "de33734907444893fb05f745abecbab5a09711561b1324700a754481e27e1cbd"
+  },
+  "fact_count": 8,
+  "fixture_hashes": {
+    "probe": {
+      "common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+      "descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+      "events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda"
+    },
+    "target-events-runtime": {
+      "descriptor.mod": "9aa86fbccbaed49900c4c7df938f7462335f1a3678b8125dc929ea32a69ff8d0",
+      "events/zz_oracle_runtime_events.txt": "955d9d694f603bab0a5016ca842e4a44d81c9a8f18eda5b21e07b440facc846b",
+      "events/zz_oracle_story_override.txt": "2c48ac17316868587010faa96b71d6dc41b78ec56ae894603138522059d47f45"
+    }
+  },
+  "game_log_banner": "[22:14:06][game_application.cpp:248]: Game Version: Pegasus v4.4.6",
+  "purpose": "Which event body actually evaluates. r8 established only that the game reports an identifier collision, with wording that suggested but did not prove first-registration-wins. These identifiers are fired from the console so the surviving body identifies itself. Subject is story.5, whose trigger is satisfied by a fresh empire, rather than utopia.1, whose trigger requires a neighbour building a ring world and would have made a silent result unreadable.",
+  "run": "r9-events-runtime",
+  "save": {
+    "bytes": 430837,
+    "name": "oracle_r9-events-runtime.sav",
+    "relative": "unitednationsofearth7_1529854637/oracle_r9-events-runtime.sav",
+    "sha256": "c75cc1eeca19b71bf28ae797f416a3cb1714d5562080c1bada5457a77db9c797"
+  },
+  "staging_hashes": {
+    "activation.json": "8e8cc03281768c518cf72b6a0deb7d75be2b2665d0201f1f1514aa244541871f",
+    "probe/common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+    "probe/descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+    "probe/events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda",
+    "target-events-runtime/descriptor.mod": "9aa86fbccbaed49900c4c7df938f7462335f1a3678b8125dc929ea32a69ff8d0",
+    "target-events-runtime/events/zz_oracle_runtime_events.txt": "955d9d694f603bab0a5016ca842e4a44d81c9a8f18eda5b21e07b440facc846b",
+    "target-events-runtime/events/zz_oracle_story_override.txt": "2c48ac17316868587010faa96b71d6dc41b78ec56ae894603138522059d47f45"
+  },
+  "stellaris": {
+    "distPlatform": "steam",
+    "modsCompatibilityVersion": "4.4",
+    "rawVersion": "v4.4.6",
+    "version": "Pegasus v4.4.6 (fdde)"
+  },
+  "tier": 2,
+  "warnings": []
+}

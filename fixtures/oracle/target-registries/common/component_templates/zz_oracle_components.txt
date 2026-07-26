@@ -1,0 +1,44 @@
+# Ship components: definition key, duplicate winner, and replacement versus inheritance.
+#
+# Ship components are keyed differently from every other registry tested so far. The block
+# identifier is a TYPE — `utility_component_template` — and the definition key is the inner
+# `key` field. Several thousand components share the same block identifier.
+#
+# That matters to the resolver beyond this row: a collision rule expressed as "the block
+# name is the key" would be wrong here, and would silently collapse every utility component
+# in the game into one entry.
+#
+# The vanilla diagnostic site for this registry is `component.cpp`, distinct from the
+# `game_singleobjectdatabase.h` used by triggers, effects, and technologies. Different code
+# paths do not prove different policy, but they are the reason this is measured rather than
+# assumed.
+
+# CONTROL. New key, minimal body, nothing to inherit.
+utility_component_template = {
+	key = "ORACLE_COMPONENT_NEW"
+	size = small
+	power = 0
+}
+
+# SUBJECT. Redefines a vanilla component key with the identical minimal body.
+# Vanilla's SMALL_ARMOR_1 carries icon, modifier, potential, prerequisites, component_set,
+# upgrades_to, and resources. All are omitted here.
+utility_component_template = {
+	key = "SMALL_ARMOR_1"
+	size = small
+	power = 0
+}
+
+# DUPLICATE, first occurrence.
+utility_component_template = {
+	key = "ORACLE_COMPONENT_DUP"
+	size = small
+	power = 1111
+}
+
+# DUPLICATE, second occurrence.
+utility_component_template = {
+	key = "ORACLE_COMPONENT_DUP"
+	size = small
+	power = 2222
+}

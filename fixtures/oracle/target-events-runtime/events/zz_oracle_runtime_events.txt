@@ -1,0 +1,53 @@
+namespace = oracle_rt
+
+# Events: which duplicate body actually EVALUATES.
+#
+# `r8-registries` established only that the game reports a collision, and it reported the
+# second registration with wording (`already exists!`) that matches the rejected-constant
+# message rather than the winner-naming one. Wording is not behavior. These events are fired
+# by hand from the console so the surviving body identifies itself.
+#
+# This mod is separate from `target-registries` rather than an edit to it. That fixture's
+# SHA-256 is recorded in the `r8` manifest, and editing it would break the link between
+# that evidence and the files that produced it.
+
+# CANARY for the console mechanism. Defined exactly once, so it must fire.
+#
+# Without it, silence from the tests below is unreadable: a body that lost, an event whose
+# trigger blocked it, and a console command that did not take all look identical.
+country_event = {
+	id = oracle_rt.9
+	hide_window = yes
+	is_triggered_only = yes
+
+	immediate = {
+		log = "ORACLE|canary|console_event|1"
+	}
+}
+
+# DUPLICATE, first occurrence.
+country_event = {
+	id = oracle_rt.1
+	hide_window = yes
+	is_triggered_only = yes
+
+	immediate = {
+		log = "ORACLE|event_dup_runtime|winner|first_1111"
+	}
+}
+
+# DUPLICATE, second occurrence, same identifier.
+#
+#   first_1111 logged  -> first registration wins, matching the scripted-constant rule and
+#                         the reading r8 suggested.
+#   second_2222 logged -> last registration wins, matching triggers and technologies, and
+#                         r8's wording-based reading was wrong.
+country_event = {
+	id = oracle_rt.1
+	hide_window = yes
+	is_triggered_only = yes
+
+	immediate = {
+		log = "ORACLE|event_dup_runtime|winner|second_2222"
+	}
+}

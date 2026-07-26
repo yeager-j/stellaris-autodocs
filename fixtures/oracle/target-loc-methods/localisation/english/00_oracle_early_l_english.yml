@@ -1,0 +1,13 @@
+﻿l_english:
+
+# METHOD 1b: a plain new file that sorts BEFORE vanilla's technology_l_english.yml.
+#
+# The wiki states localisation resolves LIOS - "Last in, only served" - which predicts
+# this file LOSES, because vanilla's technology_l_english.yml loads after it. Its partner
+# zz_oracle_l_english.yml sorts after vanilla and should WIN.
+#
+# Together they test the wiki's claim the same way r10 tested the layer model: same content,
+# two filenames on opposite sides of the vanilla file. A community wiki is a hypothesis, not
+# an oracle, and this is what turns it into evidence.
+
+ tech_basic_science_lab_1:0 "ORACLE_EARLY_FILE"

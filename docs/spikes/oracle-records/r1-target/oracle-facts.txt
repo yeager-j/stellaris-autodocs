@@ -1,0 +1,18 @@
+events/zz_oracle_probe.txt:27	ORACLE|canary|probe_loaded|1
+events/zz_oracle_probe.txt:28	ORACLE|canary|country|United Nations of Earth
+events/zz_oracle_probe.txt:40	ORACLE|tech_exists|tech_colossus|1
+events/zz_oracle_probe.txt:54	ORACLE|tech_exists|tech_rift_sphere|1
+events/zz_oracle_probe.txt:63	ORACLE|tech_exists|tech_astral_harvesting|1
+events/zz_oracle_probe.txt:75	ORACLE|canary|probe_complete|1
+events/zz_oracle_target.txt:30	ORACLE|canary|target_loaded|1
+events/zz_oracle_target.txt:37	ORACLE|tech_exists|tech_oracle_new|1
+events/zz_oracle_target.txt:46	ORACLE|vanilla_var_visible|tech_oracle_vanilla_var|1
+events/zz_oracle_target.txt:59	ORACLE|trigger_dup|same_file|B_last
+events/zz_oracle_target.txt:67	ORACLE|trigger_dup|cross_file|B_last_file
+events/zz_oracle_target.txt:79	ORACLE|effect_dup|same_file_a|0
+events/zz_oracle_target.txt:84	ORACLE|effect_dup|same_file_b|1
+events/zz_oracle_target.txt:99	ORACLE|const|same_file|1_first
+events/zz_oracle_target.txt:112	ORACLE|const|cross_file|10_first_file
+events/zz_oracle_target.txt:121	ORACLE|const|local_override|99_file_local
+events/zz_oracle_target.txt:136	ORACLE|const|decimal_sum|exact_0.3
+events/zz_oracle_target.txt:142	ORACLE|canary|target_complete|1

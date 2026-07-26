@@ -1,0 +1,30 @@
+# What happens when an inline script does not exist?
+#
+# ISOLATED IN ITS OWN MOD AND RUN. An unresolved textual inclusion is the same class of
+# failure as an unresolved scripted constant, which in `r7` was not rejected but silently
+# reinterpreted, corrupting the rest of its file. If that happens here it must not be able
+# to reach the working expansion subjects.
+#
+# The question for the resolver is not whether this is diagnosed, but whether the resulting
+# definition is distinguishable from a correct one. `r7` established that Stellaris can
+# leave a definition present and structurally plausible after a failed substitution. If an
+# inline reference behaves the same way, the app cannot trust a parsed definition that
+# contained one, and must track unresolved inclusions itself rather than relying on the
+# game's diagnostics.
+#
+#   Diagnostic naming this file and the missing path -> detectable; the resolver can surface
+#                                                       it as an Analysis Issue.
+#   Silence, or an unrelated-looking parse error     -> the app must detect unresolved
+#                                                       inclusions on its own.
+
+tech_oracle_missing_inline = {
+	area = physics
+	cost = 1000
+	tier = 0
+	category = { computing }
+	weight = 1
+
+	weight_modifier = {
+		inline_script = "oracle/this_inline_script_does_not_exist"
+	}
+}

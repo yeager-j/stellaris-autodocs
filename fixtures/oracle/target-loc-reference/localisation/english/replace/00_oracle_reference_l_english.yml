@@ -1,0 +1,26 @@
+﻿l_english:
+
+# Do localization REFERENCES resolve against the effective value of their target?
+#
+# Giga defines:
+#     name_alderson:0   "Alderson Disk"
+#     origin_alderson:0 "$name_alderson$"     <- a reference, not a literal
+#
+# This overrides name_alderson ONLY, and does so from replace/, which r15 proved wins from
+# any load position. origin_alderson is left untouched, so its reading is entirely about
+# how the reference resolves.
+#
+#   origin_alderson -> ORACLE_REFERENCE_TARGET
+#       References resolve against the EFFECTIVE value. A reference graph can be resolved
+#       once, after collision resolution, and an override propagates to every reference.
+#
+#   origin_alderson -> "Alderson Disk"
+#       References bind to the defining mod's own value. The graph must be resolved per
+#       source, and an override of a referenced key does NOT propagate - which would make
+#       displayed text depend on which mod wrote the referring string.
+#
+# r15 could not answer this: the reference subject sat behind a plain-file override that
+# lost, so the target's effective value was Giga's either way and both hypotheses predicted
+# the same reading.
+
+ name_alderson:0 "ORACLE_REFERENCE_TARGET"

@@ -1,0 +1,67 @@
+{
+  "activation": {
+    "dlc_load": {
+      "disabled_dlcs": [],
+      "enabled_mods": [
+        "mod/oracle_probe.mod",
+        "mod/oracle_target-registries.mod"
+      ]
+    },
+    "enabled_mods": [
+      "mod/oracle_probe.mod",
+      "mod/oracle_target-registries.mod"
+    ]
+  },
+  "artifacts": {
+    "error.normalized.txt": "b19073c4529c3e59c9a2167b81c141f64d2728586cd305dd870a25e7f28e4b7b",
+    "oracle-facts.txt": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+  },
+  "canaries": {
+    "probe_complete": false,
+    "probe_loaded": false
+  },
+  "error_log": {
+    "distinct_messages": 41,
+    "raw_lines": 41,
+    "raw_sha256": "12991413f878d4c0f6fe1d35b9379e176b2ea4fafd6bf4be53912d1aae5c71f8"
+  },
+  "fact_count": 0,
+  "fixture_hashes": {
+    "probe": {
+      "common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+      "descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+      "events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda"
+    },
+    "target-registries": {
+      "common/buildings/zz_oracle_buildings.txt": "7e56ed46fdfdb36e7ddd5a5056e22c438cf11c29d8dcef849da65a5bff8338e7",
+      "common/component_templates/zz_oracle_components.txt": "9eac51a4127d7a2dcc9e08cd55c0b54ab5bd77448ed6bc46c38deda328fff14b",
+      "common/megastructures/zz_oracle_megastructures.txt": "760f759edcf544728efa0e02f7df895f7efac37297eef521599a39792de98a8e",
+      "descriptor.mod": "92b0f903c7132a8253c5bae69d517cc509d04ff2a28e08bd822d4979911ad1c2",
+      "events/zz_oracle_event_override.txt": "8eb7abf9986fb76a3d3ed51d6e82b5ce395c8af2db5243ade33c4d0f17b96402",
+      "events/zz_oracle_events.txt": "5bcdf623c8c2daee2100f5e6b7a27d18a8bd41fcd2eb4c852d5d0b2011aa143d"
+    }
+  },
+  "game_log_banner": "[21:57:10][game_application.cpp:248]: Game Version: Pegasus v4.4.6",
+  "purpose": "Megastructures, buildings, ship components, and events. Duplicate winner from the load-time diagnostic, and whole-replacement-versus-inheritance from a comparative pair: a new key and a redefinition of a vanilla key sharing one minimal body. Whatever missing-field diagnostics the new key produces are the baseline that inheritance would have suppressed.",
+  "run": "r8-registries",
+  "staging_hashes": {
+    "activation.json": "52225577b146e423605c8439ecd18bad03b225cc589baec69086eddc9e8e9847",
+    "probe/common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+    "probe/descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+    "probe/events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda",
+    "target-registries/common/buildings/zz_oracle_buildings.txt": "7e56ed46fdfdb36e7ddd5a5056e22c438cf11c29d8dcef849da65a5bff8338e7",
+    "target-registries/common/component_templates/zz_oracle_components.txt": "9eac51a4127d7a2dcc9e08cd55c0b54ab5bd77448ed6bc46c38deda328fff14b",
+    "target-registries/common/megastructures/zz_oracle_megastructures.txt": "760f759edcf544728efa0e02f7df895f7efac37297eef521599a39792de98a8e",
+    "target-registries/descriptor.mod": "92b0f903c7132a8253c5bae69d517cc509d04ff2a28e08bd822d4979911ad1c2",
+    "target-registries/events/zz_oracle_event_override.txt": "8eb7abf9986fb76a3d3ed51d6e82b5ce395c8af2db5243ade33c4d0f17b96402",
+    "target-registries/events/zz_oracle_events.txt": "5bcdf623c8c2daee2100f5e6b7a27d18a8bd41fcd2eb4c852d5d0b2011aa143d"
+  },
+  "stellaris": {
+    "distPlatform": "steam",
+    "modsCompatibilityVersion": "4.4",
+    "rawVersion": "v4.4.6",
+    "version": "Pegasus v4.4.6 (fdde)"
+  },
+  "tier": 1,
+  "warnings": []
+}

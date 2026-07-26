@@ -1,0 +1,54 @@
+spriteTypes = {
+
+	# Sprite definitions: which duplicate wins, and does a mod beat Vanilla.
+	#
+	# Sprites are a visual registry, so the naive observation is "look at the icon". That is
+	# exactly the UI inspection this spike avoids where something more direct exists. The
+	# trick is to make the two candidate definitions point at DIFFERENT texture paths, only
+	# one of which exists. The game reports a missing texture by path, so which definition
+	# won becomes a log line rather than a screenshot:
+	#
+	#   "could not find texture .../oracle_missing_*.dds"  -> the definition naming that
+	#                                                          missing path is the one that
+	#                                                          was resolved, so it WON.
+	#   silence for a pair                                 -> the definition naming the real
+	#                                                          vanilla texture won.
+	#
+	# Every LOSING definition points at a real vanilla texture, so a loser can never produce
+	# a diagnostic. Silence therefore means "the safe one won" rather than "nothing loaded",
+	# and the two outcomes stay distinguishable.
+	#
+	# GFX_oracle_dup_same_file: first occurrence, pointing at a texture that EXISTS.
+	spriteType = {
+		name = "GFX_oracle_dup_same_file"
+		texturefile = "gfx/interface/icons/alerts/alerticons.dds"
+	}
+
+	# Second occurrence of the same name, pointing at a path that does NOT exist.
+	# A missing-texture diagnostic naming oracle_missing_same_file.dds means the LAST
+	# definition won, matching every other single-object registry measured so far.
+	spriteType = {
+		name = "GFX_oracle_dup_same_file"
+		texturefile = "gfx/interface/icons/oracle_missing_same_file.dds"
+	}
+
+	# Cross-file duplicate, A side. The B side is in zz_oracle_sprites_b.txt.gfx and names a
+	# missing path, so a diagnostic there means the later FILE won.
+	spriteType = {
+		name = "GFX_oracle_dup_cross_file"
+		texturefile = "gfx/interface/icons/alerts/alerticons.dds"
+	}
+
+	# CROSS-LAYER: redefine a vanilla sprite name.
+	#
+	# Vanilla defines GFX_alerticons in interface/alerts.gfx pointing at a real texture. This
+	# redefinition points at a missing one, so a diagnostic naming oracle_missing_vanilla.dds
+	# proves the mod's definition displaced vanilla's.
+	#
+	# Nothing here collides on a file PATH: this file's name exists in no vanilla directory,
+	# so the collision is by sprite name alone, keeping it separate from the r6 rule.
+	spriteType = {
+		name = "GFX_alerticons"
+		texturefile = "gfx/interface/icons/oracle_missing_vanilla.dds"
+	}
+}

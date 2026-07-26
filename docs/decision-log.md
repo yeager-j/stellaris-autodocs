@@ -79,9 +79,11 @@ The MVP analyzes one selected Target Mod against Vanilla Content. Cross-mod refe
 
 See [ADR 0002](./adr/0002-resolve-content-before-generating-documentation.md).
 
-**D-010 — Include base-game and locally available DLC content**
+**D-010 — Treat Vanilla Content as the base-game file set**
 
-Vanilla Content includes the base game and every locally available DLC. Vanilla and mod script pass through the same parser, while provenance and precedence distinguish them.
+Vanilla Content is the base-game file set, including definitions gated at runtime by DLC ownership. DLC archives do not form a script, localization, interface, or map source layer; `host_has_dlc` is documented as a requirement. DLC archives may still supply referenced assets through the Stellaris Installation.
+
+Vanilla and Target Mod script pass through the same parser, but source origin is provenance rather than universal precedence. Exact-path and `replace_path` selection run before content-family-specific ordering and registry collision rules.
 
 **D-011 — Resolve content before documentation generation**
 
@@ -316,7 +318,7 @@ Declared mod versions are display metadata, not cache identity. The authoritativ
 The documentation cache identity includes:
 
 - Target Mod fingerprint.
-- Vanilla and DLC fingerprint.
+- Vanilla Content fingerprint.
 - Referenced source-asset identities and byte hashes.
 - Parser version.
 - Resolver version.
@@ -719,9 +721,9 @@ If macOS Documents-folder privacy prevents reading game settings, the app report
 
 **D-098 — Require an oracle-backed Resolution Profile**
 
-The MVP resolver consumes a versioned policy matrix for file shadowing, directory replacement, Vanilla and DLC ordering, Target Mod precedence, and each supported registry. No missing row inherits a generic last-wins or merge behavior.
+The MVP resolver consumes a versioned policy matrix for exact-path shadowing, directory replacement, content-family file streams, and each supported registry. It receives two source contributors—Vanilla Content and one Target Mod—but does not treat them as universally ordered layers. Script and sprite content use global logical-path order across surviving files; localization uses its own Vanilla, enabled-mod, and `replace/` stream. DLC ownership is a requirement fact, not a definition-source layer.
 
-Every row defines keys, same-layer duplicates, cross-layer collisions, field replacement or inheritance, defaults, ordering, unresolved references, and contributed, inherited, defaulted, duplicate, and shadowed provenance. The [resolver evaluation](./spikes/resolver-evaluation.md) must fill the matrix through pinned, checksummed, reproducible Stellaris oracle fixtures before the design is accepted.
+Every row defines keys, semantic stream construction, duplicate and cross-source collisions, field replacement or inheritance, defaults, ordering, unresolved references, and contributed, inherited, defaulted, duplicate, and shadowed provenance. The [resolver evaluation](./spikes/resolver-evaluation.md) completed all evidence collection possible before the resolver exists. Its captured records define golden expectations for resolved cells. A content type is supported only when every policy it requires is explicit and oracle-backed; unresolved cells fail visibly without blocking implementation of unrelated resolved rows.
 
 **D-099 — Canonicalize every identity input**
 
@@ -891,8 +893,8 @@ The project name and copyright-holder wording are not yet chosen. Create the roo
 
 Complete the parser spike before accepting Jomini or recording a parser ADR.
 
-**Q-004 — Resolution Profile contents**
+**Q-004 — Remaining Resolution Profile cells**
 
-Complete the reproducible game-oracle spike and pin the first versioned Resolution Profile before implementing effective-content resolution. Unknown policy cells are blockers rather than invitations to use a generic merge or last-wins fallback.
+Pre-implementation oracle investigation is complete, but the Resolution Profile remains partial. Implement the resolved rows first and use resolver conformance traces plus focused oracle fixtures to close the remaining cells. An unresolved cell blocks support for the content type that requires it, not implementation of the resolver module or unrelated resolved content types.
 
 See [Resolver evaluation](./spikes/resolver-evaluation.md).

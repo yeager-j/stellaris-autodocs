@@ -1,0 +1,190 @@
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_1595876588.mod line: 7
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_2288335512.mod line: 8
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_2646410054.mod line: 7
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3089135446.mod line: 24
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3089152222.mod line: 16
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3089156847.mod line: 16
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3200772862.mod line: 6
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3241790370.mod line: 9
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3469119533.mod line: 8
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/00_base_game_arc_sites.txt line: 154, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/00_base_game_arc_sites.txt line: 210, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/00_base_game_arc_sites.txt line: 28, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/00_base_game_arc_sites.txt line: 322, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/00_base_game_arc_sites.txt line: 499, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/00_base_game_arc_sites.txt line: 94, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 1037, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 1101, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 1171, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 1223, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 123, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 1275, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 1327, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 1373, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 1423, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 1481, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 1535, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 1632, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 1680, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 180, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 1942, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 1985, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 2041, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 21, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 2102, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 2151, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 2199, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 2242, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 2294, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 2400, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 241, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 2446, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 2490, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 336, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 395, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 451, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 519, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 563, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 621, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 673, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 725, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 74, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 777, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 829, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 875, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 933, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/02_ancient_relics_arc_sites.txt line: 985, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/03_federations_arc_sites.txt line: 24, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/03_federations_arc_sites.txt line: 94, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/04_leviathans_arc_sites.txt line: 43, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/12_extreme_frontiers_arc_sites.txt line: 267, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: common/archaeological_site_types/12_extreme_frontiers_arc_sites.txt line: 330, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/ancient_relics_arcsite_events_1.txt line: 1244, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/ancient_relics_arcsite_events_1.txt line: 63, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 1516, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 1549, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 1567, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 1724, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 195, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 227, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 2376, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 268, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 2722, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 2756, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 2787, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 309, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 3256, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 3263, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 3346, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 3402, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 3407, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 3630, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 3663, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 3692, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 3734, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 3748, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 3859, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 3930, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 3988, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 4036, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 4075, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 4105, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 4380, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 4420, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 4485, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 4524, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 4559, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 4608, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 4645, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 4704, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 4838, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 488, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 4956, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 57, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_1.txt line: 967, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_2.txt line: 1138, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_2.txt line: 1176, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_2.txt line: 1232, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_2.txt line: 1319, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_2.txt line: 1372, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_2.txt line: 1405, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_2.txt line: 1631, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_2.txt line: 1775, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_2.txt line: 2062, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_2.txt line: 385, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_2.txt line: 494, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_2.txt line: 593, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_2.txt line: 719, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_3.txt line: 116, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_3.txt line: 2196, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_3.txt line: 2545, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_3.txt line: 2654, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_3.txt line: 285, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_3.txt line: 29, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_3.txt line: 3298, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_3.txt line: 4017, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_3.txt line: 4108, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_3.txt line: 4197, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_3.txt line: 4376, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_3.txt line: 601, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_3.txt line: 746, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_4.txt line: 2387, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_4.txt line: 2439, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/anomaly_events_4.txt line: 2474, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_1.txt line: 10049, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_1.txt line: 10115, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_1.txt line: 10177, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_1.txt line: 10260, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_1.txt line: 10327, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_1.txt line: 243, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_1.txt line: 2433, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_1.txt line: 452, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_1.txt line: 477, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_1.txt line: 7225, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_1.txt line: 7276, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_1.txt line: 7321, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_2.txt line: 1756, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_2.txt line: 2003, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_2.txt line: 2081, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_2.txt line: 2140, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_2.txt line: 2210, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_2.txt line: 2297, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_2.txt line: 2362, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_2.txt line: 2568, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_2.txt line: 2869, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_2.txt line: 3276, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_2.txt line: 3336, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_2.txt line: 3359, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_2.txt line: 3704, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_2.txt line: 6795, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_2.txt line: 6883, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/distant_stars_events_2.txt line: 707, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/failures.txt line: 593, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/megastructure_events_1.txt line: 3529, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/megastructure_events_1.txt line: 3600, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/megastructure_events_1.txt line: 3675, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/megastructure_events_1.txt line: 3730, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/megastructure_events_1.txt line: 4111, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/megastructure_events_1.txt line: 4197, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/megastructure_events_1.txt line: 4283, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/megastructure_events_1.txt line: 4371, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/megastructure_events_1.txt line: 4526, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/megastructure_events_1.txt line: 4666, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/nomads_arkship_events.txt line: 1944, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/precursor_events.txt line: 1256, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/precursor_events.txt line: 2173, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/precursor_events.txt line: 3443, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/precursor_events.txt line: 4529, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/precursor_events.txt line: 63, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/precursor_events_cosmic_storms.txt line: 1841, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/precursor_events_cosmic_storms.txt line: 68, target event is not of the correct type, expected it to be a country
+1	[effect_impl.cpp:1845]: Error in fire event effect at  file: events/tutorial_events.txt line: 2432, target event is not of the correct type, expected it to be a country
+1	[empire_design.cpp:597]: Invalid government origin [origin_final_spark_lcluster] in design The Fractured
+1	[empire_flag.cpp:918]: could not find normal-sized texture "flags/shadow/flag_the_shadow.dds"  file: galaxy_configuration_command line: 1
+1	[empire_flag.cpp:918]: could not find normal-sized texture "flags/shadow/flag_the_shadow.dds"  file: set_startup_design_for_human line: 1
+1	[empire_flag.cpp:918]: could not find normal-sized texture "flags/shadow/flag_the_shadow.dds"  file: user_empire_designs_v3.4.txt line: 431
+1	[empire_flag.cpp:924]: could not find map-sized texture "flags/shadow/map/flag_the_shadow.dds"  file: galaxy_configuration_command line: 1
+1	[empire_flag.cpp:924]: could not find map-sized texture "flags/shadow/map/flag_the_shadow.dds"  file: set_startup_design_for_human line: 1
+1	[empire_flag.cpp:924]: could not find map-sized texture "flags/shadow/map/flag_the_shadow.dds"  file: user_empire_designs_v3.4.txt line: 431
+1	[eventmanager.cpp:427]: an event with id [story.5] already exists!  file: events/story_events.txt line: 1212
+1	[game_singleobjectdatabase.h:170]: Object with key: tech_adaptive_combat_algorithms already exists, using the one at  file: common/technology/00_synthetic_dawn_tech.txt line: 347

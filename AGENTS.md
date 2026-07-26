@@ -194,3 +194,109 @@ Treat these as triggers to investigate, not automatic verdicts:
 ## Project Guidelines
 
 This is a Tauri application that uses TypeScript/React for the frontend.
+
+## Stellaris environment reference
+
+Facts about the local Stellaris installation, recorded so research does not rediscover them.
+These are macOS/Steam defaults on the development machine. In the product, equivalent
+locations are user-confirmed Discovery Locations; nothing here is a hard-coded product path.
+
+### Paths
+
+| Purpose | Path |
+| --- | --- |
+| Install root | `~/Library/Application Support/Steam/steamapps/common/Stellaris` |
+| Executable | `<install>/stellaris.app/Contents/MacOS/stellaris` |
+| Game data root | `~/Documents/Paradox Interactive/Stellaris` |
+| Logs | `<data>/logs` |
+| Local mods and descriptors | `<data>/mod` |
+| Enabled-mod and disabled-DLC list | `<data>/dlc_load.json` |
+| Saves | `<data>/save games` |
+| Workshop mods | `~/Library/Application Support/Steam/steamapps/workshop/content/281990` |
+
+### Version pinning
+
+`<install>/launcher-settings.json` is authoritative for the installed build: `version`
+(marketing name, currently `Pegasus v4.4.6`), `rawVersion`, and `modsCompatibilityVersion`
+(currently `4.4`), plus `exePath` and `exeArgs`.
+
+The first line of `logs/game.log` carries `Game Version: <name>`, but that reflects the last
+run rather than what is installed — the two disagree whenever logs are stale. Record both and
+trust neither alone.
+
+### Which log answers which question
+
+| Log | Contains |
+| --- | --- |
+| `logs/error.log` | Collision, duplicate, and malformed-content diagnostics, emitted during database init before any game session |
+| `logs/game.log` | Output of the script `log = "..."` effect, and the build banner |
+| `logs/setup.log` | `Initializing Database: <name>` lines and per-database contents in initialization order |
+| `logs/script_documentation/` | `script_docs` console-command dumps of engine effects, triggers, scopes, modifiers, and localizations — engine surface, not script content |
+
+### Diagnostic shapes that name a winner
+
+These are the greppable forms the game uses when two definitions collide. The
+`game_singleobjectdatabase` line is the most valuable: it states which definition survived.
+
+```
+[technology.cpp:1418]: Duplicate technology: tech_titan_hull_1
+[game_singleobjectdatabase.h:162]: Object with key: is_normal_starbase already exists, using the one at  file: common/scripted_triggers/01_aeo_scripted_triggers.txt line: 1
+[designer_database.cpp:74]: A ship design named "Arisen" already exists!  file: common/global_ship_designs/biogenesis_ship_designs.txt line: 2881
+[triggered_event_description.inl:22]: Duplicate triggered localization string crisis.7516.desc.center at  file: events/!_giga_overwritten_events.txt line: 992
+[reader.cpp:209]: Variable name small_trail_W is already taken.  file: gfx/models/ships/special/acot_corvette_entities.asset line: 27
+```
+
+### Mod activation
+
+The game executable itself reads `dlc_load.json`, so activation can be scripted without the
+Paradox launcher or its `launcher-v2.sqlite` playset database:
+
+```json
+{"enabled_mods":["mod/ugc_3720935310.mod"],"disabled_dlcs":["dlc/dlc033_cosmic_storms/dlc033.dlc"]}
+```
+
+Order in `enabled_mods` is the load order. Each entry names a `.mod` descriptor under
+`<data>/mod`, whose observed fields are `name`, `version`, `supported_version`, `path`
+(absolute), `tags`, `picture`, and `remote_file_id`. `replace_path` is the documented
+directory-replacement declaration but appears in none of the mods installed here, so its
+behavior is unverified locally.
+
+The executable accepts `-continuelastsave`, which loads the save named by
+`<data>/continue_game.json` without menu navigation. A loaded game starts paused, so
+`on_action` pulses do not fire until time advances; `on_game_start` fires only for a new game.
+
+### Save format
+
+A `.sav` is a zip containing `gamestate` and `meta`, both Clausewitz text. `gamestate` is
+large — roughly 50 MB uncompressed for a mid-game save — so extract and project it rather
+than committing it.
+
+Under `country.<id>.tech_status`:
+
+- `alternatives` — the current draw pool, grouped by `physics` / `society` / `engineering`.
+- `potential` — the engine-computed set of currently drawable technologies with a per-tech
+  value, e.g. `"tech_cruisers"="5"`. This is exported engine state and is the most direct
+  observation available for effective technology eligibility.
+
+### Content layout notes
+
+`<install>/checksum_manifest.txt` declares the game's **checksum** scope, which is narrower
+than its content-load scope and must not be mistaken for a file-enumeration rule:
+
+```
+common/**.txt   common/**.shader   common/**.csv
+events/**.txt   map/**.shader      map/**.txt
+```
+
+`common/scripted_variables/00_scripted_variables.txt` opens with the vanilla claim that
+global `@` variables "can be overridden in each normal script file" — a documented statement
+to verify against the game, not to inherit as resolver policy.
+
+### Installed DLC
+
+29 directories under `<install>/dlc`, `dlc002_arachnoid` through `dlc039_stargazer`. The
+current `dlc_load.json` disables `dlc033_cosmic_storms`.
+
+### Local tooling
+
+`python3` 3.13.5 at `/opt/homebrew/bin/python3`; `node` v24.15.0.

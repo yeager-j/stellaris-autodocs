@@ -1,0 +1,16 @@
+namespace = oracle_lo
+
+# Console canary for this run. Defined exactly once, so it must fire.
+#
+# Without it, silence from the story.5 test is unreadable: a rejected mod body, a console
+# command that did not take, and a mistyped identifier all look identical.
+
+country_event = {
+	id = oracle_lo.9
+	hide_window = yes
+	is_triggered_only = yes
+
+	immediate = {
+		log = "ORACLE|canary|console_event|1"
+	}
+}

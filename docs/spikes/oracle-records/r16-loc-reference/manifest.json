@@ -1,0 +1,62 @@
+{
+  "activation": {
+    "dlc_load": {
+      "disabled_dlcs": [],
+      "enabled_mods": [
+        "mod/oracle_probe-loc-giga.mod",
+        "mod/oracle_target-loc-reference.mod",
+        "mod/ugc_1121692237.mod"
+      ]
+    },
+    "enabled_mods": [
+      "mod/oracle_probe-loc-giga.mod",
+      "mod/oracle_target-loc-reference.mod",
+      "mod/ugc_1121692237.mod"
+    ]
+  },
+  "artifacts": {
+    "error.normalized.txt": "3fafcb8b11338acdd2b4a93b2d5e9b91529cb48710099999d22adce124751ee7",
+    "oracle-facts.txt": "55bbdad8f27afe1789fd44ea58f2f60da1164f7ee6c7209251e151b51bfaf688"
+  },
+  "canaries": {
+    "loc_giga_probe": true,
+    "loc_giga_probe_complete": true
+  },
+  "error_log": {
+    "distinct_messages": 5503,
+    "raw_lines": 8355,
+    "raw_sha256": "efcafb25cd69021bd7ccea6f6f982f9ade4a725dcff656edca192f97bef4c1f3"
+  },
+  "fact_count": 6,
+  "fixture_hashes": {
+    "installed:ugc_1121692237.mod": {
+      "ugc_1121692237.mod": "96cb760a08ad847d9842404e2bff9364c8c3c825c5c64f9329897772a57487f1"
+    },
+    "probe-loc-giga": {
+      "descriptor.mod": "c6630a13d85e772023f770ace2074db252ff22672b9a1ed1c09160bb4dbd73e4",
+      "events/zz_oracle_loc_giga_probe.txt": "2451373e5b673cc215c0b3d936e1bfa16697b8cb45a60f8995cce11ac6b993d5"
+    },
+    "target-loc-reference": {
+      "descriptor.mod": "1fb247a4849008134618234c949eb9f8581ba24372473c7ea2d8f6313805155a",
+      "localisation/english/replace/00_oracle_reference_l_english.yml": "f985983a4daafe42466da4763f08714bdc0dc631f0f795aa85d1e9ce2493fabc"
+    }
+  },
+  "game_log_banner": "[23:10:04][game_application.cpp:248]: Game Version: Pegasus v4.4.6",
+  "purpose": "Whether a localization reference resolves against the effective value of its target. Overrides name_alderson from replace/, which wins from any load position, and leaves origin_alderson - literally \"$name_alderson$\" - untouched.",
+  "run": "r16-loc-reference",
+  "staging_hashes": {
+    "activation.json": "dc75ef598fa509fa204302d12ce347c5c5d2a4d291450047377ab20927629474",
+    "probe-loc-giga/descriptor.mod": "c6630a13d85e772023f770ace2074db252ff22672b9a1ed1c09160bb4dbd73e4",
+    "probe-loc-giga/events/zz_oracle_loc_giga_probe.txt": "2451373e5b673cc215c0b3d936e1bfa16697b8cb45a60f8995cce11ac6b993d5",
+    "target-loc-reference/descriptor.mod": "1fb247a4849008134618234c949eb9f8581ba24372473c7ea2d8f6313805155a",
+    "target-loc-reference/localisation/english/replace/00_oracle_reference_l_english.yml": "f985983a4daafe42466da4763f08714bdc0dc631f0f795aa85d1e9ce2493fabc"
+  },
+  "stellaris": {
+    "distPlatform": "steam",
+    "modsCompatibilityVersion": "4.4",
+    "rawVersion": "v4.4.6",
+    "version": "Pegasus v4.4.6 (fdde)"
+  },
+  "tier": 2,
+  "warnings": []
+}

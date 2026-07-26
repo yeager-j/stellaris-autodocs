@@ -41,7 +41,7 @@ A dependency named by a mod's metadata. It is advisory and does not cause anothe
 _Avoid_: Active dependency, Playset member
 
 **Vanilla Content**:
-The base-game and locally available DLC content distributed with Stellaris that provides the shared baseline referenced or changed by a Target Mod.
+The base-game content files distributed with Stellaris, including definitions whose runtime availability is gated by DLC ownership. DLC availability is a requirement fact rather than a separate definition source.
 _Avoid_: Base mod, built-in mod
 
 **Playset**:

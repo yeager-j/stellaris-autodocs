@@ -1,0 +1,112 @@
+# Inline scripts: expansion, parameters, and same-path override.
+#
+# Inline scripts are keyed by FILE PATH, not by a declared identifier, and hold one script
+# per file. Their only collision mode is therefore the exact-path rule already established
+# in `r6`, not the accept/reject registration rule that governs keyed registries.
+#
+# They matter to this project more than their obscurity suggests. Vanilla technologies use
+# them heavily — 31 uses in 00_ancient_relics_tech.txt alone — and specifically inside
+# `weight_modifier`, which is where Base Draw Weight and every conditional Weight Modifier
+# come from (`docs/decision-log.md` D-007). A resolver that does not expand inline scripts
+# would silently produce technology pages missing their weight logic, with no parse error to
+# reveal it.
+#
+# EVERY SUBJECT USES ONE UNIFORM SHAPE so the readings are directly comparable:
+#
+#   base weight = 1, plus a weight_modifier that should multiply it by 1000000.
+#
+# A subject that reaches the draw pool proves its mechanism expanded; one that does not
+# proves it did not. The negative control has the same base weight and no modifier at all,
+# which is what "the mechanism did nothing" looks like.
+#
+# Subjects are spread across the three research areas because each area offers only three
+# draw slots, and two subjects competing for the same area could crowd each other out and
+# be misread as a failed expansion.
+
+# POSITIVE CONTROL (engineering). No inline script; the factor is written literally.
+# Must be drawn. If it is not, weight 1 x factor 1000000 does not reach the pool and no
+# other result in this file means anything.
+tech_oracle_inline_literal = {
+	area = engineering
+	cost = 1000
+	tier = 0
+	category = { industry }
+	weight = 1
+
+	weight_modifier = {
+		modifier = {
+			factor = 1000000
+			always = yes
+		}
+	}
+}
+
+# NEGATIVE CONTROL (society). Same base weight, no modifier of any kind.
+# Must be ABSENT. This is the appearance of a mechanism that did nothing, and without it a
+# subject's absence could not be distinguished from weight 1 being drawable on its own.
+tech_oracle_inline_lowweight = {
+	area = society
+	cost = 1000
+	tier = 0
+	category = { statecraft }
+	weight = 1
+}
+
+# SUBJECT 1 (physics): does a simple inline script expand at all?
+# Uses the quoted single-argument form from the README.
+tech_oracle_inline_basic = {
+	area = physics
+	cost = 1000
+	tier = 0
+	category = { computing }
+	weight = 1
+
+	weight_modifier = {
+		inline_script = "oracle/factor_block"
+	}
+}
+
+# SUBJECT 2 (society): does parameter substitution work?
+# `oracle/param_factor` declares `factor = $F$`; the value is supplied here.
+tech_oracle_inline_param = {
+	area = society
+	cost = 1000
+	tier = 0
+	category = { statecraft }
+	weight = 1
+
+	weight_modifier = {
+		inline_script = {
+			script = oracle/param_factor
+			F = 1000000
+		}
+	}
+}
+
+# SUBJECT 3 (physics): does a mod file at a VANILLA inline script's path override it?
+#
+# Vanilla's common/inline_scripts/technologies/rare_technologies_weight_modifiers.txt is a
+# federation-gated modifier that contributes nothing to a fresh empire. This fixture ships a
+# file at that exact path containing an unconditional factor instead.
+#
+#   Drawn  -> the mod's file won the path collision and its content was expanded.
+#   Absent -> vanilla's file was used, its federation gate was false, and the base weight of
+#             1 stayed where it was.
+#
+# Replacing this particular vanilla script also affects real rare technologies, which is
+# harmless here: they are tier 4 and 5, and tier gating keeps them out of a game-start draw
+# regardless of weight.
+tech_oracle_inline_override_probe = {
+	area = physics
+	cost = 1000
+	tier = 0
+	category = { computing }
+	weight = 1
+
+	weight_modifier = {
+		inline_script = {
+			script = technologies/rare_technologies_weight_modifiers
+			TECHNOLOGY = tech_oracle_inline_override_probe
+		}
+	}
+}

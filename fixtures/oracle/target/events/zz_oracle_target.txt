@@ -1,0 +1,144 @@
+namespace = oracle_target
+
+# File-local scripted constant declaration.
+#
+# common/scripted_variables/zz_oracle_variables_a.txt declares @oracle_const_local = 11.
+# This file declares its own value for the same name. If the consumer below sees 99, a
+# file-local declaration overrides the global for this file; if it sees 11, it does not.
+@oracle_const_local = 99
+
+# Reporter for every fact the target fixture defines.
+#
+# This event references only identifiers the target fixture itself introduces, so it never
+# names an undefined key in a run it does not participate in. Vanilla identifiers are
+# probed by the probe mod instead.
+#
+# Every value is reported by branching rather than by string interpolation. A branch that
+# is taken is unambiguous evidence of the compared value; an interpolated number would also
+# have to be trusted to format the way the harness expects.
+
+event = {
+	id = oracle_target.1
+	hide_window = yes
+	is_triggered_only = yes
+
+	trigger = {
+		is_ai = no
+	}
+
+	immediate = {
+		log = "ORACLE|canary|target_loaded|1"
+
+		# --- Sentinels: did each target file load at all? ---
+
+		give_technology = { tech = tech_oracle_new message = no }
+		if = {
+			limit = { has_technology = tech_oracle_new }
+			log = "ORACLE|tech_exists|tech_oracle_new|1"
+		}
+		else = {
+			log = "ORACLE|tech_exists|tech_oracle_new|0"
+		}
+
+		give_technology = { tech = tech_oracle_vanilla_var message = no }
+		if = {
+			limit = { has_technology = tech_oracle_vanilla_var }
+			log = "ORACLE|vanilla_var_visible|tech_oracle_vanilla_var|1"
+		}
+		else = {
+			log = "ORACLE|vanilla_var_visible|tech_oracle_vanilla_var|0"
+		}
+
+		# --- Scripted trigger duplicates ---
+
+		if = {
+			limit = { oracle_dup_same_file = yes }
+			log = "ORACLE|trigger_dup|same_file|A_first"
+		}
+		else = {
+			log = "ORACLE|trigger_dup|same_file|B_last"
+		}
+
+		if = {
+			limit = { oracle_dup_cross_file = yes }
+			log = "ORACLE|trigger_dup|cross_file|A_first_file"
+		}
+		else = {
+			log = "ORACLE|trigger_dup|cross_file|B_last_file"
+		}
+
+		# --- Scripted effect duplicates ---
+
+		oracle_dup_effect = yes
+
+		if = {
+			limit = { has_country_flag = oracle_effect_a }
+			log = "ORACLE|effect_dup|same_file_a|1"
+		}
+		else = {
+			log = "ORACLE|effect_dup|same_file_a|0"
+		}
+
+		if = {
+			limit = { has_country_flag = oracle_effect_b }
+			log = "ORACLE|effect_dup|same_file_b|1"
+		}
+		else = {
+			log = "ORACLE|effect_dup|same_file_b|0"
+		}
+
+		# --- Scripted constants ---
+
+		set_variable = { which = oracle_v_same_file value = @oracle_const_same_file }
+		if = {
+			limit = { check_variable = { which = oracle_v_same_file value = 2 } }
+			log = "ORACLE|const|same_file|2_last"
+		}
+		else_if = {
+			limit = { check_variable = { which = oracle_v_same_file value = 1 } }
+			log = "ORACLE|const|same_file|1_first"
+		}
+		else = {
+			log = "ORACLE|const|same_file|UNEXPECTED"
+		}
+
+		set_variable = { which = oracle_v_cross_file value = @oracle_const_cross_file }
+		if = {
+			limit = { check_variable = { which = oracle_v_cross_file value = 20 } }
+			log = "ORACLE|const|cross_file|20_last_file"
+		}
+		else_if = {
+			limit = { check_variable = { which = oracle_v_cross_file value = 10 } }
+			log = "ORACLE|const|cross_file|10_first_file"
+		}
+		else = {
+			log = "ORACLE|const|cross_file|UNEXPECTED"
+		}
+
+		set_variable = { which = oracle_v_local value = @oracle_const_local }
+		if = {
+			limit = { check_variable = { which = oracle_v_local value = 99 } }
+			log = "ORACLE|const|local_override|99_file_local"
+		}
+		else_if = {
+			limit = { check_variable = { which = oracle_v_local value = 11 } }
+			log = "ORACLE|const|local_override|11_global"
+		}
+		else = {
+			log = "ORACLE|const|local_override|UNEXPECTED"
+		}
+
+		# Exact decimal arithmetic: 0.1 + 0.2 compared against 0.3 exactly.
+		set_variable = { which = oracle_v_decimal value = @oracle_decimal_a }
+		change_variable = { which = oracle_v_decimal value = @oracle_decimal_b }
+		if = {
+			limit = { check_variable = { which = oracle_v_decimal value = 0.3 } }
+			log = "ORACLE|const|decimal_sum|exact_0.3"
+		}
+		else = {
+			log = "ORACLE|const|decimal_sum|not_exact_0.3"
+		}
+
+		log = "ORACLE|canary|target_complete|1"
+	}
+}

@@ -1,0 +1,28 @@
+# Scripted trigger duplicates.
+#
+# Each subject has an A body that yields yes and a B body that yields no, so the probe can
+# name the winner from a single branch rather than inferring it. The game additionally
+# reports its own choice at load time:
+#
+#     [game_singleobjectdatabase.h:162]: Object with key: X already exists,
+#         using the one at  file: <path> line: <n>
+#
+# Two independent observations of the same fact. If they disagree, the log line describes
+# registration and not evaluation, which would be a finding in its own right.
+
+# Duplicate within one file. A is first.
+oracle_dup_same_file = {
+	always = yes
+}
+
+# Duplicate across two files in one layer. This is the A side; zz_oracle_triggers_b.txt
+# holds the B side. Alphabetical file order puts this one first.
+oracle_dup_cross_file = {
+	always = yes
+}
+
+# Duplicate within one file, second occurrence. If the last definition in a file wins,
+# `oracle_dup_same_file` evaluates to no.
+oracle_dup_same_file = {
+	always = no
+}

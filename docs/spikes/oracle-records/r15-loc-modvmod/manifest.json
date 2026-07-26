@@ -1,0 +1,64 @@
+{
+  "activation": {
+    "dlc_load": {
+      "disabled_dlcs": [],
+      "enabled_mods": [
+        "mod/oracle_probe-loc-giga.mod",
+        "mod/oracle_target-loc-modvmod.mod",
+        "mod/ugc_1121692237.mod"
+      ]
+    },
+    "enabled_mods": [
+      "mod/oracle_probe-loc-giga.mod",
+      "mod/oracle_target-loc-modvmod.mod",
+      "mod/ugc_1121692237.mod"
+    ]
+  },
+  "artifacts": {
+    "error.normalized.txt": "d070c7b4cfdeddfeea65c31d0b13a751603c8956d2cec58dfbf8821f6449a893",
+    "oracle-facts.txt": "cd89794b13170ca7b7f9d78eabb3f4c3ca7b47e02c0de4afc4a1deb7d74c3909"
+  },
+  "canaries": {
+    "loc_giga_probe": true,
+    "loc_giga_probe_complete": true
+  },
+  "error_log": {
+    "distinct_messages": 5502,
+    "raw_lines": 8354,
+    "raw_sha256": "400d1113a6ca1dba2ed1dd1a988db8d083c10974437d1934c6cccfc89b7ca230"
+  },
+  "fact_count": 6,
+  "fixture_hashes": {
+    "installed:ugc_1121692237.mod": {
+      "ugc_1121692237.mod": "96cb760a08ad847d9842404e2bff9364c8c3c825c5c64f9329897772a57487f1"
+    },
+    "probe-loc-giga": {
+      "descriptor.mod": "c6630a13d85e772023f770ace2074db252ff22672b9a1ed1c09160bb4dbd73e4",
+      "events/zz_oracle_loc_giga_probe.txt": "2451373e5b673cc215c0b3d936e1bfa16697b8cb45a60f8995cce11ac6b993d5"
+    },
+    "target-loc-modvmod": {
+      "descriptor.mod": "febcb9726685c40795af97364224b91750258edf76cefce660730b478cbfccd3",
+      "localisation/english/00_oracle_modvmod_l_english.yml": "a3f37208cc0454fd5dc3a1305a13dc50126ca48133aa5758f733944fe8fd4771",
+      "localisation/english/replace/00_oracle_modvmod_replace_l_english.yml": "b7abd6c23f2ba791cfbb6b7b657fb350d5b839b8c26c5a9e57feae236d32139c"
+    }
+  },
+  "game_log_banner": "[23:03:16][game_application.cpp:248]: Game Version: Pegasus v4.4.6",
+  "purpose": "Mod-against-mod localization. The fixture mod is loaded BEFORE Gigastructural Engineering, so a plain file and a replace/ file make opposite predictions: LIOS by load order says the plain file loses to Giga, while replace/ loading after all other localisation files says it wins. r13 could not separate replace/ priority from the mod layer because vanilla was the only opponent.",
+  "run": "r15-loc-modvmod",
+  "staging_hashes": {
+    "activation.json": "35865d0e717249db6a9fccce0a3a38fce6e31c4326c6785649f6aafc34e805b9",
+    "probe-loc-giga/descriptor.mod": "c6630a13d85e772023f770ace2074db252ff22672b9a1ed1c09160bb4dbd73e4",
+    "probe-loc-giga/events/zz_oracle_loc_giga_probe.txt": "2451373e5b673cc215c0b3d936e1bfa16697b8cb45a60f8995cce11ac6b993d5",
+    "target-loc-modvmod/descriptor.mod": "febcb9726685c40795af97364224b91750258edf76cefce660730b478cbfccd3",
+    "target-loc-modvmod/localisation/english/00_oracle_modvmod_l_english.yml": "a3f37208cc0454fd5dc3a1305a13dc50126ca48133aa5758f733944fe8fd4771",
+    "target-loc-modvmod/localisation/english/replace/00_oracle_modvmod_replace_l_english.yml": "b7abd6c23f2ba791cfbb6b7b657fb350d5b839b8c26c5a9e57feae236d32139c"
+  },
+  "stellaris": {
+    "distPlatform": "steam",
+    "modsCompatibilityVersion": "4.4",
+    "rawVersion": "v4.4.6",
+    "version": "Pegasus v4.4.6 (fdde)"
+  },
+  "tier": 2,
+  "warnings": []
+}

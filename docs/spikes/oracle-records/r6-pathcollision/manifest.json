@@ -1,0 +1,59 @@
+{
+  "activation": {
+    "dlc_load": {
+      "disabled_dlcs": [],
+      "enabled_mods": [
+        "mod/oracle_probe.mod",
+        "mod/oracle_target-pathcollision.mod"
+      ]
+    },
+    "enabled_mods": [
+      "mod/oracle_probe.mod",
+      "mod/oracle_target-pathcollision.mod"
+    ]
+  },
+  "artifacts": {
+    "error.normalized.txt": "b111880af8ccf39e076fe49bf4ef3279a253af95deab5cd331d4f4eccd96d5ac",
+    "oracle-facts.txt": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+  },
+  "canaries": {
+    "probe_complete": false,
+    "probe_loaded": false
+  },
+  "error_log": {
+    "distinct_messages": 77,
+    "raw_lines": 77,
+    "raw_sha256": "708e6993b10cfa14582c7a2d5295f56c5d2829fbb93b502e8b12b54cc0efdefa"
+  },
+  "fact_count": 0,
+  "fixture_hashes": {
+    "probe": {
+      "common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+      "descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+      "events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda"
+    },
+    "target-pathcollision": {
+      "common/technology/00_astral_planes_tech.txt": "9f86a8ba55fb6769e773fc5bcdcefd1858e6768aff7d8b47439147f58c8c2dd5",
+      "descriptor.mod": "d2dcd2dff394f388b86d68a7548d777123aa573bef9c5fbcf5da02dff4a64294"
+    }
+  },
+  "game_log_banner": "[21:31:19][game_application.cpp:248]: Game Version: Pegasus v4.4.6",
+  "purpose": "Exact file-path collision over common/technology/00_astral_planes_tech.txt. Expected to crash during startup: shadowing the vanilla file removes two technologies that vanilla content hard-references. The crash and its error.log are the evidence; no game session is needed or possible.",
+  "run": "r6-pathcollision",
+  "staging_hashes": {
+    "activation.json": "159f545dd8366cb90632d57f69bbe023f0143427e496c6a593d33fd4e81560bc",
+    "probe/common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+    "probe/descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+    "probe/events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda",
+    "target-pathcollision/common/technology/00_astral_planes_tech.txt": "9f86a8ba55fb6769e773fc5bcdcefd1858e6768aff7d8b47439147f58c8c2dd5",
+    "target-pathcollision/descriptor.mod": "d2dcd2dff394f388b86d68a7548d777123aa573bef9c5fbcf5da02dff4a64294"
+  },
+  "stellaris": {
+    "distPlatform": "steam",
+    "modsCompatibilityVersion": "4.4",
+    "rawVersion": "v4.4.6",
+    "version": "Pegasus v4.4.6 (fdde)"
+  },
+  "tier": 1,
+  "warnings": []
+}

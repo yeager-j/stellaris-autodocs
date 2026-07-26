@@ -1,0 +1,13 @@
+﻿l_english:
+
+# PLAIN FILE, in a mod loaded BEFORE Gigastructural Engineering.
+#
+# Giga defines name_alderson as "Alderson Disk" in giga_alderson_l_english.yml. If
+# localisation resolves LIOS by load order within the mod layer, Giga loads after this mod
+# and WINS, and the reading stays "Alderson Disk".
+#
+# That is the opposite prediction from r13, where a mod file beat vanilla regardless of
+# name. If a plain mod file also beat another mod loaded later, ordering would not explain
+# anything and the model would need rewriting rather than extending.
+
+ name_alderson:0 "ORACLE_MODVMOD_PLAIN"

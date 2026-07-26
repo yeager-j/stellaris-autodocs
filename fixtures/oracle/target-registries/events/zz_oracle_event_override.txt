@@ -1,0 +1,25 @@
+namespace = utopia
+
+# Cross-layer event redefinition, isolated in its own file.
+#
+# `utopia.1` is defined by vanilla in events/megastructure_events_1.txt. This redefines it
+# with a minimal body, dropping whatever trigger, immediate, and option blocks vanilla
+# gives it.
+#
+# It sits in its own file because of the blast-radius finding: a definition that fails to
+# parse damages the remainder of its file, so a failure here must not be able to reach the
+# duplicate-identifier cases in zz_oracle_events.txt and make those results
+# unattributable.
+#
+# Redefining rather than deleting keeps the identifier registered, so vanilla references to
+# `utopia.1` still resolve and this run cannot repeat the path-collision crash.
+
+event = {
+	id = utopia.1
+	hide_window = yes
+	is_triggered_only = yes
+
+	immediate = {
+		log = "ORACLE|event_override|utopia.1|mod_body_ran"
+	}
+}

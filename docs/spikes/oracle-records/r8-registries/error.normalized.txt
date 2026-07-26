@@ -1,0 +1,41 @@
+1	[building_type.cpp:746]: Missing building Localization Key: oracle_building_dup
+1	[building_type.cpp:746]: Missing building Localization Key: oracle_building_dup_desc
+1	[building_type.cpp:746]: Missing building Localization Key: oracle_building_new
+1	[building_type.cpp:746]: Missing building Localization Key: oracle_building_new_desc
+1	[building_type.cpp:761]: Building 'building_embassy' is lacking the building_sets definition.
+1	[building_type.cpp:761]: Building 'oracle_building_dup' is lacking the building_sets definition.
+1	[building_type.cpp:761]: Building 'oracle_building_new' is lacking the building_sets definition.
+1	[building_type.cpp:843]: Building oracle_building_dup is missing texture gfx/interface/icons/buildings/oracle_building_dup.dds
+1	[building_type.cpp:843]: Building oracle_building_new is missing texture gfx/interface/icons/buildings/oracle_building_new.dds
+1	[component.cpp:843]: component ORACLE_COMPONENT_DUP has no icon. file common/component_templates/zz_oracle_components.txt Line 33-37
+1	[component.cpp:843]: component ORACLE_COMPONENT_DUP has no icon. file common/component_templates/zz_oracle_components.txt Line 40-44
+1	[component.cpp:843]: component ORACLE_COMPONENT_NEW has no icon. file common/component_templates/zz_oracle_components.txt Line 17-21
+1	[component.cpp:843]: component SMALL_ARMOR_1 has no icon. file common/component_templates/zz_oracle_components.txt Line 26-30
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_1595876588.mod line: 7
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_2288335512.mod line: 8
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_2646410054.mod line: 7
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3089135446.mod line: 24
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3089152222.mod line: 16
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3089156847.mod line: 16
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3200772862.mod line: 6
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3241790370.mod line: 9
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3469119533.mod line: 8
+1	[empire_design.cpp:597]: Invalid government origin [origin_final_spark_lcluster] in design The Fractured
+1	[empire_flag.cpp:918]: could not find normal-sized texture "flags/shadow/flag_the_shadow.dds"  file: user_empire_designs_v3.4.txt line: 431
+1	[empire_flag.cpp:924]: could not find map-sized texture "flags/shadow/map/flag_the_shadow.dds"  file: user_empire_designs_v3.4.txt line: 431
+1	[eventmanager.cpp:427]: an event with id [oracle_events.1] already exists!  file: events/zz_oracle_events.txt line: 25
+1	[eventmanager.cpp:427]: an event with id [utopia.1] already exists!  file: events/zz_oracle_event_override.txt line: 17
+1	[game_singleobjectdatabase.h:170]: Object with key: building_embassy already exists, using the one at  file: common/buildings/zz_oracle_buildings.txt line: 15
+1	[game_singleobjectdatabase.h:170]: Object with key: oracle_building_dup already exists, using the one at  file: common/buildings/zz_oracle_buildings.txt line: 26
+1	[game_singleobjectdatabase.h:170]: Object with key: oracle_mega_dup already exists, using the one at  file: common/megastructures/zz_oracle_megastructures.txt line: 43
+1	[game_singleobjectdatabase.h:170]: Object with key: think_tank_0 already exists, using the one at  file: common/megastructures/zz_oracle_megastructures.txt line: 30
+1	[megastructure_type.cpp:1871]: Megastructure oracle_mega_dup is missing outliner icon sprite GFX_oracle_mega_dup_outliner_icon
+1	[megastructure_type.cpp:1871]: Megastructure oracle_mega_new is missing outliner icon sprite GFX_oracle_mega_new_outliner_icon
+1	[megastructure_type.cpp:42]: Missing localization key [oracle_mega_dup] for mega structure
+1	[megastructure_type.cpp:42]: Missing localization key [oracle_mega_dup_DESC] for mega structure
+1	[megastructure_type.cpp:42]: Missing localization key [oracle_mega_dup_MEGASTRUCTURE_DETAILS] for mega structure
+1	[megastructure_type.cpp:42]: Missing localization key [oracle_mega_new] for mega structure
+1	[megastructure_type.cpp:42]: Missing localization key [oracle_mega_new_DESC] for mega structure
+1	[megastructure_type.cpp:42]: Missing localization key [oracle_mega_new_MEGASTRUCTURE_DETAILS] for mega structure
+1	[ship_design_templates.cpp:150]: Component template key used multiple times: ORACLE_COMPONENT_DUP
+1	[ship_design_templates.cpp:150]: Component template key used multiple times: SMALL_ARMOR_1

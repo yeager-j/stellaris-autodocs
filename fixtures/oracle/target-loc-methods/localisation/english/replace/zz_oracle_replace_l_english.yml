@@ -1,0 +1,7 @@
+﻿l_english:
+
+# METHOD 3: the replace/ subfolder convention. Vanilla ships no replace/ directory;
+# mods do - ACOT uses localisation/english/replace/ for exactly this purpose.
+# Vanilla defines tech_society_1 as "Xenobiology".
+
+ tech_society_1:0 "ORACLE_REPLACE_FOLDER"

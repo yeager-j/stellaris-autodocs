@@ -1,0 +1,19 @@
+# Load-time consumer for ONE risky scripted constant.
+#
+# Each consumer is in its own file. When both shared a file, the first failure cascaded:
+# the parser stopped treating `cost` as a number, began reading the following lines as
+# script-value commands, and the next definition in the file was reported as an unexpected
+# token. The second result was then unattributable, because a cascade from the first case
+# is indistinguishable from a genuine failure of the second.
+#
+# That cascade is itself worth recording: a scripted-constant failure is not contained to
+# the field or the definition that used it, but damages the remainder of the FILE.
+
+# Forward reference: @oracle_fwd is declared before @oracle_fwd_target supplies 7.
+tech_oracle_fwd_consumer = {
+	area = engineering
+	cost = @oracle_fwd
+	tier = 0
+	category = { industry }
+	weight = 1
+}

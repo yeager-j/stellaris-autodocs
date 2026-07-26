@@ -1,0 +1,6 @@
+events/zz_oracle_loc_giga_probe.txt:40	ORACLE|canary|loc_giga_probe|1
+events/zz_oracle_loc_giga_probe.txt:43	ORACLE|loc|name_alderson|ORACLE_REFERENCE_TARGET
+events/zz_oracle_loc_giga_probe.txt:46	ORACLE|loc|giga_start_screen_alderson|We do not know what happened to our ancestors. Enemies, plague, civil war? They exist now as myths and legends, their knowledge and power lost. They, or someone else, somehow built this vast disk encompassing the entirety of our star's gravity well, and now we live in a vast, echoing expanse designed to house a million times more people than are left.
+events/zz_oracle_loc_giga_probe.txt:49	ORACLE|loc|origin_alderson_reference|ORACLE_REFERENCE_TARGET
+events/zz_oracle_loc_giga_probe.txt:52	ORACLE|loc|tech_engineering_1|Nanomechanics
+events/zz_oracle_loc_giga_probe.txt:54	ORACLE|canary|loc_giga_probe_complete|1

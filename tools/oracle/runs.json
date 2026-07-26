@@ -1,0 +1,285 @@
+{
+  "runs": {
+    "r0-baseline": {
+      "mods": [
+        "probe"
+      ],
+      "tier": 2,
+      "purpose": "Baseline. Vanilla and DLC with instrumentation only. Every treatment result is a delta against this run.",
+      "expect": [
+        "canary probe_loaded and probe_complete present",
+        "tech_rift_sphere and tech_astral_harvesting exist",
+        "no oracle sentinel technologies present"
+      ]
+    },
+    "r1-target": {
+      "mods": [
+        "probe",
+        "target"
+      ],
+      "tier": 2,
+      "purpose": "Treatment. The subject fixture added to the baseline. Supplies the technology key-collision, scripted trigger, scripted effect, and scripted constant results. The path-collision case is deliberately not here; it crashes startup and is isolated in r6.",
+      "expect": [
+        "canary target_loaded and target_complete present",
+        "tech_oracle_draw_control DRAWN in physics alternatives (positive control)",
+        "tech_neural_implants ABSENT from society alternatives (negative control, potential retained)",
+        "tech_adaptive_combat_algorithms drawn or absent -> the omitted-potential answer"
+      ]
+    },
+    "r3-replace-path": {
+      "mods": [
+        "probe",
+        "target-replace-path"
+      ],
+      "tier": 1,
+      "purpose": "Directory replacement over common/technology. Tier 1 because excluding vanilla technology files may prevent a playable game; database initialisation still happens and the error.log delta answers the question.",
+      "expect": [
+        "error.log delta showing vanilla technology references failing to resolve"
+      ]
+    },
+    "r4-reordered": {
+      "mods": [
+        "probe",
+        "target-reordered"
+      ],
+      "tier": 2,
+      "purpose": "Enumeration-order control. Byte-identical content with swapped filenames. A flipped winner means enumeration order decides; an unchanged winner means the r1 result was not a naming artifact.",
+      "expect": [
+        "same canaries as r1-target",
+        "cross-file trigger and constant winners either both flip or both hold"
+      ]
+    },
+    "r5-risky-constants": {
+      "mods": [
+        "probe",
+        "target-risky"
+      ],
+      "tier": 1,
+      "purpose": "Forward-referenced and cyclic scripted constants, isolated. Evidence is the load-time error.log delta against r0-baseline.",
+      "expect": [
+        "error.log delta naming oracle_fwd and/or oracle_cycle_a"
+      ]
+    },
+    "r6-pathcollision": {
+      "mods": [
+        "probe",
+        "target-pathcollision"
+      ],
+      "tier": 1,
+      "purpose": "Exact file-path collision over common/technology/00_astral_planes_tech.txt. Expected to crash during startup: shadowing the vanilla file removes two technologies that vanilla content hard-references. The crash and its error.log are the evidence; no game session is needed or possible.",
+      "expect": [
+        "startup crash before the main menu",
+        "error.log: repeated 'Failed to deferred read key reference tech_rift_sphere / tech_astral_harvesting'",
+        "error.log: 'Invalid technology being referenced' for both"
+      ]
+    },
+    "r7-risky-consumed": {
+      "mods": [
+        "probe",
+        "target-risky-consumed"
+      ],
+      "tier": 1,
+      "purpose": "Forward-referenced and cyclic scripted constants, actually consumed. r5 asks whether the game validates such a constant on sight; this asks what it resolves to when something reads it. Consumption is in a technology cost field so the observation stays at load time.",
+      "expect": [
+        "error.log delta naming zz_oracle_risky_consumers.txt if either reference fails to resolve",
+        "no delta if forward references and cycles both resolve"
+      ]
+    },
+    "r8-registries": {
+      "mods": [
+        "probe",
+        "target-registries"
+      ],
+      "tier": 1,
+      "purpose": "Megastructures, buildings, ship components, and events. Duplicate winner from the load-time diagnostic, and whole-replacement-versus-inheritance from a comparative pair: a new key and a redefinition of a vanilla key sharing one minimal body. Whatever missing-field diagnostics the new key produces are the baseline that inheritance would have suppressed.",
+      "expect": [
+        "duplicate diagnostics naming the winning file and line for each registry",
+        "identical missing-field diagnostics for oracle_mega_new and think_tank_0 if replacement is whole",
+        "fewer diagnostics for the redefinition than the new key if fields are inherited",
+        "some signal for duplicate event identifiers, or none, which is itself the finding"
+      ]
+    },
+    "r9-events-runtime": {
+      "mods": [
+        "probe",
+        "target-events-runtime"
+      ],
+      "tier": 2,
+      "purpose": "Which event body actually evaluates. r8 established only that the game reports an identifier collision, with wording that suggested but did not prove first-registration-wins. These identifiers are fired from the console so the surviving body identifies itself. Subject is story.5, whose trigger is satisfied by a fresh empire, rather than utopia.1, whose trigger requires a neighbour building a ring world and would have made a silent result unreadable.",
+      "expect": [
+        "oracle_rt.9 logs the console canary, proving the mechanism works",
+        "oracle_rt.1 logs either first_1111 or second_2222, giving the duplicate winner",
+        "story.5 either logs the mod body silently, or opens the vanilla 'Contact Report: Remnants' popup"
+      ],
+      "console": [
+        "event oracle_rt.9",
+        "event oracle_rt.1",
+        "event story.5"
+      ]
+    },
+    "r10-loadorder": {
+      "mods": [
+        "probe",
+        "target-loadorder"
+      ],
+      "tier": 2,
+      "purpose": "Whether a mod overrides a vanilla event by registering earlier, and which enumeration model the game uses. An early-sorting mod filename is applied to both a first-wins registry (events) and a last-wins registry (technologies). The two cannot both win under either model, so the pair of outcomes identifies the model.",
+      "expect": [
+        "global-path-order model: story.5 logs the mod body AND tech_adaptive_combat_algorithms is ABSENT from the draw",
+        "layer-order model: vanilla story.5 popup appears AND tech_adaptive_combat_algorithms IS drawn",
+        "both winning or both losing would mean neither model is right"
+      ],
+      "console": [
+        "event oracle_lo.9",
+        "event story.5"
+      ]
+    },
+    "r11-inline": {
+      "mods": [
+        "probe",
+        "target-inline"
+      ],
+      "tier": 2,
+      "purpose": "Inline scripts: does a simple inclusion expand, do parameters substitute, does nesting work, and does a mod file at a vanilla inline script's path override it. Every subject uses one shape - base weight 1 plus a weight_modifier that should multiply it by 1000000 - so draw-pool membership reads the same way for all four.",
+      "expect": [
+        "tech_oracle_inline_literal DRAWN (positive control)",
+        "tech_oracle_inline_lowweight ABSENT (negative control)",
+        "tech_oracle_inline_basic DRAWN if simple expansion works",
+        "tech_oracle_inline_param DRAWN if parameter substitution works",
+        "tech_oracle_inline_nested DRAWN if nested inclusion works",
+        "tech_oracle_inline_override_probe DRAWN if a mod file overrides a vanilla inline script by path"
+      ]
+    },
+    "r12-inline-missing": {
+      "mods": [
+        "probe",
+        "target-inline-missing"
+      ],
+      "tier": 1,
+      "purpose": "An inline script reference that does not resolve. Isolated because r7 showed an unresolved textual substitution is not rejected but silently reinterpreted, corrupting the remainder of its file. Evidence is the load-time error.log delta.",
+      "expect": [
+        "error.log delta naming zz_oracle_missing_inline.txt or the missing path, or silence, which is itself the finding"
+      ]
+    },
+    "r13-loc-methods": {
+      "mods": [
+        "probe",
+        "probe-loc",
+        "target-loc-methods"
+      ],
+      "tier": 2,
+      "purpose": "Two localization override methods at once, on different keys so they cannot interfere: a plain new file in localisation/english/ overriding tech_physics_1, and the replace/ subfolder overriding tech_society_1. tech_engineering_1 is overridden by neither and acts as the in-run control.",
+      "expect": [
+        "tech_physics_1 -> ORACLE_PLAIN_FILE if a plain new file overrides a vanilla key",
+        "tech_society_1 -> ORACLE_REPLACE_FOLDER if the replace/ folder overrides",
+        "tech_engineering_1 -> Nanomechanics, proving the probe reads real vanilla localization",
+        "three distinct values also prove set_empire_name resolves immediately rather than being deferred"
+      ],
+      "console": [
+        "event oracle_loc.1"
+      ],
+      "save_required": false,
+      "canaries": [
+        "loc_probe",
+        "loc_probe_complete"
+      ]
+    },
+    "r14-loc-samepath": {
+      "mods": [
+        "probe",
+        "probe-loc",
+        "target-loc-samepath"
+      ],
+      "tier": 2,
+      "purpose": "Same-filename localization override: the mod ships localisation/english/technology_l_english.yml defining a single key. Tests whether an exact path collision shadows the whole vanilla localization file, and therefore whether vanilla names in that file survive.",
+      "expect": [
+        "tech_physics_1 -> ORACLE_SAME_PATH if the mod's file won the path collision",
+        "tech_engineering_1 -> Nanomechanics if vanilla names survive, or the raw key if the file was shadowed whole"
+      ],
+      "console": [
+        "event oracle_loc.1"
+      ],
+      "save_required": false,
+      "canaries": [
+        "loc_probe",
+        "loc_probe_complete"
+      ]
+    },
+    "r15-loc-modvmod": {
+      "mods": [
+        "probe-loc-giga",
+        "target-loc-modvmod",
+        "installed:ugc_1121692237.mod"
+      ],
+      "tier": 2,
+      "save_required": false,
+      "canaries": [
+        "loc_giga_probe",
+        "loc_giga_probe_complete"
+      ],
+      "purpose": "Mod-against-mod localization. The fixture mod is loaded BEFORE Gigastructural Engineering, so a plain file and a replace/ file make opposite predictions: LIOS by load order says the plain file loses to Giga, while replace/ loading after all other localisation files says it wins. r13 could not separate replace/ priority from the mod layer because vanilla was the only opponent.",
+      "expect": [
+        "name_alderson -> 'Alderson Disk' if Giga wins by loading later (LIOS within the mod layer)",
+        "name_alderson -> ORACLE_MODVMOD_PLAIN would mean load order does not decide, and the model is wrong",
+        "giga_start_screen_alderson -> ORACLE_MODVMOD_REPLACE if replace/ is a genuine priority mechanism",
+        "origin_alderson_reference shows whether a reference resolves to the effective value of its target",
+        "tech_engineering_1 -> Nanomechanics, cross-checking the probe against vanilla"
+      ],
+      "console": [
+        "event oracle_loc_giga.1"
+      ]
+    },
+    "r16-loc-reference": {
+      "mods": [
+        "probe-loc-giga",
+        "target-loc-reference",
+        "installed:ugc_1121692237.mod"
+      ],
+      "tier": 2,
+      "save_required": false,
+      "canaries": [
+        "loc_giga_probe",
+        "loc_giga_probe_complete"
+      ],
+      "purpose": "Whether a localization reference resolves against the effective value of its target. Overrides name_alderson from replace/, which wins from any load position, and leaves origin_alderson - literally \"$name_alderson$\" - untouched.",
+      "expect": [
+        "name_alderson -> ORACLE_REFERENCE_TARGET, confirming the override won",
+        "origin_alderson_reference -> ORACLE_REFERENCE_TARGET if references see effective values",
+        "origin_alderson_reference -> 'Alderson Disk' if references bind to the defining mod"
+      ],
+      "console": [
+        "event oracle_loc_giga.1"
+      ]
+    },
+    "r17-sprites": {
+      "mods": [
+        "probe",
+        "target-sprites"
+      ],
+      "tier": 1,
+      "purpose": "Sprite definition collisions, read from missing-texture diagnostics rather than from the screen. Each losing candidate points at a real vanilla texture and each winning candidate at a path that does not exist, so the game names the resolved definition by its texture path.",
+      "expect": [
+        "diagnostic for oracle_missing_same_file.dds -> last definition in a file wins",
+        "diagnostic for oracle_missing_cross_file.dds -> later file wins",
+        "diagnostic for oracle_missing_vanilla.dds -> a mod's sprite beats vanilla's by name",
+        "silence for any pair means the vanilla-texture side won instead"
+      ]
+    },
+    "r18-sprites-early": {
+      "mods": [
+        "probe",
+        "target-sprites-early"
+      ],
+      "tier": 1,
+      "purpose": "Discriminates the sprite enumeration model. Same override as r17 in a file that sorts BEFORE vanilla's alerts.gfx instead of after. A diagnostic means layer-ordered like localisation; silence means path-ordered like script registries.",
+      "expect": [
+        "diagnostic for oracle_missing_vanilla.dds -> layer-ordered, mod always wins",
+        "silence -> path-ordered, the early file registered first and lost"
+      ]
+    }
+  },
+  "tiers": {
+    "1": "Launch the game, wait for the main menu, quit. Database initialisation and its diagnostics are complete by then; no game session is required.",
+    "2": "Launch the game, start a New Game with the pinned setup, then save as oracle_<runId> and quit. Letting in-game time pass is NOT required: the research draw is made during galaxy generation from the effective definitions, and saves taken at 2200.01.01 carry a fully populated alternatives block identical to saves taken a month later (compare r9/r10 against r1/r4). Runs that need the console can open it with the backtick key; Ironman must be off."
+  }
+}

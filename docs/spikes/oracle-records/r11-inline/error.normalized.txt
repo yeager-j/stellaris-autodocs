@@ -1,0 +1,34 @@
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_1595876588.mod line: 7
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_2288335512.mod line: 8
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_2646410054.mod line: 7
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3089135446.mod line: 24
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3089152222.mod line: 16
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3089156847.mod line: 16
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3200772862.mod line: 6
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3241790370.mod line: 9
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3469119533.mod line: 8
+1	[empire_design.cpp:597]: Invalid government origin [origin_final_spark_lcluster] in design The Fractured
+1	[empire_flag.cpp:918]: could not find normal-sized texture "flags/shadow/flag_the_shadow.dds"  file: galaxy_configuration_command line: 1
+1	[empire_flag.cpp:918]: could not find normal-sized texture "flags/shadow/flag_the_shadow.dds"  file: set_startup_design_for_human line: 1
+1	[empire_flag.cpp:918]: could not find normal-sized texture "flags/shadow/flag_the_shadow.dds"  file: user_empire_designs_v3.4.txt line: 431
+1	[empire_flag.cpp:924]: could not find map-sized texture "flags/shadow/map/flag_the_shadow.dds"  file: galaxy_configuration_command line: 1
+1	[empire_flag.cpp:924]: could not find map-sized texture "flags/shadow/map/flag_the_shadow.dds"  file: set_startup_design_for_human line: 1
+1	[empire_flag.cpp:924]: could not find map-sized texture "flags/shadow/map/flag_the_shadow.dds"  file: user_empire_designs_v3.4.txt line: 431
+1	[technology.cpp:375]: Missing technology localization: tech_oracle_inline_basic
+1	[technology.cpp:375]: Missing technology localization: tech_oracle_inline_literal
+1	[technology.cpp:375]: Missing technology localization: tech_oracle_inline_lowweight
+1	[technology.cpp:375]: Missing technology localization: tech_oracle_inline_nested
+1	[technology.cpp:375]: Missing technology localization: tech_oracle_inline_override_probe
+1	[technology.cpp:375]: Missing technology localization: tech_oracle_inline_param
+1	[technology.cpp:381]: Missing technology localization: tech_oracle_inline_basic_desc
+1	[technology.cpp:381]: Missing technology localization: tech_oracle_inline_literal_desc
+1	[technology.cpp:381]: Missing technology localization: tech_oracle_inline_lowweight_desc
+1	[technology.cpp:381]: Missing technology localization: tech_oracle_inline_nested_desc
+1	[technology.cpp:381]: Missing technology localization: tech_oracle_inline_override_probe_desc
+1	[technology.cpp:381]: Missing technology localization: tech_oracle_inline_param_desc
+1	[technology.cpp:787]: Failed to find icon for technology: tech_oracle_inline_basic (gfx/interface/icons/technologies/tech_oracle_inline_basic.dds)
+1	[technology.cpp:787]: Failed to find icon for technology: tech_oracle_inline_literal (gfx/interface/icons/technologies/tech_oracle_inline_literal.dds)
+1	[technology.cpp:787]: Failed to find icon for technology: tech_oracle_inline_lowweight (gfx/interface/icons/technologies/tech_oracle_inline_lowweight.dds)
+1	[technology.cpp:787]: Failed to find icon for technology: tech_oracle_inline_nested (gfx/interface/icons/technologies/tech_oracle_inline_nested.dds)
+1	[technology.cpp:787]: Failed to find icon for technology: tech_oracle_inline_override_probe (gfx/interface/icons/technologies/tech_oracle_inline_override_probe.dds)
+1	[technology.cpp:787]: Failed to find icon for technology: tech_oracle_inline_param (gfx/interface/icons/technologies/tech_oracle_inline_param.dds)

@@ -276,25 +276,28 @@ Expected source problems become Analysis Issues in a completed candidate when pa
 
 ### Resolver contract and game oracle
 
-The MVP resolver implements the exact two-layer product scope—ordered Vanilla plus locally installed DLC, followed by one Target Mod—without assuming that every registry is file-level, last-wins, or whole-definition replacement. A versioned Resolution Profile supplies directory replacement rules, file-path shadowing, Vanilla and DLC ordering, and one policy row per supported registry. The resolver refuses to treat a missing policy row as a generic merge.
+The MVP resolver implements a two-contributor scope: one Vanilla Content Source Snapshot containing the base-game file set and one Target Mod Source Snapshot. DLC archives do not contribute script, localization, interface, or map definitions. DLC-gated definitions already live in Vanilla Content; `host_has_dlc` is analyzed as a requirement rather than as source selection or precedence. DLC archives may still supply referenced visual assets through the Stellaris Installation.
+
+Two contributors do not imply two ordered layers. After applying exact-path shadowing and Target Mod `replace_path` declarations, a versioned Resolution Profile constructs the semantic file stream separately for each content family. Script registries and sprite definitions use one global normalized logical-path order across surviving Vanilla and Target Mod files. Localization uses its own ordered stream: surviving Vanilla files, ordinary mod files in enabled-mod order, then `replace/` files, with its content-specific collision rule. Inline scripts are path-addressed textual expansion rather than registry entries. The resolver refuses to substitute source origin, a generic merge, or a universal first- or last-wins rule for a missing policy.
 
 Each registry policy must define:
 
 - Its definition key and the unit at which files or directories shadow.
-- Duplicate-definition behavior within one source layer.
-- Cross-layer collision behavior and Target Mod precedence.
+- Its content-family file stream after common file selection.
+- Duplicate-definition behavior within one semantic stream.
+- Cross-source collision behavior, without assuming source precedence.
 - Whole-definition replacement, field inheritance, defaults, or another field rule.
 - Ordering semantics for repeated definitions and values.
 - Unresolved-reference behavior.
 - Provenance for every contributed, inherited, defaulted, duplicate, and shadowed fact.
 
-The required matrix is maintained in the [resolver evaluation](./spikes/resolver-evaluation.md). Before the design is accepted, it must contain oracle-backed rows for technologies, megastructures, buildings, ship components, events, scripted triggers, scripted effects, scripted constants, localization keys, sprite definitions, file-path shadowing, and directory replacement. Unknown cells remain explicit blockers, not implementation discretion.
+The required matrix is maintained in the [resolver evaluation](./spikes/resolver-evaluation.md). Its pre-implementation evidence phase is complete: every question reachable through filesystem inspection and the current game-oracle harness has been investigated. The resulting Resolution Profile is intentionally partial until the resolver exists. A content type may be claimed as supported only when every policy it requires is explicit and oracle-backed; an unresolved cell fails visibly instead of becoming implementation discretion or blocking work on unrelated resolved rows.
 
 The game oracle is a reproducible fixture protocol rather than an informal manual observation. Each oracle record pins:
 
 - Stellaris build identifier and executable checksum.
 - Operating system and architecture.
-- Installed DLC set and the observed DLC ordering.
+- Installed DLC availability needed to interpret gated requirements; there is no DLC definition-source ordering.
 - Complete fixture source, normalized file checksums, and launcher configuration.
 - The exact observation mechanism, including console commands, scripted effects, logs, UI facts, or extracted game state.
 - Expected effective definitions field by field and their expected provenance.
@@ -309,8 +312,9 @@ Every value used by a fingerprint, content hash, Revision identifier, Entry Key 
 The shared canonical rules are:
 
 - Logical paths use the normalization and byte ordering defined under Installation identity. Absolute roots never participate.
-- Source files are enumerated by source-layer rank, normalized logical-path bytes, then definition ordinal within the file.
-- Registries sort by explicit content-category rank and Entry Key. Provenance follows actual resolution order and uses source-layer rank, logical path, and definition ordinal as its total tie-breaker.
+- Each Source Snapshot inventories its own files by normalized logical-path bytes. Parsed definitions retain their ordinal within each file. This stable inventory order supports fingerprints and reproducible parsing but does not assign game precedence.
+- After common exact-path and `replace_path` selection, the Resolution Profile constructs the semantic file stream for each content family. Script and sprite streams use normalized logical path plus definition ordinal across both contributors; localization and any future exceptional family use their explicitly versioned order. Source origin never substitutes for semantic stream position.
+- Resolved registries sort by explicit content-category rank and Entry Key for canonical publication. Provenance records actual semantic resolution order, source identity, logical path, and definition ordinal; presentation may group it by origin without changing identity.
 - Maps encode keys in canonical UTF-8 byte order. Sets encode members by their canonical structural bytes.
 - Source-ordered sequences remain ordered when game semantics can depend on order. Types whose semantics are explicitly commutative, including supported `all` and `any` requirement groups, sort children by canonical structural digest. Unknown sequences are never reordered speculatively.
 - Requirements, modifiers, Unlock Effects, routes, Analysis Issues, and Source Excerpts each define a total order in their owning schema. Analysis Issues order by scope, Entry Key, source identity, range, and issue code; presentation may group them without changing canonical identity.
@@ -579,7 +583,7 @@ The identifier is stable across localization changes and is already the referenc
 
 Multiple source definitions with the same Entry Key are not separate Searchable Entries. The resolver produces one effective entry and retains ordered provenance for the contributing or shadowed definitions. Search summaries, browse summaries, document reads, source traces, Hidden Route identities, and frontend routes all refer to the same Entry Key.
 
-Grouping definitions by Entry Key does not imply that every Stellaris content category uses the same replacement algorithm. Resolution policy is content-type-specific. In particular, technology redefinition must be validated against the game rather than assumed to be unconditional whole-object replacement. A controlled fixture will redefine one technology across Vanilla Content and a Target Mod, including a case that omits `potential`, and compare the generated effective definition with observed Stellaris behavior.
+Grouping definitions by Entry Key does not imply that every Stellaris content category uses the same replacement algorithm or content stream. The resolver evaluation established whole-object technology replacement, including an omitted-`potential` fixture, and established opposite first- and last-registration rules among supported registries. It also established that scripts and sprites use global logical-path order while localization orders by source and `replace/` phase. Each resolved content type follows its own Resolution Profile row; unsupported rows fail visibly.
 
 ### Stable entry addresses
 
@@ -1034,5 +1038,5 @@ The generated Tauri scaffold currently disables Content Security Policy. A relea
 - Search algorithm, index representation, and in-memory cache bound.
 - Build invocation model pending representative end-to-end timings.
 - Parser selection pending the real-corpus spike.
-- Resolution Profile rows pending the reproducible game-oracle spike.
+- Unresolved Resolution Profile cells pending resolver-backed investigation.
 - Graph layout implementation.

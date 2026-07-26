@@ -1,0 +1,6 @@
+﻿l_english:
+
+# METHOD 1: a plain new file in localisation/english/, redefining a vanilla key.
+# Vanilla defines tech_physics_1 as "Quantum Computing" in technology_l_english.yml.
+
+ tech_physics_1:0 "ORACLE_PLAIN_FILE"

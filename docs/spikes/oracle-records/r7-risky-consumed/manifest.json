@@ -1,0 +1,63 @@
+{
+  "activation": {
+    "dlc_load": {
+      "disabled_dlcs": [],
+      "enabled_mods": [
+        "mod/oracle_probe.mod",
+        "mod/oracle_target-risky-consumed.mod"
+      ]
+    },
+    "enabled_mods": [
+      "mod/oracle_probe.mod",
+      "mod/oracle_target-risky-consumed.mod"
+    ]
+  },
+  "artifacts": {
+    "error.normalized.txt": "45306985a0d3eb13d39ec410df17915805c295e33f6137135d2a5c6385be3f80",
+    "oracle-facts.txt": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+  },
+  "canaries": {
+    "probe_complete": false,
+    "probe_loaded": false
+  },
+  "error_log": {
+    "distinct_messages": 26,
+    "raw_lines": 26,
+    "raw_sha256": "b0f55f1eaae05e3038329eb99a14fdb323bcdc5b5fa0a0b2c45fd3b471439fc7"
+  },
+  "fact_count": 0,
+  "fixture_hashes": {
+    "probe": {
+      "common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+      "descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+      "events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda"
+    },
+    "target-risky-consumed": {
+      "common/scripted_variables/zz_oracle_variables_risky.txt": "a45af9c397a4fb1159cfb2ec27d0b2bf8b6deac7aeb00a048d4af0c8d65af3ae",
+      "common/technology/zz_oracle_cycle_consumer.txt": "df1f1f1e839ffc6ab79cc7535841fba5d2b188d3b784cd4f03bca42629680652",
+      "common/technology/zz_oracle_fwd_consumer.txt": "022fbb74a79e555371af8bc670cd68b1fd24a2a4976e258287a40e0667c0207c",
+      "descriptor.mod": "8aa330f1976e0140ebd5f63a6e5ad49305bd582594f78392633a1db71f171c9d"
+    }
+  },
+  "game_log_banner": "[21:30:13][game_application.cpp:248]: Game Version: Pegasus v4.4.6",
+  "purpose": "Forward-referenced and cyclic scripted constants, actually consumed. r5 asks whether the game validates such a constant on sight; this asks what it resolves to when something reads it. Consumption is in a technology cost field so the observation stays at load time.",
+  "run": "r7-risky-consumed",
+  "staging_hashes": {
+    "activation.json": "2cc89e5dd7f7ff51cb4d8a78b69beec380c70adb66ffb2e11353f2a732adf55d",
+    "probe/common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+    "probe/descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+    "probe/events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda",
+    "target-risky-consumed/common/scripted_variables/zz_oracle_variables_risky.txt": "a45af9c397a4fb1159cfb2ec27d0b2bf8b6deac7aeb00a048d4af0c8d65af3ae",
+    "target-risky-consumed/common/technology/zz_oracle_cycle_consumer.txt": "df1f1f1e839ffc6ab79cc7535841fba5d2b188d3b784cd4f03bca42629680652",
+    "target-risky-consumed/common/technology/zz_oracle_fwd_consumer.txt": "022fbb74a79e555371af8bc670cd68b1fd24a2a4976e258287a40e0667c0207c",
+    "target-risky-consumed/descriptor.mod": "8aa330f1976e0140ebd5f63a6e5ad49305bd582594f78392633a1db71f171c9d"
+  },
+  "stellaris": {
+    "distPlatform": "steam",
+    "modsCompatibilityVersion": "4.4",
+    "rawVersion": "v4.4.6",
+    "version": "Pegasus v4.4.6 (fdde)"
+  },
+  "tier": 1,
+  "warnings": []
+}

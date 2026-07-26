@@ -1,0 +1,46 @@
+# Megastructures: duplicate winner and whole-replacement-versus-inheritance.
+#
+# THE MERGE TEST IS COMPARATIVE, and it does not require knowing in advance which fields
+# the game considers mandatory.
+#
+# Two definitions share one deliberately minimal body. One is a NEW key, which cannot
+# inherit anything from anywhere. The other REDEFINES a vanilla key, which could inherit
+# from the definition it shadows.
+#
+#   Both produce the same missing-field diagnostics -> the redefinition inherited nothing;
+#                                                      whole-object replacement.
+#   The redefinition produces fewer                  -> it inherited the omitted fields
+#                                                      from the shadowed vanilla definition.
+#
+# The new key is the control: whatever diagnostics it produces establish what a body this
+# minimal costs when inheritance is impossible. Without it, silence from the redefinition
+# would be unreadable — it could mean inheritance, or it could mean the game simply does
+# not diagnose these fields at all.
+
+# CONTROL. A new key, minimal body, nothing to inherit from.
+oracle_mega_new = {
+	entity = "construction_platform_entity"
+	build_time = 1800
+}
+
+# SUBJECT. Redefines a vanilla megastructure with the identical minimal body.
+# `think_tank_0` is the first stage of the Science Nexus chain. Redefining rather than
+# removing keeps the key present, so vanilla references to it still resolve and this run
+# does not repeat the path-collision crash.
+think_tank_0 = {
+	entity = "construction_platform_entity"
+	build_time = 1800
+}
+
+# DUPLICATE, first occurrence.
+oracle_mega_dup = {
+	entity = "construction_platform_entity"
+	build_time = 1111
+}
+
+# DUPLICATE, second occurrence. Whichever build_time survives names the winner, and the
+# load-time diagnostic should name a file and line directly.
+oracle_mega_dup = {
+	entity = "construction_platform_entity"
+	build_time = 2222
+}

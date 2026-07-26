@@ -1,0 +1,9 @@
+﻿l_english:
+
+# METHOD 2: same filename as vanilla's localisation/english/technology_l_english.yml.
+# This is an exact path collision, so r6's rule predicts the whole vanilla file is
+# shadowed. The file deliberately defines ONE key, so the probe's reading of
+# tech_engineering_1 - which vanilla defines in the same file and this does not -
+# reports whether the other vanilla names survived.
+
+ tech_physics_1:0 "ORACLE_SAME_PATH"

@@ -1,0 +1,59 @@
+{
+  "activation": {
+    "dlc_load": {
+      "disabled_dlcs": [],
+      "enabled_mods": [
+        "mod/oracle_probe.mod",
+        "mod/oracle_target-inline-missing.mod"
+      ]
+    },
+    "enabled_mods": [
+      "mod/oracle_probe.mod",
+      "mod/oracle_target-inline-missing.mod"
+    ]
+  },
+  "artifacts": {
+    "error.normalized.txt": "000bc7fa71b23222ee549082e896d29b3515e7567fdbdfcde84f83a37cc5ea4e",
+    "oracle-facts.txt": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+  },
+  "canaries": {
+    "probe_complete": false,
+    "probe_loaded": false
+  },
+  "error_log": {
+    "distinct_messages": 16,
+    "raw_lines": 16,
+    "raw_sha256": "9ab8383f896fcac85d6bff4a5711c09e32ad4d8d4e0e12343c849581e89052bb"
+  },
+  "fact_count": 0,
+  "fixture_hashes": {
+    "probe": {
+      "common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+      "descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+      "events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda"
+    },
+    "target-inline-missing": {
+      "common/technology/zz_oracle_missing_inline.txt": "c3918675eccbb0a6db20dbc99cfe2d93ae90eb5b497d6625ada5c18ab0b20cf8",
+      "descriptor.mod": "23670f3664b0f6b1f8496f74d86d0b8fb8f28fb75f95ed7d57efbdb687b76296"
+    }
+  },
+  "game_log_banner": "[22:34:35][game_application.cpp:248]: Game Version: Pegasus v4.4.6",
+  "purpose": "An inline script reference that does not resolve. Isolated because r7 showed an unresolved textual substitution is not rejected but silently reinterpreted, corrupting the remainder of its file. Evidence is the load-time error.log delta.",
+  "run": "r12-inline-missing",
+  "staging_hashes": {
+    "activation.json": "a1df1d9839a7814c42a16ffe38b677cbcf5f77a7878f19d7c818ca50465062cb",
+    "probe/common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+    "probe/descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+    "probe/events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda",
+    "target-inline-missing/common/technology/zz_oracle_missing_inline.txt": "c3918675eccbb0a6db20dbc99cfe2d93ae90eb5b497d6625ada5c18ab0b20cf8",
+    "target-inline-missing/descriptor.mod": "23670f3664b0f6b1f8496f74d86d0b8fb8f28fb75f95ed7d57efbdb687b76296"
+  },
+  "stellaris": {
+    "distPlatform": "steam",
+    "modsCompatibilityVersion": "4.4",
+    "rawVersion": "v4.4.6",
+    "version": "Pegasus v4.4.6 (fdde)"
+  },
+  "tier": 1,
+  "warnings": []
+}

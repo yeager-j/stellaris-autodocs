@@ -1,0 +1,73 @@
+{
+  "activation": {
+    "dlc_load": {
+      "disabled_dlcs": [],
+      "enabled_mods": [
+        "mod/oracle_probe.mod",
+        "mod/oracle_target-replace-path.mod"
+      ]
+    },
+    "enabled_mods": [
+      "mod/oracle_probe.mod",
+      "mod/oracle_target-replace-path.mod"
+    ]
+  },
+  "artifacts": {
+    "error.normalized.txt": "531bfd6d71a80dc83b02980b5b057880c981f74515f408742eb2f3586e831763",
+    "oracle-facts.txt": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+  },
+  "canaries": {
+    "probe_complete": false,
+    "probe_loaded": false
+  },
+  "error_log": {
+    "distinct_messages": 7708,
+    "raw_lines": 7708,
+    "raw_sha256": "c86af5a14cb048e5a143c872f2e6d612ca898788a67ee1f254eddbf910c4d638"
+  },
+  "fact_count": 0,
+  "fixture_hashes": {
+    "probe": {
+      "common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+      "descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+      "events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda"
+    },
+    "target-replace-path": {
+      "common/on_actions/zz_oracle_target_on_actions.txt": "f545ecc60c1200583c0cfcfc2ac6a691299d06a77c3dd7ff60c23c2c53390c50",
+      "common/scripted_effects/zz_oracle_effects.txt": "dc3e965cd7d794f704be000be3f71c687858c7cec3ecd5d91d8550278111b5c1",
+      "common/scripted_triggers/zz_oracle_triggers_a.txt": "191eb18d4b4268691849488f548e5a701b3b8fdab64bb71725fab4fa352ff5e7",
+      "common/scripted_triggers/zz_oracle_triggers_b.txt": "4dbc6acdf5391832c6d22e8a343a41b128fc31ac6aaf4a2b1af0500037152d2c",
+      "common/scripted_variables/zz_oracle_variables_a.txt": "5e2ca2df8e200de418d1e82e329252119f12178b08069f8ba35a0d6d23122c75",
+      "common/scripted_variables/zz_oracle_variables_b.txt": "0ced37e96aea52b37f1cafe8735a6fc8b07004c90b07fb36c47612e942a0458a",
+      "common/technology/zz_oracle_tech.txt": "e32c01bfb5407b00478901d6d5b70e49f57202400e37eae4a6abfb55c4f59a21",
+      "descriptor.mod": "111fb85f768b7403783fca0a4a743e0ace9f0c22dfe029b777ba0f4399e085e2",
+      "events/zz_oracle_target.txt": "e074c063672ca75f35db96a103f89246d864b7e2590cf16e91eaf249e92cc9d0"
+    }
+  },
+  "game_log_banner": "[21:32:14][game_application.cpp:248]: Game Version: Pegasus v4.4.6",
+  "purpose": "Directory replacement over common/technology. Tier 1 because excluding vanilla technology files may prevent a playable game; database initialisation still happens and the error.log delta answers the question.",
+  "run": "r3-replace-path",
+  "staging_hashes": {
+    "activation.json": "49616279e5ccdb018d8f646c01d09502cde8e00fa7481f8c9311a36416aa0a51",
+    "probe/common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+    "probe/descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+    "probe/events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda",
+    "target-replace-path/common/on_actions/zz_oracle_target_on_actions.txt": "f545ecc60c1200583c0cfcfc2ac6a691299d06a77c3dd7ff60c23c2c53390c50",
+    "target-replace-path/common/scripted_effects/zz_oracle_effects.txt": "dc3e965cd7d794f704be000be3f71c687858c7cec3ecd5d91d8550278111b5c1",
+    "target-replace-path/common/scripted_triggers/zz_oracle_triggers_a.txt": "191eb18d4b4268691849488f548e5a701b3b8fdab64bb71725fab4fa352ff5e7",
+    "target-replace-path/common/scripted_triggers/zz_oracle_triggers_b.txt": "4dbc6acdf5391832c6d22e8a343a41b128fc31ac6aaf4a2b1af0500037152d2c",
+    "target-replace-path/common/scripted_variables/zz_oracle_variables_a.txt": "5e2ca2df8e200de418d1e82e329252119f12178b08069f8ba35a0d6d23122c75",
+    "target-replace-path/common/scripted_variables/zz_oracle_variables_b.txt": "0ced37e96aea52b37f1cafe8735a6fc8b07004c90b07fb36c47612e942a0458a",
+    "target-replace-path/common/technology/zz_oracle_tech.txt": "e32c01bfb5407b00478901d6d5b70e49f57202400e37eae4a6abfb55c4f59a21",
+    "target-replace-path/descriptor.mod": "111fb85f768b7403783fca0a4a743e0ace9f0c22dfe029b777ba0f4399e085e2",
+    "target-replace-path/events/zz_oracle_target.txt": "e074c063672ca75f35db96a103f89246d864b7e2590cf16e91eaf249e92cc9d0"
+  },
+  "stellaris": {
+    "distPlatform": "steam",
+    "modsCompatibilityVersion": "4.4",
+    "rawVersion": "v4.4.6",
+    "version": "Pegasus v4.4.6 (fdde)"
+  },
+  "tier": 1,
+  "warnings": []
+}

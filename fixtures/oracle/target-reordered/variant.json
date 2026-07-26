@@ -1,0 +1,22 @@
+{
+  "base": "target",
+  "descriptor": null,
+  "rename": {
+    "common/scripted_triggers/zz_oracle_triggers_a.txt": "common/scripted_triggers/zz_oracle_triggers_b.txt",
+    "common/scripted_triggers/zz_oracle_triggers_b.txt": "common/scripted_triggers/zz_oracle_triggers_a.txt",
+    "common/scripted_variables/zz_oracle_variables_a.txt": "common/scripted_variables/zz_oracle_variables_b.txt",
+    "common/scripted_variables/zz_oracle_variables_b.txt": "common/scripted_variables/zz_oracle_variables_a.txt"
+  },
+  "why": [
+    "Enumeration-order control. Byte-identical file contents, swapped filenames, so the",
+    "definition that sorted last in the target run now sorts first.",
+    "",
+    "If the reported winner flips, the winner is determined by enumeration order and the",
+    "policy rows must say so. If it does not flip, the winner is determined by something",
+    "else and the target run's result was not an artifact of how these files happened to",
+    "be named.",
+    "",
+    "The swap is expressed as a rename map over the base fixture rather than as a second",
+    "copy of the content, so the two runs cannot drift apart."
+  ]
+}

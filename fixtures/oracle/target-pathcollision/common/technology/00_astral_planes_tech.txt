@@ -1,0 +1,41 @@
+# Exact file-path collision.
+#
+# THIS FIXTURE CRASHES THE GAME DURING STARTUP, AND THAT IS ITS EVIDENCE.
+#
+# Shadowing this vanilla file removes `tech_rift_sphere` and `tech_astral_harvesting` from
+# the technology database while roughly sixty vanilla events, deposits, situations, and
+# starbase modules still reference them. Those references fail to resolve and startup dies
+# before reaching the main menu.
+#
+# It therefore lives in its own mod and its own run. It first appeared alongside the other
+# subjects, and the crash destroyed every other measurement in that run: the trigger,
+# effect, constant, and technology-redefinition results were all unobtainable because one
+# unrelated case killed the process. A case that can fail catastrophically has to be
+# isolated, or its blast radius silently becomes the run's result.
+#
+# Vanilla ships this exact logical path and defines exactly two technologies in it:
+# `tech_rift_sphere` and `tech_astral_harvesting`. Both are drawable for an ordinary
+# empire, so both are observable in the exported potential set and through the probe's
+# existence checks.
+#
+# This replacement file defines neither of them, only the sentinel below.
+#
+#   Vanilla pair absent, sentinel present -> an exact path collision shadows the entire
+#                                            losing file; the losing file contributes
+#                                            nothing, not even keys the winner omits.
+#   Vanilla pair present, sentinel present -> collision resolves per definition key and
+#                                            the losing file still contributes.
+#   Vanilla pair present, sentinel absent  -> the mod's file lost outright.
+#
+# The two vanilla identifiers are deliberately not redefined here. Redefining them would
+# make their survival unobservable, which is the whole measurement.
+
+# Weight 1 so this sentinel cannot displace a subject from the society draw. Its evidence
+# is existence, reported by the probe, not draw membership.
+tech_oracle_pathcollision = {
+	area = society
+	cost = 1000
+	tier = 1
+	category = { statecraft }
+	weight = 1
+}

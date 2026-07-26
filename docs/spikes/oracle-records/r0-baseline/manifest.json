@@ -1,0 +1,58 @@
+{
+  "activation": {
+    "dlc_load": {
+      "disabled_dlcs": [],
+      "enabled_mods": [
+        "mod/oracle_probe.mod"
+      ]
+    },
+    "enabled_mods": [
+      "mod/oracle_probe.mod"
+    ]
+  },
+  "artifacts": {
+    "error.normalized.txt": "0ce22a5e5198a2f5e9c979d38bbbbb4ff4088fcca5dab1913d889f4c140d129b",
+    "oracle-facts.txt": "e4a8607e1ca5c80a05def87d79f17b364a17e77bf49ddb583bc199b950ca7b76",
+    "tech-status.json": "b23a909c27472487d9b58cdb51fcc238e8c20d731ad1f98f3e7e989210ff3f95"
+  },
+  "canaries": {
+    "probe_complete": true,
+    "probe_loaded": true
+  },
+  "error_log": {
+    "distinct_messages": 16,
+    "raw_lines": 16,
+    "raw_sha256": "b8f0419a30ce27d4adef07c68704fdbe7b7feedbf9f8c27b345a4dde71504319"
+  },
+  "fact_count": 6,
+  "fixture_hashes": {
+    "probe": {
+      "common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+      "descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+      "events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda"
+    }
+  },
+  "game_log_banner": "[20:53:55][game_application.cpp:248]: Game Version: Pegasus v4.4.6",
+  "purpose": "Baseline. Vanilla and DLC with instrumentation only. Every treatment result is a delta against this run.",
+  "run": "r0-baseline",
+  "save": {
+    "bytes": 474193,
+    "name": "oracle_r0-baseline.sav",
+    "relative": "unitednationsofearth3_769114477/oracle_r0-baseline.sav",
+    "sha256": "a35857d68b1825497636603dddc2d285415210037496d813dca0a92a19a8e9af"
+  },
+  "staging_hashes": {
+    "activation.json": "da36389a46dda07d052304bf854c9da50e18dfe2425a1ec8f0a4ba49d851acf4",
+    "probe/common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+    "probe/descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+    "probe/events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda"
+  },
+  "stellaris": {
+    "distPlatform": "steam",
+    "modsCompatibilityVersion": "4.4",
+    "rawVersion": "v4.4.6",
+    "version": "Pegasus v4.4.6 (fdde)"
+  },
+  "tier": 2,
+  "warnings": []
+}

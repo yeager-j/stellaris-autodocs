@@ -1,0 +1,77 @@
+namespace = oracle_probe
+
+# Baseline instrumentation, present in every oracle run.
+#
+# Emits `ORACLE|<case>|<fact>|<value>` lines to logs/game.log. The capture harness reads
+# only lines matching that prefix, so ordinary game logging is ignored.
+#
+# The canary is the negative control for the whole channel: if `probe_loaded` is absent
+# from a run's game.log, the log effect did not reach the file and no absent-value result
+# from that run may be interpreted. A missing fact and a broken channel look identical
+# without it.
+#
+# This event probes only identifiers that vanilla always defines. Sentinels introduced by
+# the target fixture are probed by the target fixture's own event, so neither mod
+# references a key that is undefined in the run it participates in.
+
+event = {
+	id = oracle_probe.1
+	hide_window = yes
+	is_triggered_only = yes
+
+	trigger = {
+		is_ai = no
+	}
+
+	immediate = {
+		log = "ORACLE|canary|probe_loaded|1"
+		log = "ORACLE|canary|country|[This.GetName]"
+
+		# Satisfy the prerequisite of the technology-redefinition subject.
+		#
+		# `tech_pk_cracker` requires `tech_colossus`. Without this grant it would be absent
+		# from the exported potential set for a reason unrelated to its `potential` block,
+		# and the omitted-`potential` measurement would be confounded. This grant is
+		# identical in every run, so it cannot itself explain a baseline/treatment delta.
+		give_technology = { tech = tech_colossus message = no }
+
+		if = {
+			limit = { has_technology = tech_colossus }
+			log = "ORACLE|tech_exists|tech_colossus|1"
+		}
+		else = {
+			log = "ORACLE|tech_exists|tech_colossus|0"
+		}
+
+		# Exact file-path collision subjects.
+		#
+		# Both are defined by vanilla in common/technology/00_astral_planes_tech.txt, the
+		# logical path the target fixture also ships. If an exact path collision shadows
+		# the whole losing file, both disappear; if definitions merge by key, both survive.
+		give_technology = { tech = tech_rift_sphere message = no }
+		if = {
+			limit = { has_technology = tech_rift_sphere }
+			log = "ORACLE|tech_exists|tech_rift_sphere|1"
+		}
+		else = {
+			log = "ORACLE|tech_exists|tech_rift_sphere|0"
+		}
+
+		give_technology = { tech = tech_astral_harvesting message = no }
+		if = {
+			limit = { has_technology = tech_astral_harvesting }
+			log = "ORACLE|tech_exists|tech_astral_harvesting|1"
+		}
+		else = {
+			log = "ORACLE|tech_exists|tech_astral_harvesting|0"
+		}
+
+		# Deliberately NOT set. `tech_pk_cracker`'s vanilla `potential` requires this flag,
+		# so the baseline run must show that technology absent from the exported potential
+		# set. The flag-set control run sets it to prove that absence is caused by the flag
+		# rather than by some unrelated gate.
+		# set_country_flag = colossus_project
+
+		log = "ORACLE|canary|probe_complete|1"
+	}
+}

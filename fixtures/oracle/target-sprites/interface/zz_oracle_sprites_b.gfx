@@ -1,0 +1,12 @@
+spriteTypes = {
+
+	# B side of the cross-file sprite duplicate. See zz_oracle_sprites_a.gfx.
+	#
+	# This file sorts after the A file, and names a texture that does not exist. A
+	# missing-texture diagnostic for oracle_missing_cross_file.dds therefore means the later
+	# file won, matching the enumeration-order behaviour of the script registries.
+	spriteType = {
+		name = "GFX_oracle_dup_cross_file"
+		texturefile = "gfx/interface/icons/oracle_missing_cross_file.dds"
+	}
+}

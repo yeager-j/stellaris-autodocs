@@ -1,0 +1,56 @@
+namespace = oracle_loc_giga
+
+# Mod-against-mod localization, plus reference resolution.
+#
+# `r13` established that a mod's localisation file beats Vanilla regardless of filename,
+# which contradicts the wiki's LIOS reading and means localisation is layer-ordered where
+# script content is path-ordered. It says nothing about two mods against each other, and it
+# could not isolate whether `replace/` has real priority or merely rode the mod layer.
+#
+# This run puts the fixture mod BEFORE Gigastructural Engineering in load order, so the two
+# override methods make opposite predictions and one reading separates them.
+#
+# SUBJECTS:
+#
+#   name_alderson              Giga: "Alderson Disk"   - overridden by our PLAIN file
+#   giga_start_screen_alderson Giga: long start text   - overridden by our REPLACE/ file
+#   origin_alderson            Giga: "$name_alderson$" - overridden by NOBODY
+#   tech_engineering_1         Vanilla: "Nanomechanics" - overridden by nobody, cross-checks
+#                                                        the probe still reads Vanilla
+#
+# `origin_alderson` is the bonus. Its value is a reference to another key rather than a
+# literal, so its reading shows whether a reference resolves to the EFFECTIVE value of its
+# target or to the value the defining mod originally wrote:
+#
+#   "ORACLE_MODVMOD_PLAIN" -> references resolve against the resolved key, so an override
+#                             propagates through every reference to it.
+#   "Alderson Disk"        -> either the reference resolved against Giga's own definition,
+#                             or our plain file lost. The name_alderson reading disambiguates.
+#
+# That matters directly: the design's localization module owns "Static Localization Reference
+# resolution and cycle detection", and whether references see overridden values decides
+# whether a reference graph can be resolved once or must be re-resolved per source.
+
+country_event = {
+	id = oracle_loc_giga.1
+	hide_window = yes
+	is_triggered_only = yes
+
+	immediate = {
+		log = "ORACLE|canary|loc_giga_probe|1"
+
+		set_empire_name = "name_alderson"
+		log = "ORACLE|loc|name_alderson|[This.GetName]"
+
+		set_empire_name = "giga_start_screen_alderson"
+		log = "ORACLE|loc|giga_start_screen_alderson|[This.GetName]"
+
+		set_empire_name = "origin_alderson"
+		log = "ORACLE|loc|origin_alderson_reference|[This.GetName]"
+
+		set_empire_name = "tech_engineering_1"
+		log = "ORACLE|loc|tech_engineering_1|[This.GetName]"
+
+		log = "ORACLE|canary|loc_giga_probe_complete|1"
+	}
+}

@@ -1,0 +1,33 @@
+spriteTypes = {
+
+	# Is sprite ordering path-based like script content, or layer-based like localisation?
+	#
+	# r17 showed a mod's sprite beats vanilla's, but its file was named zz_oracle_sprites_a.gfx,
+	# which sorts AFTER vanilla's alerts.gfx. Under either model the mod registers last there,
+	# so that result cannot tell the two apart.
+	#
+	# This file is byte-identical in intent and named 00_oracle_sprites.gfx, sorting BEFORE
+	# alerts.gfx. Same subject, same missing-texture observable, only the filename moved:
+	#
+	#   Vanilla's ~54 dependent sprites ALSO report our missing texture -> the mod won.
+	#   Only GFX_alerticons itself reports it            -> the mod LOST; its definition was
+	#                                                       read and its texture attempted,
+	#                                                       then overwritten by vanilla's.
+	#
+	# THE OBVIOUS READING IS WRONG, and this fixture originally encoded the wrong one. A
+	# diagnostic naming our missing texture proves only that the game READ this definition and
+	# tried to initialise its texture. Exactly one such line appears whether we win or lose, so
+	# it cannot distinguish the two.
+	#
+	# The discriminator is vanilla's dependents. alerts.gfx defines ~54 sprites with
+	# `sprite_sheet_sprite_type = "GFX_alerticons"`. If they resolve to our missing path, our
+	# definition is the one in force; if they resolve cleanly, vanilla's is.
+	#
+	# That signal was not designed in - it was noticed only because r17's subject happened to
+	# have dependents. Without it this run would have been scored as a win on a line that means
+	# something else.
+	spriteType = {
+		name = "GFX_alerticons"
+		texturefile = "gfx/interface/icons/oracle_missing_vanilla.dds"
+	}
+}

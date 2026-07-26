@@ -1,0 +1,67 @@
+{
+  "activation": {
+    "dlc_load": {
+      "disabled_dlcs": [],
+      "enabled_mods": [
+        "mod/oracle_probe.mod",
+        "mod/oracle_probe-loc.mod",
+        "mod/oracle_target-loc-samepath.mod"
+      ]
+    },
+    "enabled_mods": [
+      "mod/oracle_probe.mod",
+      "mod/oracle_probe-loc.mod",
+      "mod/oracle_target-loc-samepath.mod"
+    ]
+  },
+  "artifacts": {
+    "error.normalized.txt": "855aed0f9a947b5f736ed1039fbe7d479754d94a20405cff943880342a1521fa",
+    "oracle-facts.txt": "14c08d5d51ac19cae5100ab4877e029e4d93b08a2d34250c1128df004d33f3c3"
+  },
+  "canaries": {
+    "loc_probe": true,
+    "loc_probe_complete": true
+  },
+  "error_log": {
+    "distinct_messages": 737,
+    "raw_lines": 737,
+    "raw_sha256": "6654398f52cdd882c916f5b232c672b8fd04fc6cd951f45cdbbb3644206a36db"
+  },
+  "fact_count": 6,
+  "fixture_hashes": {
+    "probe": {
+      "common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+      "descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+      "events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda"
+    },
+    "probe-loc": {
+      "descriptor.mod": "ab305a3b6032630a2cb7df86f6de07ec225f54c1e2750e9bd2b145a328dd42a8",
+      "events/zz_oracle_loc_probe.txt": "c7e68aeb09c85cc53628120f3b4584cf4c54fc0ddbcd8a0cd7eac9dcd27ebaa9"
+    },
+    "target-loc-samepath": {
+      "descriptor.mod": "bebee6f909212cff1b00dbb8ad7d1b91ebace778ae8b0b8933a1d6cc2cb055f6",
+      "localisation/english/technology_l_english.yml": "5a7549a77d5958e26ce190995fa9c985db63429988ae521fb0347dee57613348"
+    }
+  },
+  "game_log_banner": "[23:15:44][game_application.cpp:248]: Game Version: Pegasus v4.4.6",
+  "purpose": "Same-filename localization override: the mod ships localisation/english/technology_l_english.yml defining a single key. Tests whether an exact path collision shadows the whole vanilla localization file, and therefore whether vanilla names in that file survive.",
+  "run": "r14-loc-samepath",
+  "staging_hashes": {
+    "activation.json": "cc0e9441ce73cfec9899bc8600895b7ecdca305790e430cf4c3e89e720a61343",
+    "probe-loc/descriptor.mod": "ab305a3b6032630a2cb7df86f6de07ec225f54c1e2750e9bd2b145a328dd42a8",
+    "probe-loc/events/zz_oracle_loc_probe.txt": "c7e68aeb09c85cc53628120f3b4584cf4c54fc0ddbcd8a0cd7eac9dcd27ebaa9",
+    "probe/common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+    "probe/descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+    "probe/events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda",
+    "target-loc-samepath/descriptor.mod": "bebee6f909212cff1b00dbb8ad7d1b91ebace778ae8b0b8933a1d6cc2cb055f6",
+    "target-loc-samepath/localisation/english/technology_l_english.yml": "5a7549a77d5958e26ce190995fa9c985db63429988ae521fb0347dee57613348"
+  },
+  "stellaris": {
+    "distPlatform": "steam",
+    "modsCompatibilityVersion": "4.4",
+    "rawVersion": "v4.4.6",
+    "version": "Pegasus v4.4.6 (fdde)"
+  },
+  "tier": 2,
+  "warnings": []
+}

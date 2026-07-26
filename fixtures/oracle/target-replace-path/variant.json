@@ -1,0 +1,18 @@
+{
+  "base": "target",
+  "descriptor": "descriptor.mod",
+  "rename": {},
+  "why": [
+    "Directory replacement over common/technology. The content is the target fixture's,",
+    "unchanged, so the only difference from the target run is the replace_path declaration",
+    "and any result delta is attributable to it alone.",
+    "",
+    "common/technology is the subject directory because it is the registry already under",
+    "test and the only one whose exclusion is directly observable through the exported",
+    "potential set and the probe's existence checks. Excluding it removes almost every",
+    "vanilla technology, so this run may not reach a playable game. That is acceptable:",
+    "database initialisation happens before any game session, so the error.log delta",
+    "answers the question even if no save can be produced. Record which tier supplied the",
+    "evidence rather than assuming the in-game tier was available."
+  ]
+}

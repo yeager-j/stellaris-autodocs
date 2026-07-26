@@ -1,0 +1,6 @@
+events/zz_oracle_loc_probe.txt:47	ORACLE|canary|loc_probe|1
+events/zz_oracle_loc_probe.txt:50	ORACLE|loc|tech_physics_1|ORACLE_PLAIN_FILE
+events/zz_oracle_loc_probe.txt:53	ORACLE|loc|tech_society_1|ORACLE_REPLACE_FOLDER
+events/zz_oracle_loc_probe.txt:56	ORACLE|loc|tech_basic_science_lab_1|ORACLE_EARLY_FILE
+events/zz_oracle_loc_probe.txt:59	ORACLE|loc|tech_engineering_1|Nanomechanics
+events/zz_oracle_loc_probe.txt:61	ORACLE|canary|loc_probe_complete|1

@@ -1,0 +1,30 @@
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_1595876588.mod line: 7
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_2288335512.mod line: 8
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_2646410054.mod line: 7
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3089135446.mod line: 24
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3089152222.mod line: 16
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3089156847.mod line: 16
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3200772862.mod line: 6
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3241790370.mod line: 9
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3469119533.mod line: 8
+1	[empire_design.cpp:597]: Invalid government origin [origin_final_spark_lcluster] in design The Fractured
+1	[empire_flag.cpp:918]: could not find normal-sized texture "flags/phanon/flag_phanon.dds"  file:  line: 43
+1	[empire_flag.cpp:918]: could not find normal-sized texture "flags/shadow/flag_the_shadow.dds"  file:  line: 43
+1	[empire_flag.cpp:918]: could not find normal-sized texture "flags/shadow/flag_the_shadow.dds"  file: save games/unitednationsofearth9_-130384901/oracle_r11-inline.sav/gamestate line: 333611
+1	[empire_flag.cpp:918]: could not find normal-sized texture "flags/shadow/flag_the_shadow.dds"  file: user_empire_designs_v3.4.txt line: 431
+1	[empire_flag.cpp:924]: could not find map-sized texture "flags/phanon/map/flag_phanon.dds"  file:  line: 43
+1	[empire_flag.cpp:924]: could not find map-sized texture "flags/shadow/map/flag_the_shadow.dds"  file:  line: 43
+1	[empire_flag.cpp:924]: could not find map-sized texture "flags/shadow/map/flag_the_shadow.dds"  file: save games/unitednationsofearth9_-130384901/oracle_r11-inline.sav/gamestate line: 333611
+1	[empire_flag.cpp:924]: could not find map-sized texture "flags/shadow/map/flag_the_shadow.dds"  file: user_empire_designs_v3.4.txt line: 431
+1	[portraitobject.cpp:722]: Failed to find portrait selector acot_pmc
+1	[technology_status.cpp:617]: Invalid tech `tech_oracle_inline_basic`
+1	[technology_status.cpp:617]: Invalid tech `tech_oracle_inline_literal`
+1	[technology_status.cpp:617]: Invalid tech `tech_oracle_inline_lowweight`
+1	[technology_status.cpp:617]: Invalid tech `tech_oracle_inline_nested`
+1	[technology_status.cpp:617]: Invalid tech `tech_oracle_inline_override_probe`
+1	[technology_status.cpp:617]: Invalid tech `tech_oracle_inline_param`
+1	[technology_status.cpp:677]: Found invalid alternative tech `tech_oracle_inline_basic`! Old save game?
+1	[technology_status.cpp:677]: Found invalid alternative tech `tech_oracle_inline_literal`! Old save game?
+1	[technology_status.cpp:677]: Found invalid alternative tech `tech_oracle_inline_nested`! Old save game?
+1	[technology_status.cpp:677]: Found invalid alternative tech `tech_oracle_inline_override_probe`! Old save game?
+1	[technology_status.cpp:677]: Found invalid alternative tech `tech_oracle_inline_param`! Old save game?

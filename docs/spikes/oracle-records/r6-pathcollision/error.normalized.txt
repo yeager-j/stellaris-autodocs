@@ -1,0 +1,77 @@
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_1595876588.mod line: 7
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_2288335512.mod line: 8
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_2646410054.mod line: 7
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3089135446.mod line: 24
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3089152222.mod line: 16
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3089156847.mod line: 16
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3200772862.mod line: 6
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3241790370.mod line: 9
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3469119533.mod line: 8
+1	[empire_design.cpp:597]: Invalid government origin [origin_final_spark_lcluster] in design The Fractured
+1	[empire_flag.cpp:918]: could not find normal-sized texture "flags/shadow/flag_the_shadow.dds"  file: user_empire_designs_v3.4.txt line: 431
+1	[empire_flag.cpp:924]: could not find map-sized texture "flags/shadow/map/flag_the_shadow.dds"  file: user_empire_designs_v3.4.txt line: 431
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_astral_harvesting from database  file: common/anomalies/101_anomaly_categories_astral_planes.txt line: 33
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_astral_harvesting from database  file: common/anomalies/101_anomaly_categories_astral_planes.txt line: 75
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_astral_harvesting from database  file: common/deposits/11_astral_planes_deposits.txt line: 155
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_astral_harvesting from database  file: common/deposits/11_astral_planes_deposits.txt line: 181
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_astral_harvesting from database  file: common/deposits/11_astral_planes_deposits.txt line: 207
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_astral_harvesting from database  file: common/situations/13_shroud_situations.txt line: 211
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_astral_harvesting from database  file: common/situations/13_shroud_situations.txt line: 238
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_astral_harvesting from database  file: common/starbase_modules/00_waystation_modules.txt line: 711
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_astral_harvesting from database  file: common/starbase_modules/00_waystation_modules.txt line: 785
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_astral_harvesting from database  file: common/strategic_resources/00_strategic_resources.txt line: 466
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_astral_harvesting from database  file: events/astral_planes_events.txt line: 1255
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_astral_harvesting from database  file: events/astral_planes_events.txt line: 4020
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_astral_harvesting from database  file: events/on_action_events_1.txt line: 8215
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_astral_harvesting from database  file: events/on_action_events_1.txt line: 8249
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_astral_harvesting from database  file: events/origin_events_astral_planes.txt line: 25
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_astral_harvesting from database  file: events/shroud_situation_events.txt line: 499
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_astral_harvesting from database  file: events/shroud_situation_events.txt line: 521
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_astral_harvesting from database  file: events/shroud_situation_events.txt line: 562
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_astral_harvesting from database  file: events/shroud_situation_events.txt line: 569
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_astral_harvesting from database  file: events/zz_oracle_probe.txt line: 60
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_astral_harvesting from database  file: events/zz_oracle_probe.txt line: 62
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: common/astral_actions/astral_planes_actions.txt line: 301
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: common/bypass/00_bypasses.txt line: 291
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: common/situations/06_astral_planes_situations.txt line: 236
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: common/situations/06_astral_planes_situations.txt line: 351
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: common/situations/06_astral_planes_situations.txt line: 73
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: common/situations/06_astral_planes_situations.txt line: 74
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: common/traits/12_astral_planes_traits.txt line: 168
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: common/traits/12_astral_planes_traits.txt line: 96
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_events.txt line: 1027
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_events.txt line: 1061
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_events.txt line: 1200
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_events.txt line: 1201
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_events.txt line: 1231
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_events.txt line: 1232
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_events.txt line: 1309
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_events.txt line: 1310
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_events.txt line: 1398
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_events.txt line: 1399
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_events.txt line: 1866
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_events.txt line: 3849
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_events.txt line: 3850
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_events.txt line: 3867
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_events.txt line: 3868
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_events.txt line: 3922
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_events.txt line: 3923
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_events.txt line: 4021
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_events.txt line: 658
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_events.txt line: 659
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_events.txt line: 797
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_situation_events.txt line: 182
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/astral_planes_situation_events.txt line: 190
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/origin_events_astral_planes.txt line: 237
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/origin_events_astral_planes.txt line: 251
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/origin_events_astral_planes.txt line: 263
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/origin_events_astral_planes.txt line: 274
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/origin_events_astral_planes.txt line: 325
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/origin_events_astral_planes.txt line: 329
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/overlord_enclaves_events.txt line: 7117
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/zz_oracle_probe.txt line: 51
+1	[parser_deferred_database_objects.cpp:84]: Failed to deferred read key reference tech_rift_sphere from database  file: events/zz_oracle_probe.txt line: 53
+1	[technology.cpp:375]: Missing technology localization: tech_oracle_pathcollision
+1	[technology.cpp:381]: Missing technology localization: tech_oracle_pathcollision_desc
+1	[technology_level.cpp:41]: Invalid technology being referenced: "tech_astral_harvesting"
+1	[technology_level.cpp:41]: Invalid technology being referenced: "tech_rift_sphere"

@@ -1,0 +1,33 @@
+namespace = oracle_events
+
+# Events: duplicate identifier behavior and cross-layer redefinition.
+#
+# Events are keyed by namespace plus number rather than by a bare identifier, so this also
+# establishes whether the namespace participates in the key or is only a naming convention.
+#
+# Nothing here is hooked to an on_action. These events never fire; the question is what the
+# database does when it registers them, which is answered during startup without a game
+# session.
+
+# DUPLICATE, first occurrence. `days` differs so the surviving definition is identifiable
+# if the game ever reports the effective value.
+event = {
+	id = oracle_events.1
+	hide_window = yes
+	is_triggered_only = yes
+
+	immediate = {
+		log = "ORACLE|event_dup|first|1111"
+	}
+}
+
+# DUPLICATE, second occurrence, same identifier.
+event = {
+	id = oracle_events.1
+	hide_window = yes
+	is_triggered_only = yes
+
+	immediate = {
+		log = "ORACLE|event_dup|second|2222"
+	}
+}

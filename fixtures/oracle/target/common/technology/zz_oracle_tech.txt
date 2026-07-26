@@ -1,0 +1,103 @@
+# Cross-layer technology key collision.
+#
+# This file's logical path does not exist in vanilla, so nothing here is a file-path
+# collision. Every collision below is by definition key, which isolates the key-collision
+# question from the path-shadowing question tested in 00_astral_planes_tech.txt.
+#
+# OBSERVABLE: the research draw pool, `country.<id>.tech_status.alternatives` in the save.
+#
+# The exported `potential` set would be a more direct reading, but the game only serializes
+# it after a country has been running for some years; a fresh save contains no `potential`
+# block at all, so an early save cannot be interrogated that way. `alternatives` is always
+# present. Each subject below therefore carries a dominating weight so that "drawable"
+# reliably means "drawn into one of the three slots for its area", turning a probabilistic
+# reading into a decisive one.
+
+# Existence sentinel. The target's reporter grants this and checks it back, which proves
+# the file loaded. It is NOT the draw-pool positive control: granting a technology moves it
+# into the researched set, and a researched technology can never appear in the draw pool.
+# It was originally used as that control and read as absent for exactly that reason, which
+# says nothing about the game and everything about the probe.
+tech_oracle_new = {
+	area = physics
+	cost = 1000
+	tier = 0
+	category = { computing }
+	weight = 1000000
+}
+
+# POSITIVE CONTROL for the draw pool. Identical to the subject in every field that was
+# changed — tier 0, cost 1000, dominating weight, no prerequisites, no `potential` — but it
+# is a new key rather than a redefinition, and nothing ever grants it.
+#
+# It must appear in the physics alternatives. If it does not, mod technologies are not
+# entering the draw at all and the subject's appearance would need another explanation.
+# Placed in physics so it cannot compete for the society slots the matched pair needs.
+tech_oracle_draw_control = {
+	area = physics
+	cost = 1000
+	tier = 0
+	category = { computing }
+	weight = 1000000
+}
+
+# THE HEADLINE CASE. `tech_adaptive_combat_algorithms` is defined by vanilla in
+# common/technology/00_synthetic_dawn_tech.txt with:
+#
+#     potential = {
+#         OR = {
+#             is_machine_empire = yes
+#             is_individual_machine = yes
+#         }
+#     }
+#
+# The probe empire is United Nations of Earth, an ordinary biological empire, so both
+# conditions are false and the vanilla definition is not drawable. The gate depends only on
+# empire type, not on ethics, a country flag, or anything the run could accidentally
+# change.
+#
+# This redefinition omits `potential` entirely and keeps no prerequisites and no
+# `start_tech`, so draw eligibility is the only variable.
+#
+#   Appears in society alternatives -> redefinition is whole-object replacement and an
+#                                      omitted field is genuinely absent.
+#   Stays absent                    -> the omitted `potential` was inherited from the
+#                                      shadowed vanilla definition.
+tech_adaptive_combat_algorithms = {
+	area = society
+	cost = 1000
+	tier = 0
+	category = { military_theory }
+	weight = 1000000
+}
+
+# NEGATIVE CONTROL. Identical treatment to the subject, except `potential` is retained
+# verbatim from vanilla. `allows_slavery` is false for a fanatic egalitarian empire, so
+# this must stay absent from the society alternatives despite its dominating weight.
+#
+# If it appears, then redefining a technology makes it drawable regardless of `potential`,
+# and the headline result says nothing about omitted fields.
+tech_neural_implants = {
+	area = society
+	cost = 1000
+	tier = 0
+	category = { statecraft }
+	weight = 1000000
+
+	potential = {
+		is_regular_empire = yes
+		allows_slavery = yes
+	}
+}
+
+# Does a vanilla scripted variable resolve inside a mod's script file? @tier5cost3 is
+# defined by vanilla in common/scripted_variables/. If it does not resolve, the load
+# produces a diagnostic and this technology is missing or malformed; the probe reports its
+# existence either way. Weight 1 so it cannot disturb the draws above.
+tech_oracle_vanilla_var = {
+	area = engineering
+	cost = @tier5cost3
+	tier = 0
+	category = { industry }
+	weight = 1
+}

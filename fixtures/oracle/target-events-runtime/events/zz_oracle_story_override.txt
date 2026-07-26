@@ -1,0 +1,54 @@
+namespace = story
+
+# Cross-layer event redefinition: does a mod replace a vanilla event by redeclaring its id?
+#
+# Subject is `story.5`, "Contact Report: Remnants", defined by vanilla in
+# events/story_events.txt as:
+#
+#     event = {
+#         id = story.5
+#         title = story.5.name
+#         picture = GFX_evt_news_room     # no hide_window, so it opens a popup
+#         is_triggered_only = yes
+#         trigger = {
+#             is_country_type = default
+#             NOR = {
+#                 has_country_flag = Story5
+#                 has_country_flag = Story6
+#                 has_country_flag = Story7
+#                 has_country_flag = StoryFirstRewardGiven
+#             }
+#         }
+#     }
+#
+# It replaces an earlier attempt at `utopia.1`, whose trigger requires a neighbouring empire
+# to be building a ring world. That condition is false in a fresh single-empire game, so a
+# silent result there would have been unreadable: vanilla's body winning and vanilla's
+# trigger suppressing it produce the same nothing. `story.5` has no such dependency — its
+# trigger is satisfied by any default-type empire without the four story flags, which is
+# exactly a fresh United Nations of Earth start.
+#
+# The block type matches vanilla's `event = {`, so the test varies the layer and nothing
+# else.
+#
+# The two candidate bodies differ in something directly visible, so no extra instrumentation
+# is needed:
+#
+#   ORACLE log line, no popup -> the MOD body evaluated; a mod can replace a vanilla event
+#                                by redeclaring its identifier.
+#   "Contact Report: Remnants"
+#   popup appears             -> the VANILLA body evaluated; the mod's redefinition lost,
+#                                and events are overridable only by file-path collision.
+#
+# `hide_window = yes` here is what makes the outcomes mutually exclusive: the mod body is
+# silent on screen and loud in the log, and vanilla's is the reverse.
+
+event = {
+	id = story.5
+	hide_window = yes
+	is_triggered_only = yes
+
+	immediate = {
+		log = "ORACLE|event_override_runtime|story.5|mod_body_evaluated"
+	}
+}

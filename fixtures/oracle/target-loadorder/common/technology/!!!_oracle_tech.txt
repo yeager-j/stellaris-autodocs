@@ -1,0 +1,36 @@
+# The same early-sorting filename, applied to a LAST-wins registry.
+#
+# This is what makes the run discriminate between the two enumeration models rather than
+# just confirming the event result. Technologies are last-wins; events are first-wins. An
+# early-sorting mod file therefore predicts opposite outcomes under the two models:
+#
+#   Enumeration is one global order over all sources, sorted by path
+#     -> `!!!_oracle_tech.txt` sorts BEFORE vanilla's `00_synthetic_dawn_tech.txt`,
+#        so the mod registers first and, in a last-wins registry, LOSES.
+#     -> the paired event file registers first and WINS.
+#
+#   Enumeration is by layer first, then path within a layer
+#     -> the mod always registers after Vanilla regardless of filename,
+#        so this technology WINS and the paired event LOSES.
+#
+# The two subjects cannot both win under either model, so whichever pair of outcomes appears
+# identifies the model. A result where both win, or both lose, would mean the model is
+# neither of these and the matrix's ordering column needs rewriting rather than filling in.
+#
+# Subject and observable are reused from `r1` so the reading is already calibrated:
+# `tech_adaptive_combat_algorithms` is gated by `is_machine_empire`, false for the probe
+# empire, and this redefinition omits `potential` and carries a dominating weight.
+#
+#   Drawn into the society pool -> this definition won.
+#   Absent                      -> vanilla's definition won and its `potential` still gates.
+#
+# error.log's `using the one at` message names the winning file directly, giving a second
+# independent channel for the same fact.
+
+tech_adaptive_combat_algorithms = {
+	area = society
+	cost = 1000
+	tier = 0
+	category = { military_theory }
+	weight = 1000000
+}

@@ -1,0 +1,15 @@
+# Oracle probe hook.
+#
+# This file exists in every oracle run, including the baseline. It is instrumentation,
+# not a subject under test: it defines no key that vanilla, DLC, or the target fixture
+# also defines, and every identifier it introduces is prefixed `oracle_probe`.
+#
+# Whether a mod's on_actions file merges with vanilla's or shadows it is itself an
+# observation. If it shadowed, no vanilla game-start event would fire and the run would
+# be visibly broken, so a run that produces a normal game is evidence of merging.
+
+on_game_start_country = {
+	events = {
+		oracle_probe.1
+	}
+}

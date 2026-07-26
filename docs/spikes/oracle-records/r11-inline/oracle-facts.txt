@@ -1,0 +1,6 @@
+events/zz_oracle_probe.txt:27	ORACLE|canary|probe_loaded|1
+events/zz_oracle_probe.txt:28	ORACLE|canary|country|United Nations of Earth
+events/zz_oracle_probe.txt:40	ORACLE|tech_exists|tech_colossus|1
+events/zz_oracle_probe.txt:54	ORACLE|tech_exists|tech_rift_sphere|1
+events/zz_oracle_probe.txt:63	ORACLE|tech_exists|tech_astral_harvesting|1
+events/zz_oracle_probe.txt:75	ORACLE|canary|probe_complete|1

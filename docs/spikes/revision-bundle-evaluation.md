@@ -10,7 +10,7 @@ Determine whether build-time denormalized JSON is a suitable structured-data for
 
 Evaluate:
 
-- Vanilla Content and locally installed DLC.
+- Vanilla Content from the base-game file set, plus representative referenced assets supplied by the Stellaris Installation.
 - Ancient Cache of Technologies.
 - Gigastructural Engineering.
 - The malformed-source golden fixture.

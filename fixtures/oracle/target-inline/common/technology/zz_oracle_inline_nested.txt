@@ -1,0 +1,27 @@
+# SUBJECT 4 (engineering): can an inline script include another inline script?
+#
+# `oracle/outer_factor` contains nothing but `inline_script = "oracle/inner_factor"`, and
+# `oracle/inner_factor` holds the actual modifier. If nesting expands, this technology gets
+# the factor and reaches the draw pool.
+#
+# Nesting sits in its own file because an unresolved inline reference damages the remainder
+# of the file that consumes it — established in `r7`, where a failed scripted constant
+# swallowed the definition following it. If nesting is unsupported, the failure must not be
+# able to reach the four subjects in zz_oracle_inline_tech.txt and make their results
+# unattributable.
+#
+# This is the recursion depth that matters for the resolver: vanilla inline scripts may
+# themselves contain inline scripts, so an expander that handles only one level would
+# silently drop content.
+
+tech_oracle_inline_nested = {
+	area = engineering
+	cost = 1000
+	tier = 0
+	category = { industry }
+	weight = 1
+
+	weight_modifier = {
+		inline_script = "oracle/outer_factor"
+	}
+}

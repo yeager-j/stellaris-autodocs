@@ -1,0 +1,29 @@
+# Buildings: duplicate winner and whole-replacement-versus-inheritance.
+#
+# Same comparative design as the megastructure fixture: one new key and one redefinition of
+# a vanilla key, sharing an identical minimal body, so the diagnostics the new key produces
+# are the baseline for what inheritance would have suppressed.
+
+# CONTROL. New key, minimal body, nothing to inherit.
+oracle_building_new = {
+	category = government
+}
+
+# SUBJECT. Redefines a vanilla building with the identical minimal body.
+# `building_embassy` is chosen because it is not a capital and not part of a starting
+# colony, so a degraded definition cannot break empire setup.
+building_embassy = {
+	category = government
+}
+
+# DUPLICATE, first occurrence.
+oracle_building_dup = {
+	category = government
+	position_priority = 1111
+}
+
+# DUPLICATE, second occurrence.
+oracle_building_dup = {
+	category = government
+	position_priority = 2222
+}

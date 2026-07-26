@@ -1,0 +1,5 @@
+# B side of the cross-file scripted constant redefinition. See zz_oracle_variables_a.txt.
+#
+# If the consumer sees 20, the later file in enumeration order wins.
+
+@oracle_const_cross_file = 20

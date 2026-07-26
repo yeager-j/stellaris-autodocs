@@ -1,0 +1,78 @@
+{
+  "activation": {
+    "dlc_load": {
+      "disabled_dlcs": [],
+      "enabled_mods": [
+        "mod/oracle_probe.mod",
+        "mod/oracle_target-inline.mod"
+      ]
+    },
+    "enabled_mods": [
+      "mod/oracle_probe.mod",
+      "mod/oracle_target-inline.mod"
+    ]
+  },
+  "artifacts": {
+    "error.normalized.txt": "f141e0980bac09c75eaa4445b533bcd442a1eb225941fdd78e148e0ded14f571",
+    "oracle-facts.txt": "e4a8607e1ca5c80a05def87d79f17b364a17e77bf49ddb583bc199b950ca7b76",
+    "tech-status.json": "3327bc70849821e125c451e440c21e961e78358e1228a822d68c957c8c1e82a8"
+  },
+  "canaries": {
+    "probe_complete": true,
+    "probe_loaded": true
+  },
+  "error_log": {
+    "distinct_messages": 34,
+    "raw_lines": 34,
+    "raw_sha256": "6d545d49899f79ac9f840a89bb91f272dce409ee1b82e0ae2b4f346e0decdc68"
+  },
+  "fact_count": 6,
+  "fixture_hashes": {
+    "probe": {
+      "common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+      "descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+      "events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda"
+    },
+    "target-inline": {
+      "common/inline_scripts/oracle/factor_block.txt": "b57be5ed615b10909bce57d781ea0b97057ebd3bf0eaa6854ba7b6384dc4c938",
+      "common/inline_scripts/oracle/inner_factor.txt": "b57be5ed615b10909bce57d781ea0b97057ebd3bf0eaa6854ba7b6384dc4c938",
+      "common/inline_scripts/oracle/outer_factor.txt": "3049df30d0538fd69abeb8abb652b5f5c0bde4bde54bc2d1929bb2184611a62d",
+      "common/inline_scripts/oracle/param_factor.txt": "f33f12e47b2771c4e20b52046074f8ae08037d867c4d266781662ec9598027d3",
+      "common/inline_scripts/technologies/rare_technologies_weight_modifiers.txt": "b57be5ed615b10909bce57d781ea0b97057ebd3bf0eaa6854ba7b6384dc4c938",
+      "common/technology/zz_oracle_inline_nested.txt": "57697bf853bda240bcca0b72537dcb34f7af3a7c70a799ca297e6f2403261cc0",
+      "common/technology/zz_oracle_inline_tech.txt": "3d842d07c66ba3d67f9e77912104c22222936c395a77a5138dc6b907582ebad9",
+      "descriptor.mod": "67a5147730e747a1472cead0daa178c990748e4d540e8a8faaf4534c7607bedf"
+    }
+  },
+  "game_log_banner": "[22:36:41][game_application.cpp:248]: Game Version: Pegasus v4.4.6",
+  "purpose": "Inline scripts: does a simple inclusion expand, do parameters substitute, does nesting work, and does a mod file at a vanilla inline script's path override it. Every subject uses one shape - base weight 1 plus a weight_modifier that should multiply it by 1000000 - so draw-pool membership reads the same way for all four.",
+  "run": "r11-inline",
+  "save": {
+    "bytes": 471741,
+    "name": "oracle_r11-inline.sav",
+    "relative": "unitednationsofearth9_-130384901/oracle_r11-inline.sav",
+    "sha256": "20ee9597a70b4e109a357e2e6f3788914d9da0b54855861a3b6f67b9f04458a1"
+  },
+  "staging_hashes": {
+    "activation.json": "017f099d79fa60e96ef5135c4748f0ac710fbef36c14fd088558b58285e8b3c9",
+    "probe/common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+    "probe/descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+    "probe/events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda",
+    "target-inline/common/inline_scripts/oracle/factor_block.txt": "b57be5ed615b10909bce57d781ea0b97057ebd3bf0eaa6854ba7b6384dc4c938",
+    "target-inline/common/inline_scripts/oracle/inner_factor.txt": "b57be5ed615b10909bce57d781ea0b97057ebd3bf0eaa6854ba7b6384dc4c938",
+    "target-inline/common/inline_scripts/oracle/outer_factor.txt": "3049df30d0538fd69abeb8abb652b5f5c0bde4bde54bc2d1929bb2184611a62d",
+    "target-inline/common/inline_scripts/oracle/param_factor.txt": "f33f12e47b2771c4e20b52046074f8ae08037d867c4d266781662ec9598027d3",
+    "target-inline/common/inline_scripts/technologies/rare_technologies_weight_modifiers.txt": "b57be5ed615b10909bce57d781ea0b97057ebd3bf0eaa6854ba7b6384dc4c938",
+    "target-inline/common/technology/zz_oracle_inline_nested.txt": "57697bf853bda240bcca0b72537dcb34f7af3a7c70a799ca297e6f2403261cc0",
+    "target-inline/common/technology/zz_oracle_inline_tech.txt": "3d842d07c66ba3d67f9e77912104c22222936c395a77a5138dc6b907582ebad9",
+    "target-inline/descriptor.mod": "67a5147730e747a1472cead0daa178c990748e4d540e8a8faaf4534c7607bedf"
+  },
+  "stellaris": {
+    "distPlatform": "steam",
+    "modsCompatibilityVersion": "4.4",
+    "rawVersion": "v4.4.6",
+    "version": "Pegasus v4.4.6 (fdde)"
+  },
+  "tier": 2,
+  "warnings": []
+}

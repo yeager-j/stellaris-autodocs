@@ -1,0 +1,76 @@
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_1595876588.mod line: 7
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_2288335512.mod line: 8
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_2646410054.mod line: 7
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3089135446.mod line: 24
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3089152222.mod line: 16
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3089156847.mod line: 16
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3200772862.mod line: 6
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3241790370.mod line: 9
+1	[dlc.cpp:339]: Invalid supported_version in  file: mod/ugc_3469119533.mod line: 8
+1	[empire_design.cpp:597]: Invalid government origin [origin_alderson] in design United Nations of Alderson Disk
+1	[empire_flag.cpp:918]: could not find normal-sized texture "flags/shadow/flag_the_shadow.dds"  file: user_empire_designs_v3.4.txt line: 434
+1	[empire_flag.cpp:924]: could not find map-sized texture "flags/shadow/map/flag_the_shadow.dds"  file: user_empire_designs_v3.4.txt line: 434
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_cross_file.dds for spritetype GFX_oracle_dup_cross_file
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_same_file.dds for spritetype GFX_oracle_dup_same_file
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_activate_relic
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_army_combat
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_automation_resources
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_building
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_can_enter_shroud
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_can_modify_species
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_can_upgrade_government
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_cannot_afford_monthly_trade
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_capped_resources
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_council_election
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_cycle_of_conflict
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_cycle_of_fortune
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_cycle_of_growth
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_cycle_of_harmony
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_cycle_of_knowledge
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_cycle_of_omens
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_cycle_of_prosperity
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_deprecated
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_engineering_research
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_espionage_event
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_federation_losing_level
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_federation_losing_xp
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_federation_low_cohesion
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_first_contact_stage_done
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_fleet_combat
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_forced_to_decloak
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_forced_to_decloak_by_us
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_high_piracy_risk
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_high_war_exhaustion
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_hopeless_war
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_hostile_in_system
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_in_breach
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_inactive_civics
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_intel_negative
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_low_cohesion
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_low_stability
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_mia
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_mia_forced_to_decloak
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_mia_forced_to_decloak_by_us
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_mia_reinforce
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_necrophage_low_pops
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_negative_income
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_physics_research
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_research_missing_scientist
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_resource_shortage
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_set_war_goal
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_site_event
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_society_research
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_spynetwork_lacking_power
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_starvation
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_timed_project
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_unemployed_pops
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_unlock_ascension_perk
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alert_unlock_tradition
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_alerticons
+1	[spritetype.cpp:317]: Error initialising texture: gfx/interface/icons/oracle_missing_vanilla.dds for spritetype GFX_fleet_order_in_progress
+1	[texturehandler.cpp:350]: Couldn't find texture file: gfx/interface/icons/oracle_missing_cross_file.dds.
+1	[texturehandler.cpp:350]: Couldn't find texture file: gfx/interface/icons/oracle_missing_same_file.dds.
+1	[texturehandler.cpp:350]: Couldn't find texture file: gfx/interface/icons/oracle_missing_vanilla.dds.
+1	[texturehandler.cpp:66]: Texture Handler encountered missing texture file: gfx/interface/icons/oracle_missing_cross_file.dds
+1	[texturehandler.cpp:66]: Texture Handler encountered missing texture file: gfx/interface/icons/oracle_missing_same_file.dds
+1	[texturehandler.cpp:66]: Texture Handler encountered missing texture file: gfx/interface/icons/oracle_missing_vanilla.dds

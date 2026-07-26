@@ -1,0 +1,61 @@
+{
+  "activation": {
+    "dlc_load": {
+      "disabled_dlcs": [],
+      "enabled_mods": [
+        "mod/oracle_probe.mod",
+        "mod/oracle_target-sprites.mod"
+      ]
+    },
+    "enabled_mods": [
+      "mod/oracle_probe.mod",
+      "mod/oracle_target-sprites.mod"
+    ]
+  },
+  "artifacts": {
+    "error.normalized.txt": "b19b58ef0e4dbda73f1a1570970768e9bf7a247f32e2bcdd80d40d84503b4571",
+    "oracle-facts.txt": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+  },
+  "canaries": {
+    "probe_complete": false,
+    "probe_loaded": false
+  },
+  "error_log": {
+    "distinct_messages": 76,
+    "raw_lines": 76,
+    "raw_sha256": "d8d52719b0b63eafa7b68e2e175389095d68b64c5cb459842fefaa3336f32810"
+  },
+  "fact_count": 0,
+  "fixture_hashes": {
+    "probe": {
+      "common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+      "descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+      "events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda"
+    },
+    "target-sprites": {
+      "descriptor.mod": "1eaaa9b023c4ee02f7aa64cc2b122ef66258ca3d0b29c33d156cf1bfb13c7b66",
+      "interface/zz_oracle_sprites_a.gfx": "e0904dd568f3066f6d7578b29290906dcffc3d92ff544e2d47bf09b775acc70c",
+      "interface/zz_oracle_sprites_b.gfx": "a6c1725d7d9be840c1bc484996b464359d19d9556951bca85945fe9a5bfca498"
+    }
+  },
+  "game_log_banner": "[23:23:46][game_application.cpp:248]: Game Version: Pegasus v4.4.6",
+  "purpose": "Sprite definition collisions, read from missing-texture diagnostics rather than from the screen. Each losing candidate points at a real vanilla texture and each winning candidate at a path that does not exist, so the game names the resolved definition by its texture path.",
+  "run": "r17-sprites",
+  "staging_hashes": {
+    "activation.json": "5189c4103faa321f3ae841b0973d317d67a75dcb8ef5c497d24ddb0d708a8709",
+    "probe/common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+    "probe/descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+    "probe/events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda",
+    "target-sprites/descriptor.mod": "1eaaa9b023c4ee02f7aa64cc2b122ef66258ca3d0b29c33d156cf1bfb13c7b66",
+    "target-sprites/interface/zz_oracle_sprites_a.gfx": "e0904dd568f3066f6d7578b29290906dcffc3d92ff544e2d47bf09b775acc70c",
+    "target-sprites/interface/zz_oracle_sprites_b.gfx": "a6c1725d7d9be840c1bc484996b464359d19d9556951bca85945fe9a5bfca498"
+  },
+  "stellaris": {
+    "distPlatform": "steam",
+    "modsCompatibilityVersion": "4.4",
+    "rawVersion": "v4.4.6",
+    "version": "Pegasus v4.4.6 (fdde)"
+  },
+  "tier": 1,
+  "warnings": []
+}

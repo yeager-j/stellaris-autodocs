@@ -1,0 +1,27 @@
+# Scripted constants: redefinition.
+#
+# Vanilla's own 00_scripted_variables.txt claims these globals "can be overridden in each
+# normal script file". That is a documented claim about the game, not established resolver
+# policy, so it is measured rather than inherited.
+#
+# Values are chosen far apart so a branch comparison in the probe identifies the winner
+# unambiguously rather than distinguishing near-equal numbers.
+
+# Redefined within one file. If the later definition wins, the consumer sees 2.
+@oracle_const_same_file = 1
+@oracle_const_same_file = 2
+
+# Redefined across two files in one layer. The B side is in zz_oracle_variables_b.txt.
+@oracle_const_cross_file = 10
+
+# Redefined by the consuming script file itself. The event file that reads this declares
+# its own @oracle_const_local, which tests whether a file-local declaration overrides the
+# global for that file only.
+@oracle_const_local = 11
+
+# Exact decimal arithmetic. Stellaris scripted variables are literal substitution with no
+# inline arithmetic, so the addition happens in the game's own numeric representation at
+# runtime. The probe adds these and tests the sum against 0.3 exactly, which distinguishes
+# an exact fixed-point representation from binary floating point.
+@oracle_decimal_a = 0.1
+@oracle_decimal_b = 0.2

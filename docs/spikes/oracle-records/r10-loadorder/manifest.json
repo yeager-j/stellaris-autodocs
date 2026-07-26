@@ -1,0 +1,70 @@
+{
+  "activation": {
+    "dlc_load": {
+      "disabled_dlcs": [],
+      "enabled_mods": [
+        "mod/oracle_probe.mod",
+        "mod/oracle_target-loadorder.mod"
+      ]
+    },
+    "enabled_mods": [
+      "mod/oracle_probe.mod",
+      "mod/oracle_target-loadorder.mod"
+    ]
+  },
+  "artifacts": {
+    "error.normalized.txt": "eb73a30e980600b37fbae81ca50c37038fa1849a7f01b000bc92c518f27c6f80",
+    "oracle-facts.txt": "8ced3c233cd1a340500928429cefd45654c4712b8417c49b52e306b1c100cce1",
+    "tech-status.json": "e31e7f01c39ae3ec50fd1346e626d926c093295dbb01ddd7a2b4ab57a436c0b5"
+  },
+  "canaries": {
+    "probe_complete": true,
+    "probe_loaded": true
+  },
+  "error_log": {
+    "distinct_messages": 190,
+    "raw_lines": 190,
+    "raw_sha256": "ca2691c417810319127fb397b06561bb1405280b09e1e2ebe99fad51eee61723"
+  },
+  "fact_count": 8,
+  "fixture_hashes": {
+    "probe": {
+      "common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+      "descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+      "events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda"
+    },
+    "target-loadorder": {
+      "common/technology/!!!_oracle_tech.txt": "7fe47c2962be6068956ebcf1a6a87f3fd5a6d79f85d42978fff0b97eb4a2e574",
+      "descriptor.mod": "74414f8416f9d9fb354548d761a50246f05b7dca9568a48e20d07a2ebfe14b7e",
+      "events/!!!_oracle_story_override.txt": "c4f7886f3e00ae4c772ace7d5d666a31ae416b4638d694574c37df39435f4976",
+      "events/zz_oracle_loadorder_canary.txt": "fec2799e48db87012956beced0302d52ccfeba59d83471f741482b35e2d33ef7"
+    }
+  },
+  "game_log_banner": "[22:21:53][game_application.cpp:248]: Game Version: Pegasus v4.4.6",
+  "purpose": "Whether a mod overrides a vanilla event by registering earlier, and which enumeration model the game uses. An early-sorting mod filename is applied to both a first-wins registry (events) and a last-wins registry (technologies). The two cannot both win under either model, so the pair of outcomes identifies the model.",
+  "run": "r10-loadorder",
+  "save": {
+    "bytes": 433695,
+    "name": "oracle_r10-loadorder .sav",
+    "relative": "unitednationsofearth8_-1610445430/oracle_r10-loadorder .sav",
+    "sha256": "0c429f9a31341ba53065ee9cc180291e24e13bf71e00bb57136e89346da40b1a"
+  },
+  "staging_hashes": {
+    "activation.json": "4399999776de494d72141184b68791955e5f2754f6b0cc1a8bd13f0a8529e1e5",
+    "probe/common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+    "probe/descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+    "probe/events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda",
+    "target-loadorder/common/technology/!!!_oracle_tech.txt": "7fe47c2962be6068956ebcf1a6a87f3fd5a6d79f85d42978fff0b97eb4a2e574",
+    "target-loadorder/descriptor.mod": "74414f8416f9d9fb354548d761a50246f05b7dca9568a48e20d07a2ebfe14b7e",
+    "target-loadorder/events/!!!_oracle_story_override.txt": "c4f7886f3e00ae4c772ace7d5d666a31ae416b4638d694574c37df39435f4976",
+    "target-loadorder/events/zz_oracle_loadorder_canary.txt": "fec2799e48db87012956beced0302d52ccfeba59d83471f741482b35e2d33ef7"
+  },
+  "stellaris": {
+    "distPlatform": "steam",
+    "modsCompatibilityVersion": "4.4",
+    "rawVersion": "v4.4.6",
+    "version": "Pegasus v4.4.6 (fdde)"
+  },
+  "tier": 2,
+  "warnings": []
+}

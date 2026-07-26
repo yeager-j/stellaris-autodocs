@@ -23,7 +23,7 @@ The primary audience is players. Mod-author inspection and Documentation Export 
 
 Build a local-first desktop application that generates deterministic Player Documentation from a selected Target Mod and the matching Vanilla Content installed on the same computer.
 
-On first launch, the application detects proposed Discovery Locations, presents a confirmable setup screen, and builds a unified Mod Library. The player selects one Target Mod, after which the application parses and resolves that mod against the base game and locally available DLC.
+On first launch, the application detects proposed Discovery Locations, presents a confirmable setup screen, and builds a unified Mod Library. The player selects one Target Mod, after which the application parses and resolves that mod against the base-game file set. Definitions gated by DLC ownership are already present in those files and appear with their DLC requirements.
 
 The main experience is search-first. Search spans technologies, megastructures, buildings, and ship components while allowing category filtering. Technology receives deep Player Documentation in the MVP; the other categories may initially appear as thinner Searchable Entries that expose their direct technology gates and lead into the documented technology path.
 
@@ -70,13 +70,13 @@ All generated cases must also be readable through a Companion-Ready Cache.
 10. As a Stellaris player, I want Declared Dependencies to be visible, so that I understand why cross-mod references may be unresolved.
 11. As a Stellaris player, I want dependency metadata to remain advisory, so that selecting one Target Mod does not silently compose a partial Playset.
 12. As a Stellaris player, I want to select one Target Mod for analysis, so that the resulting documentation has an understandable scope.
-13. As a Stellaris player, I want the Target Mod analyzed against my installed base game and DLC, so that shared Vanilla Content can be resolved.
+13. As a Stellaris player, I want the Target Mod analyzed against my installed base-game files, so that shared Vanilla Content and DLC-gated requirements can be resolved.
 14. As a Stellaris player, I want provenance retained for effective definitions, so that I can see whether behavior comes from Vanilla Content or the Target Mod.
 15. As a Stellaris player, I want cross-mod references outside the selected scope shown as Unresolved References, so that missing context is not silently invented.
 16. As a Stellaris player, I want documentation generated only when I first open a Target Mod, so that initial discovery remains fast.
 17. As a Stellaris player, I want unchanged documentation to load from cache, so that revisiting a mod is fast.
 18. As a Stellaris player, I want edits, additions, deletions, and renames in Mod Source to invalidate stale documentation, so that the cache reflects actual content.
-19. As a Stellaris player, I want game, DLC, parser, resolver, generator, search-index, localization, and asset-conversion changes to invalidate incompatible caches, so that cached documentation remains trustworthy.
+19. As a Stellaris player, I want game, referenced DLC asset, parser, resolver, generator, search-index, localization, and asset-conversion changes to invalidate incompatible caches, so that cached documentation remains trustworthy.
 20. As a Stellaris player, I want a manual Refresh action, so that I can explicitly recheck source after an update.
 21. As a Stellaris player, I do not want constant live filesystem watching during the MVP, so that the player-focused application remains simple.
 22. As a Stellaris player, I want one search box across supported content categories, so that I do not need to know what kind of object I am searching for.
@@ -156,7 +156,7 @@ This section records product-shaping constraints already accepted during discove
 2. The desktop window and Companion Devices use the same React application. The desktop reads through Tauri commands; Companion Devices receive the application and read-only documentation through an embedded HTTP service while Companion Mode is enabled.
 3. The authoritative pipeline is parser and indexer, parsed content, content resolver, provenance-preserving resolved content model, and deterministic documentation generator.
 4. The documentation generator receives resolved content and does not implement mod load-order semantics.
-5. The MVP resolves one Target Mod against base-game and locally available DLC Vanilla Content.
+5. The MVP resolves two source contributors: the base-game Vanilla Content file set and one Target Mod. DLC ownership is a requirement fact rather than a separate definition source.
 6. Full Playset composition is a future resolver capability, not a second documentation pipeline.
 7. Effective definitions retain provenance and future override history rather than being flattened without origin information.
 8. Generated facts are deterministic and rule-based. AI is neither required nor authoritative.
@@ -184,7 +184,7 @@ This section records product-shaping constraints already accepted during discove
 30. The Mod Library unifies multiple Discovery Locations while preserving each physical Mod Installation as a separate entry.
 31. Launcher enabled state, Declared Dependencies, declared versions, and declared game compatibility are advisory metadata rather than analysis identity.
 32. Documentation is generated lazily for a Target Mod.
-33. Cache identity uses normalized relative paths and content, Vanilla/DLC content, and analysis-component versions rather than declared mod version.
+33. Cache identity uses normalized relative paths and content, Vanilla Content, referenced source assets, and analysis-component versions rather than declared mod version.
 34. The MVP checks fingerprints at defined user or application events and does not continuously watch source directories.
 35. Each completed build publishes one immutable Documentation Revision atomically; failed or cancelled builds leave the previous revision readable on the desktop.
 36. Companion Mode is explicit and normally disabled.
@@ -225,7 +225,7 @@ The later technical design may introduce focused lower seams where failures cann
 1. First-launch detection, path correction, and Mod Library creation.
 2. Multiple Discovery Locations and duplicate Mod Installation identity.
 3. Advisory compatibility and dependency warnings.
-4. Content-fingerprint invalidation for edits, additions, deletions, renames, referenced asset-byte changes, Vanilla/DLC updates, and analysis-version changes.
+4. Content-fingerprint invalidation for edits, additions, deletions, renames, referenced asset-byte changes, base-game updates, and analysis-version changes.
 5. Search matching, ranking, category filtering, language behavior, provenance, and default Vanilla filtering.
 6. Structured logical rendering of requirements and blockers.
 7. Eligibility, Draw Weight, Weight Modifier, and Drawable distinctions.
@@ -289,7 +289,7 @@ The following are outside this MVP PRD:
 1. The project name and copyright-holder wording remain undecided.
 2. Parser selection remains provisional until the Jomini real-corpus spike is complete.
 3. The representative ordinary drawable vanilla technology for the golden acceptance set will be pinned when implementation begins.
-4. The first versioned Resolution Profile remains provisional until the reproducible game-oracle spike establishes each required content-family policy.
+4. Pre-implementation resolver evidence collection is complete. The first Resolution Profile remains partial until resolver-backed tests close its named open cells; unresolved cells fail visibly and block only the content types that require them.
 
 ### Validated feasibility
 

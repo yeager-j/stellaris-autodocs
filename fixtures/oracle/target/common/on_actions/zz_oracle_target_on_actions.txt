@@ -1,0 +1,10 @@
+# The target fixture hooks the same on_action as the probe mod, from a differently named
+# file. Whether both events fire is itself an observation: if only one does, on_actions
+# collide rather than merge, and every other measurement in this run was taken under a
+# load order that suppressed part of the instrumentation.
+
+on_game_start_country = {
+	events = {
+		oracle_target.1
+	}
+}

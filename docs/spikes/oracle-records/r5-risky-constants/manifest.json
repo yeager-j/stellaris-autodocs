@@ -1,0 +1,59 @@
+{
+  "activation": {
+    "dlc_load": {
+      "disabled_dlcs": [],
+      "enabled_mods": [
+        "mod/oracle_probe.mod",
+        "mod/oracle_target-risky.mod"
+      ]
+    },
+    "enabled_mods": [
+      "mod/oracle_probe.mod",
+      "mod/oracle_target-risky.mod"
+    ]
+  },
+  "artifacts": {
+    "error.normalized.txt": "25ee3d71c6338a792e384bd23450fb556c514927c79b70a802d685cdce2f25bc",
+    "oracle-facts.txt": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+  },
+  "canaries": {
+    "probe_complete": false,
+    "probe_loaded": false
+  },
+  "error_log": {
+    "distinct_messages": 12,
+    "raw_lines": 12,
+    "raw_sha256": "0a8e4783e8a771430b45f60b12c9118c9b706e609f5eeef7f8f1b7ca3dabc381"
+  },
+  "fact_count": 0,
+  "fixture_hashes": {
+    "probe": {
+      "common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+      "descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+      "events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda"
+    },
+    "target-risky": {
+      "common/scripted_variables/zz_oracle_variables_risky.txt": "a45af9c397a4fb1159cfb2ec27d0b2bf8b6deac7aeb00a048d4af0c8d65af3ae",
+      "descriptor.mod": "27e4b5d12396cf42f6af082f9101b87b4f5872ae7a25819f2e518beef9674adf"
+    }
+  },
+  "game_log_banner": "[21:27:06][game_application.cpp:248]: Game Version: Pegasus v4.4.6",
+  "purpose": "Forward-referenced and cyclic scripted constants, isolated. Evidence is the load-time error.log delta against r0-baseline.",
+  "run": "r5-risky-constants",
+  "staging_hashes": {
+    "activation.json": "b0039ddb04afdc0bfac2126beb81a7e076e9bef799ff3511a81e12f14d4f0813",
+    "probe/common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+    "probe/descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+    "probe/events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda",
+    "target-risky/common/scripted_variables/zz_oracle_variables_risky.txt": "a45af9c397a4fb1159cfb2ec27d0b2bf8b6deac7aeb00a048d4af0c8d65af3ae",
+    "target-risky/descriptor.mod": "27e4b5d12396cf42f6af082f9101b87b4f5872ae7a25819f2e518beef9674adf"
+  },
+  "stellaris": {
+    "distPlatform": "steam",
+    "modsCompatibilityVersion": "4.4",
+    "rawVersion": "v4.4.6",
+    "version": "Pegasus v4.4.6 (fdde)"
+  },
+  "tier": 1,
+  "warnings": []
+}

@@ -1,0 +1,60 @@
+{
+  "alternatives": {
+    "engineering": [
+      "tech_corvette_hull_1",
+      "tech_engineering_1",
+      "tech_powered_exoskeletons"
+    ],
+    "physics": [
+      "tech_lasers_2",
+      "tech_oracle_draw_control",
+      "tech_physics_1"
+    ],
+    "society": [
+      "tech_adaptive_combat_algorithms",
+      "tech_doctrine_fleet_size_1",
+      "tech_doctrine_navy_size_1",
+      "tech_planetary_unification"
+    ]
+  },
+  "player_country": 0,
+  "researched": [
+    "tech_assault_armies",
+    "tech_astral_harvesting",
+    "tech_basic_health",
+    "tech_basic_industry",
+    "tech_basic_science_lab_1",
+    "tech_colonization_1",
+    "tech_colossus",
+    "tech_corvettes",
+    "tech_fission_power",
+    "tech_flak_batteries_1",
+    "tech_holo_entertainment",
+    "tech_hydroponics",
+    "tech_hyper_drive_1",
+    "tech_industrial_farming",
+    "tech_interplanetary_commerce",
+    "tech_lasers_1",
+    "tech_mass_drivers_1",
+    "tech_mechanized_mining",
+    "tech_missiles_1",
+    "tech_oracle_new",
+    "tech_oracle_vanilla_var",
+    "tech_pd_tracking_1",
+    "tech_planetary_defenses",
+    "tech_planetary_government",
+    "tech_power_plant_1",
+    "tech_reactor_boosters_1",
+    "tech_rift_sphere",
+    "tech_shields_1",
+    "tech_ship_armor_1",
+    "tech_solar_panel_network",
+    "tech_space_construction",
+    "tech_space_defense_station_1",
+    "tech_space_exploration",
+    "tech_starbase_1",
+    "tech_starbase_2",
+    "tech_thrusters_1"
+  ],
+  "researched_count": 36
+}

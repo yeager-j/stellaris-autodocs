@@ -1,0 +1,18 @@
+# Scripted effect duplicates.
+#
+# Effects have no return value, so each body sets a distinct country flag and the probe
+# reports which flag exists afterwards. A body that ran leaves a trace; a body that was
+# shadowed leaves none.
+
+# Duplicate within one file, first occurrence.
+oracle_dup_effect = {
+	set_country_flag = oracle_effect_a
+}
+
+# Duplicate within one file, second occurrence.
+oracle_dup_effect = {
+	set_country_flag = oracle_effect_b
+}
+
+# Both flags set would mean duplicate definitions accumulate rather than one shadowing the
+# other. Neither flag set would mean the effect did not resolve at all.

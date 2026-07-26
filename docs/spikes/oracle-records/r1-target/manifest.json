@@ -1,0 +1,83 @@
+{
+  "activation": {
+    "dlc_load": {
+      "disabled_dlcs": [],
+      "enabled_mods": [
+        "mod/oracle_probe.mod",
+        "mod/oracle_target.mod"
+      ]
+    },
+    "enabled_mods": [
+      "mod/oracle_probe.mod",
+      "mod/oracle_target.mod"
+    ]
+  },
+  "artifacts": {
+    "error.normalized.txt": "801abf76114f96d607a0da30fb5de3dc82f26557742d105b8305c90b9dcc22ca",
+    "oracle-facts.txt": "0c57fe31a3ef21750558545d10e4b6776443ebd098f07dd56356a9ee4fc00c77",
+    "tech-status.json": "3f83fa05aac1fc746b694070e7ceac263d357d19046840d29424a2e4e72c87ef"
+  },
+  "canaries": {
+    "probe_complete": true,
+    "probe_loaded": true
+  },
+  "error_log": {
+    "distinct_messages": 37,
+    "raw_lines": 37,
+    "raw_sha256": "5840a69f32a3e2b19e0f01dcdbe73d7fe664c10d5a6d5e315654cba54c47007b"
+  },
+  "fact_count": 18,
+  "fixture_hashes": {
+    "probe": {
+      "common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+      "descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+      "events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda"
+    },
+    "target": {
+      "common/on_actions/zz_oracle_target_on_actions.txt": "f545ecc60c1200583c0cfcfc2ac6a691299d06a77c3dd7ff60c23c2c53390c50",
+      "common/scripted_effects/zz_oracle_effects.txt": "dc3e965cd7d794f704be000be3f71c687858c7cec3ecd5d91d8550278111b5c1",
+      "common/scripted_triggers/zz_oracle_triggers_a.txt": "191eb18d4b4268691849488f548e5a701b3b8fdab64bb71725fab4fa352ff5e7",
+      "common/scripted_triggers/zz_oracle_triggers_b.txt": "4dbc6acdf5391832c6d22e8a343a41b128fc31ac6aaf4a2b1af0500037152d2c",
+      "common/scripted_variables/zz_oracle_variables_a.txt": "5e2ca2df8e200de418d1e82e329252119f12178b08069f8ba35a0d6d23122c75",
+      "common/scripted_variables/zz_oracle_variables_b.txt": "0ced37e96aea52b37f1cafe8735a6fc8b07004c90b07fb36c47612e942a0458a",
+      "common/technology/zz_oracle_tech.txt": "e32c01bfb5407b00478901d6d5b70e49f57202400e37eae4a6abfb55c4f59a21",
+      "descriptor.mod": "8ba86348d2cce0a5766cbe8f6a42b5e4d9a24bfcc9b6daa10ae771266047f5b6",
+      "events/zz_oracle_target.txt": "e074c063672ca75f35db96a103f89246d864b7e2590cf16e91eaf249e92cc9d0"
+    }
+  },
+  "game_log_banner": "[21:22:51][game_application.cpp:248]: Game Version: Pegasus v4.4.6",
+  "purpose": "Treatment. The subject fixture added to the baseline. Supplies the technology key-collision, scripted trigger, scripted effect, and scripted constant results. The path-collision case is deliberately not here; it crashes startup and is isolated in r6.",
+  "run": "r1-target",
+  "save": {
+    "bytes": 483208,
+    "name": "oracle_r1-target.sav",
+    "relative": "unitednationsofearth5_505588286/oracle_r1-target.sav",
+    "sha256": "e19e474f0c7af9f0db8ee53bba0c75a22a6da220790c313f4818f2db4b92a0d4"
+  },
+  "staging_hashes": {
+    "activation.json": "4a192e0b10f602bd2a4edfa9cbfee4bec62c7e53bd5b31a3d8c3b7b3c0c17c82",
+    "probe/common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+    "probe/descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+    "probe/events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda",
+    "target/common/on_actions/zz_oracle_target_on_actions.txt": "f545ecc60c1200583c0cfcfc2ac6a691299d06a77c3dd7ff60c23c2c53390c50",
+    "target/common/scripted_effects/zz_oracle_effects.txt": "dc3e965cd7d794f704be000be3f71c687858c7cec3ecd5d91d8550278111b5c1",
+    "target/common/scripted_triggers/zz_oracle_triggers_a.txt": "191eb18d4b4268691849488f548e5a701b3b8fdab64bb71725fab4fa352ff5e7",
+    "target/common/scripted_triggers/zz_oracle_triggers_b.txt": "4dbc6acdf5391832c6d22e8a343a41b128fc31ac6aaf4a2b1af0500037152d2c",
+    "target/common/scripted_variables/zz_oracle_variables_a.txt": "5e2ca2df8e200de418d1e82e329252119f12178b08069f8ba35a0d6d23122c75",
+    "target/common/scripted_variables/zz_oracle_variables_b.txt": "0ced37e96aea52b37f1cafe8735a6fc8b07004c90b07fb36c47612e942a0458a",
+    "target/common/technology/zz_oracle_tech.txt": "e32c01bfb5407b00478901d6d5b70e49f57202400e37eae4a6abfb55c4f59a21",
+    "target/descriptor.mod": "8ba86348d2cce0a5766cbe8f6a42b5e4d9a24bfcc9b6daa10ae771266047f5b6",
+    "target/events/zz_oracle_target.txt": "e074c063672ca75f35db96a103f89246d864b7e2590cf16e91eaf249e92cc9d0"
+  },
+  "stellaris": {
+    "distPlatform": "steam",
+    "modsCompatibilityVersion": "4.4",
+    "rawVersion": "v4.4.6",
+    "version": "Pegasus v4.4.6 (fdde)"
+  },
+  "superseded_saves": [
+    "unitednationsofearth4_-337465913/oracle_r1-target.sav"
+  ],
+  "tier": 2,
+  "warnings": []
+}

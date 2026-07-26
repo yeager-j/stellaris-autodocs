@@ -1,0 +1,63 @@
+namespace = oracle_loc
+
+# Localization probe: read an effective localized VALUE as a log line.
+#
+# Localization values are normally only visible in the UI, and the spike's own rule is that
+# UI inspection is insufficient where a more direct mechanism exists. One does.
+# `script_documentation/effects.log` documents:
+#
+#     set_empire_name - Sets the name of the current Empire.
+#     set_empire_name = "name_loc_key"
+#
+# The argument is a localization KEY, so setting the empire name to a key and then logging
+# `[This.GetName]` renders that key's effective value into game.log. The reading is the
+# resolved string, machine-readable, with no screenshot involved.
+#
+# An earlier plan was to use the probe's existing `ORACLE|canary|country|…` line, which
+# already prints "United Nations of Earth". That was rejected: the empire name is baked into
+# the empire design at creation rather than re-resolved from a key, so it would not respond
+# to an override and would have produced a confident false negative.
+#
+# SUBJECTS, all defined by vanilla in localisation/english/technology_l_english.yml:
+#
+#   tech_physics_1           "Quantum Computing" - overridden by a LATE-sorting plain file
+#   tech_basic_science_lab_1 "Scientific Method"  - overridden by an EARLY-sorting plain file
+#   tech_society_1           "Xenobiology"        - overridden by the replace/ folder method
+#   tech_engineering_1       "Nanomechanics"      - NEVER overridden by any fixture
+#
+# The wiki claims localisation resolves LIOS, "Last in, only served". If that holds, the
+# late-sorting file wins and the early-sorting one loses, putting localization in the
+# opposite group from events and scripted constants. Two files with the same content on
+# either side of vanilla's technology_l_english.yml turn that claim into a measurement.
+#
+# `tech_engineering_1` is the in-run control. It proves the probe reads real vanilla
+# localization rather than echoing whatever it was handed, and in the same-path run it
+# reports whether the rest of the shadowed vanilla file survived.
+#
+# The four readings are also a self-check on the mechanism. If `set_empire_name` were
+# deferred rather than applied immediately, every line would report the same value; four
+# distinct values prove each set resolved before its log ran.
+
+country_event = {
+	id = oracle_loc.1
+	hide_window = yes
+	is_triggered_only = yes
+
+	immediate = {
+		log = "ORACLE|canary|loc_probe|1"
+
+		set_empire_name = "tech_physics_1"
+		log = "ORACLE|loc|tech_physics_1|[This.GetName]"
+
+		set_empire_name = "tech_society_1"
+		log = "ORACLE|loc|tech_society_1|[This.GetName]"
+
+		set_empire_name = "tech_basic_science_lab_1"
+		log = "ORACLE|loc|tech_basic_science_lab_1|[This.GetName]"
+
+		set_empire_name = "tech_engineering_1"
+		log = "ORACLE|loc|tech_engineering_1|[This.GetName]"
+
+		log = "ORACLE|canary|loc_probe_complete|1"
+	}
+}

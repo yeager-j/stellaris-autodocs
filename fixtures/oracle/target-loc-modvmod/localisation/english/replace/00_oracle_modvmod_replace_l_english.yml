@@ -1,0 +1,14 @@
+﻿l_english:
+
+# REPLACE/ FOLDER, in the same mod, also loaded BEFORE Giga.
+#
+# The wiki says files here "load after all other localisation files". If that holds, this
+# WINS despite its mod loading first, and the pair isolates replace/ as a genuine priority
+# mechanism rather than the load-order artifact r13 could not rule out.
+#
+# r13 could not separate the two: there, both the plain file and the replace/ file beat
+# vanilla, so replace/ having special priority and replace/ merely riding the mod layer
+# looked identical. Putting a later-loading mod on the other side is what distinguishes
+# them.
+
+ giga_start_screen_alderson:0 "ORACLE_MODVMOD_REPLACE"

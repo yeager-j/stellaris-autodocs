@@ -1,0 +1,19 @@
+# Scripted constants: forward reference and cycle.
+#
+# These are isolated in their own mod, loaded only in a dedicated run, because both cases
+# can plausibly fail at load. If they shared a mod with the working constant cases and a
+# failure propagated beyond this file, it would destroy that run's other measurements and
+# the loss would be indistinguishable from the cases simply not resolving.
+#
+# Neither constant is consumed anywhere. Consuming a constant that may not resolve would
+# risk breaking the consuming file too, and the evidence this run needs is load-time
+# diagnostics rather than a runtime value. Evidence is the error.log delta against a run
+# with this mod absent.
+
+# Forward reference: used before the definition it names.
+@oracle_fwd = @oracle_fwd_target
+@oracle_fwd_target = 7
+
+# Cycle: each name resolves only through the other.
+@oracle_cycle_a = @oracle_cycle_b
+@oracle_cycle_b = @oracle_cycle_a

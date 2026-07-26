@@ -1,0 +1,71 @@
+{
+  "activation": {
+    "dlc_load": {
+      "disabled_dlcs": [],
+      "enabled_mods": [
+        "mod/oracle_probe.mod",
+        "mod/oracle_probe-loc.mod",
+        "mod/oracle_target-loc-methods.mod"
+      ]
+    },
+    "enabled_mods": [
+      "mod/oracle_probe.mod",
+      "mod/oracle_probe-loc.mod",
+      "mod/oracle_target-loc-methods.mod"
+    ]
+  },
+  "artifacts": {
+    "error.normalized.txt": "506c89b555babe00ffac26fd2527c1396a0b6acc07736f54531b21293d7f55ae",
+    "oracle-facts.txt": "51593f7c0476d99306548cf60c41a60e20bf142472df0e44ad53a7cf8090311a"
+  },
+  "canaries": {
+    "loc_probe": true,
+    "loc_probe_complete": true
+  },
+  "error_log": {
+    "distinct_messages": 30,
+    "raw_lines": 30,
+    "raw_sha256": "3ce358149420f71670689e6629cb05e0b1bbe951814b4f9f908f0460d5cee4ea"
+  },
+  "fact_count": 6,
+  "fixture_hashes": {
+    "probe": {
+      "common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+      "descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+      "events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda"
+    },
+    "probe-loc": {
+      "descriptor.mod": "ab305a3b6032630a2cb7df86f6de07ec225f54c1e2750e9bd2b145a328dd42a8",
+      "events/zz_oracle_loc_probe.txt": "c7e68aeb09c85cc53628120f3b4584cf4c54fc0ddbcd8a0cd7eac9dcd27ebaa9"
+    },
+    "target-loc-methods": {
+      "descriptor.mod": "cd40a496eeb36f2b661e6cf196807ef1f49fc30dc34a4baaa0ff0be857b4933f",
+      "localisation/english/00_oracle_early_l_english.yml": "919fb7dae56c8c21580a002c7a977f56d13d4213cec4960b25a61243e51d9a0e",
+      "localisation/english/replace/zz_oracle_replace_l_english.yml": "774fceff6005d4c2e71e50d86700df7962cdb6e77bab46c6650ae515dc26b29f",
+      "localisation/english/zz_oracle_l_english.yml": "72d5c6b9203797afcc7e52886874d8e74066b72dbf2f6fed76a1b8fb31e5bc40"
+    }
+  },
+  "game_log_banner": "[22:51:17][game_application.cpp:248]: Game Version: Pegasus v4.4.6",
+  "purpose": "Two localization override methods at once, on different keys so they cannot interfere: a plain new file in localisation/english/ overriding tech_physics_1, and the replace/ subfolder overriding tech_society_1. tech_engineering_1 is overridden by neither and acts as the in-run control.",
+  "run": "r13-loc-methods",
+  "staging_hashes": {
+    "activation.json": "46cb794e77a9cc54d9f06ad41f619b5d5be064a32686be72989964fe37db4a05",
+    "probe-loc/descriptor.mod": "ab305a3b6032630a2cb7df86f6de07ec225f54c1e2750e9bd2b145a328dd42a8",
+    "probe-loc/events/zz_oracle_loc_probe.txt": "c7e68aeb09c85cc53628120f3b4584cf4c54fc0ddbcd8a0cd7eac9dcd27ebaa9",
+    "probe/common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+    "probe/descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+    "probe/events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda",
+    "target-loc-methods/descriptor.mod": "cd40a496eeb36f2b661e6cf196807ef1f49fc30dc34a4baaa0ff0be857b4933f",
+    "target-loc-methods/localisation/english/00_oracle_early_l_english.yml": "919fb7dae56c8c21580a002c7a977f56d13d4213cec4960b25a61243e51d9a0e",
+    "target-loc-methods/localisation/english/replace/zz_oracle_replace_l_english.yml": "774fceff6005d4c2e71e50d86700df7962cdb6e77bab46c6650ae515dc26b29f",
+    "target-loc-methods/localisation/english/zz_oracle_l_english.yml": "72d5c6b9203797afcc7e52886874d8e74066b72dbf2f6fed76a1b8fb31e5bc40"
+  },
+  "stellaris": {
+    "distPlatform": "steam",
+    "modsCompatibilityVersion": "4.4",
+    "rawVersion": "v4.4.6",
+    "version": "Pegasus v4.4.6 (fdde)"
+  },
+  "tier": 2,
+  "warnings": []
+}

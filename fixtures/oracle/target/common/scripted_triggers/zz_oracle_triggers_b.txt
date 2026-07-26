@@ -1,0 +1,7 @@
+# B side of the cross-file scripted trigger duplicate. See zz_oracle_triggers_a.txt.
+#
+# If `oracle_dup_cross_file` evaluates to no, the later file in enumeration order wins.
+
+oracle_dup_cross_file = {
+	always = no
+}
