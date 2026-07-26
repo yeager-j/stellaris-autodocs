@@ -1,0 +1,134 @@
+[
+  {
+    "id": "manifest/clean",
+    "claim": "an untouched bundle validates",
+    "observed": "Validation { missing: [], changed: [], unexpected: [], schema_mismatch: None, identity_mismatch: false }",
+    "passed": true
+  },
+  {
+    "id": "manifest/missing",
+    "claim": "a removed required entry is reported as missing and as nothing else",
+    "observed": "missing=[\"issues.json\"] changed=[] unexpected=[]",
+    "passed": true
+  },
+  {
+    "id": "manifest/changed",
+    "claim": "an edited required entry is reported as changed, not as missing",
+    "observed": "missing=[] changed=[\"issues.json\"]",
+    "passed": true
+  },
+  {
+    "id": "manifest/unexpected",
+    "claim": "a file no manifest entry names is reported as unexpected",
+    "observed": "unexpected=[\"stowaway.json\"] valid=false",
+    "passed": true
+  },
+  {
+    "id": "manifest/restored",
+    "claim": "undoing every injection restores validity, so the detector is reacting to the injections rather than latching",
+    "observed": "Validation { missing: [], changed: [], unexpected: [], schema_mismatch: None, identity_mismatch: false }",
+    "passed": true
+  },
+  {
+    "id": "reader/published",
+    "claim": "a published revision opens",
+    "observed": "ok=true",
+    "passed": true
+  },
+  {
+    "id": "reader/unreferenced",
+    "claim": "a complete but unreferenced bundle is refused",
+    "observed": "no published revision orphan-complete-bundle",
+    "passed": true
+  },
+  {
+    "id": "reader/staging",
+    "claim": "a staging directory name is refused, and is not a revision identifier in the first place",
+    "observed": "no published revision .staging-acot-per_document+closure_in_bundle+search_selected_english",
+    "passed": true
+  },
+  {
+    "id": "views/agree",
+    "claim": "every entry's browse summary, search summary, and full record agree on stable identity, category, provenance, and localization key",
+    "observed": "1460 entries compared, 0 disagreements",
+    "passed": true
+  },
+  {
+    "id": "language/fallback",
+    "claim": "selecting a language reads the same revision and exercises all three fallback steps",
+    "observed": "french selected=696 english=755 raw_key=9",
+    "passed": true
+  },
+  {
+    "id": "language/switch",
+    "claim": "switching language changes displayed names without rebuilding anything",
+    "observed": "573 of 1460 names differ between french and english",
+    "passed": true
+  },
+  {
+    "id": "closure/reference-closed",
+    "claim": "every static reference reachable from a preserved localization value resolves to a key that is also preserved",
+    "observed": "3172 preserved keys, 2981 references followed, 0 unresolved",
+    "passed": true
+  },
+  {
+    "id": "closure/observationally-equal",
+    "claim": "expanding every documented entry's name and description through its static references, in every available language, gives text identical to a model that preserved every key",
+    "observed": "29200 expansions across 10 languages, 2915 references substituted, 0 differing",
+    "passed": true
+  },
+  {
+    "id": "disposable/independent",
+    "claim": "deleting disposable build artifacts leaves revision reads working",
+    "observed": "1460 browse summaries, record present=true",
+    "passed": true
+  },
+  {
+    "id": "assets/required-set",
+    "claim": "every asset reference resolves to a key the manifest requires, and the required set contains nothing else",
+    "observed": "1408 references, 0 not in the required set, 1389 required keys",
+    "passed": true
+  },
+  {
+    "id": "assets/key-stability",
+    "claim": "an asset key is stable for unchanged source bytes and changes when one byte changes",
+    "observed": "stable=true changed=true",
+    "passed": true
+  },
+  {
+    "id": "assets/key-recipe",
+    "claim": "the same source bytes under a different conversion recipe produce a different key",
+    "observed": "png=e46817bf0f08 webp=d609141c3195",
+    "passed": true
+  },
+  {
+    "id": "gc/grace",
+    "claim": "runtime cleanup retains a blob whose key was issued inside the grace period even though no manifest references it",
+    "observed": "Collected { retained: 1391, retained_bytes: 8525070, retained_by_grace: 2, removed: 0, removed_bytes: 0 }",
+    "passed": true
+  },
+  {
+    "id": "gc/sweep",
+    "claim": "a startup sweep keeps every live blob and removes every unreferenced one",
+    "observed": "before=1391 retained=1389 removed=2 remaining=1389",
+    "passed": true
+  },
+  {
+    "id": "gc/negative-control",
+    "claim": "the sweep above actually removes things, so a green result is not a cleanup that never runs",
+    "observed": "2 blobs removed",
+    "passed": true
+  },
+  {
+    "id": "determinism/rebuild",
+    "claim": "a rebuild from unchanged inputs produces the same Revision identifier and required key set",
+    "observed": "expected=df72f1caecb7 rebuilt=df72f1caecb7 asset_keys_equal=true",
+    "passed": true
+  },
+  {
+    "id": "malformed/incomplete",
+    "claim": "malformed source publishes a complete, valid bundle marked Incomplete rather than a partial one, with registry-scoped impact that does not reach unaffected entries",
+    "observed": "bundle_valid=true complete=false registry_incomplete=true recovered_entries=2 swallowed_definition_absent=true file_fault_issues=2 all_at_registry_scope=true entries_carrying_one=0",
+    "passed": true
+  }
+]

@@ -1,0 +1,26 @@
+# b4-checks
+
+ok     manifest/clean             Validation { missing: [], changed: [], unexpected: [], schema_mismatch: None, identity_mismatch: false }
+ok     manifest/missing           missing=["issues.json"] changed=[] unexpected=[]
+ok     manifest/changed           missing=[] changed=["issues.json"]
+ok     manifest/unexpected        unexpected=["stowaway.json"] valid=false
+ok     manifest/restored          Validation { missing: [], changed: [], unexpected: [], schema_mismatch: None, identity_mismatch: false }
+ok     reader/published           ok=true
+ok     reader/unreferenced        no published revision orphan-complete-bundle
+ok     reader/staging             no published revision .staging-acot-per_document+closure_in_bundle+search_selected_english
+ok     views/agree                1460 entries compared, 0 disagreements
+ok     language/fallback          french selected=696 english=755 raw_key=9
+ok     language/switch            573 of 1460 names differ between french and english
+ok     closure/reference-closed   3172 preserved keys, 2981 references followed, 0 unresolved
+ok     closure/observationally-equal 29200 expansions across 10 languages, 2915 references substituted, 0 differing
+ok     disposable/independent     1460 browse summaries, record present=true
+ok     assets/required-set        1408 references, 0 not in the required set, 1389 required keys
+ok     assets/key-stability       stable=true changed=true
+ok     assets/key-recipe          png=e46817bf0f08 webp=d609141c3195
+ok     gc/grace                   Collected { retained: 1391, retained_bytes: 8525070, retained_by_grace: 2, removed: 0, removed_bytes: 0 }
+ok     gc/sweep                   before=1391 retained=1389 removed=2 remaining=1389
+ok     gc/negative-control        2 blobs removed
+ok     determinism/rebuild        expected=df72f1caecb7 rebuilt=df72f1caecb7 asset_keys_equal=true
+ok     malformed/incomplete       bundle_valid=true complete=false registry_incomplete=true recovered_entries=2 swallowed_definition_absent=true file_fault_issues=2 all_at_registry_scope=true entries_carrying_one=0
+
+22 checks, 0 failed

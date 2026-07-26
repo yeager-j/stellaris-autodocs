@@ -1,6 +1,6 @@
 # Decision Log
 
-Last updated: 2026-07-25
+Last updated: 2026-07-26
 
 This log preserves the current product and technical decisions from the design interview. ADRs remain the authoritative record for hard-to-reverse architectural choices; this file also captures reversible product decisions, provisional choices, deferred work, and the next open question.
 
@@ -202,9 +202,9 @@ See [MVP acceptance](./mvp-acceptance.md).
 
 ### Localization and visual assets
 
-**D-014 — Preserve all available localizations**
+**D-014 — Preserve every available language for documented localization**
 
-Ingest every available localization. Display the player's configured Stellaris language, fall back to English, then fall back to the raw localization key or script identifier.
+Ingest the complete resolved localization tables, then preserve every available language for the keys cited by generated documentation plus their Static Localization Reference closure. Unrelated source keys are not retained in the revision. Display the player's configured Stellaris language, fall back to English, then fall back to the raw localization key or script identifier.
 
 See [ADR 0004](./adr/0004-preserve-all-available-localizations.md).
 
@@ -808,23 +808,29 @@ Required dependencies must not introduce reciprocal distribution obligations wit
 
 See [ADR 0006](./adr/0006-license-the-project-under-mit.md).
 
+**D-103 — Store the revision read model as self-contained per-document JSON**
+
+A Documentation Revision is a compiled set of denormalized JSON read models with one file per document, not a relational database and not a sharded one. Every view is materialized from one canonical in-memory documentation model during the same build.
+
+A revision preserves the localization its documentation cites, plus the closure of that set's static references, in every available language. That is 1.15% to 1.45% of preserved localization on the measured slice — 1.74 to 2.59 MiB against 151 to 178 MiB. Following the closure is required rather than defensive: roughly one documented text in ten embeds a static reference, and preserving only directly named keys would render a raw placeholder mid-sentence.
+
+Build-time search material covers the selected language and English, which requirements 21 and 28 name as separate index inputs. If the user later selects another available language, the same search module derives that language's index in memory from the immutable revision and may retain it in the bounded disposable cache. This neither reparses source nor mutates or rebuilds the revision.
+
+The pre-authorized shared Localization Store is not built. It would deduplicate keys no reader reads, and it cost a module, chunk-key manifests, cross-store garbage collection, and roughly half of every build. Sharding was measured and rejected against a file count one seventh of budget. SQLite was measured and not adopted, because no budget failure had a cause the rule assigns to it.
+
+Localization is not resolved from live source at read time. That would save two megabytes and cost the self-contained immutable artifact the rest of the design rests on.
+
+React never addresses bundle files directly. Rust serves product-level reads through the documentation-client transports, so a later internal move to SQLite would still not change the frontend or Companion HTTP representation.
+
+See [ADR 0009](./adr/0009-store-revisions-as-self-contained-per-document-json.md) and [Revision bundle evaluation](./spikes/revision-bundle-evaluation.md).
+
+**D-104 — Run documentation builds as an awaited asynchronous Tauri command**
+
+Measured p95 complete builds are 1.8 to 2.3 seconds for every representative Target Mod, against the declared three-second threshold, and navigation does not need to outlive the invocation. Build work still runs outside the UI and asynchronous I/O execution paths, writes to private staging state, and uses atomic revision publication.
+
+The threshold was missed only while the build chunked 1.5 million localization keys per revision for a shared store that is no longer built. With that removed, the dominant cost is the correctness-first double fingerprint at 50–62% combined, followed by resolution. An explicit host-owned job remains the answer if a deeper generator approaches the threshold again; the single-build-lease rule is independent of either choice.
+
 ## Provisional decisions
-
-**P-002 — Store the revision read model as materialized JSON**
-
-A Documentation Revision is provisionally a compiled set of denormalized JSON read models rather than a relational database. The build materializes predictable browse, search, documentation, localization, diagnostic, and Source Excerpt reads from one canonical in-memory documentation model.
-
-React never addresses bundle files directly. Rust serves product-level reads through the documentation-client transports, so a later internal move to SQLite would not change the frontend or Companion HTTP representation.
-
-The decision requires a real-corpus spike against Vanilla Content, ACOT, Gigastructural Engineering, malformed source, and the redefinition oracle. It declares numeric budgets for open and read latency, retained memory, file count, validation time, and size expansion before measurement. If preserved all-language localization dominates duplication, the first authorized storage lever is immutable content-addressed localization chunks. SQLite remains the broader fallback when JSON misses a declared budget.
-
-See [Revision bundle evaluation](./spikes/revision-bundle-evaluation.md).
-
-**P-003 — Choose the build invocation model from measured duration**
-
-Build work always runs outside the UI and asynchronous I/O execution paths, writes to private staging state, and uses atomic revision publication. Those requirements do not imply an explicit background-job abstraction.
-
-The revision-bundle spike will measure the complete build pipeline. Prefer an awaited asynchronous Tauri command only when p95 complete builds for every representative Target Mod are at most three seconds and navigation need not outlive the invocation. Otherwise introduce stable job identity, reconnectable status, progress reporting, navigation-independent execution, and user cancellation.
 
 **P-004 — Adopt the extracted serializable Result package**
 

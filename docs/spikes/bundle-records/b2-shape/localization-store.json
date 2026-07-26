@@ -1,0 +1,36 @@
+[
+  {
+    "scheme": "whole_language",
+    "per_revision_total_bytes": 1005744144,
+    "unique_bytes": 532851046,
+    "unique_chunks": 31,
+    "total_chunk_references": 60,
+    "recovered_bytes": 472893098,
+    "deduplication_ratio": 1.8874770943022603,
+    "per_revision": {
+      "acot": 163831373,
+      "aot": 165696761,
+      "giga": 190544812,
+      "malformed": 161891344,
+      "redefinition": 161889927,
+      "vanilla": 161889927
+    }
+  },
+  {
+    "scheme": "content_defined",
+    "per_revision_total_bytes": 1005744144,
+    "unique_bytes": 369862566,
+    "unique_chunks": 5553,
+    "total_chunk_references": 17322,
+    "recovered_bytes": 635881578,
+    "deduplication_ratio": 2.719237458596986,
+    "per_revision": {
+      "acot": 163831373,
+      "aot": 165696761,
+      "giga": 190544812,
+      "malformed": 161891344,
+      "redefinition": 161889927,
+      "vanilla": 161889927
+    }
+  }
+]

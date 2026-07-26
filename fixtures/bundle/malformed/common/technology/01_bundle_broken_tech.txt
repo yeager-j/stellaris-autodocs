@@ -1,0 +1,47 @@
+# FAULT: `tech_bundle_broken_swallower`'s opening brace is never closed.
+#
+# Restated from `fixtures/parser/malformed/unclosed_brace_middle.txt`, on a registry path so
+# it can affect a registry's entry set. Two vanilla files ship in exactly this condition —
+# `gfx/models/effects/nomads.gfx` and `common/scripted_loc/scripted_loc_ruloc.txt` each have
+# one more `{` than `}` — so this is a shape the product will meet, not an invented one.
+#
+# EXPECTATION
+#   `tech_bundle_broken_before` is proven before the fault and stays Clean.
+#   `tech_bundle_broken_swallower` cannot be emitted and is absent.
+#   `tech_bundle_broken_after_one` and `_after_two` are emitted after heuristic
+#   resynchronization and are Recovered, because their nesting may have been misattributed.
+#   The technology registry's entry set is incomplete: this file could not be fully read, so
+#   the complete set of technologies cannot be established.
+
+tech_bundle_broken_before = {
+	area = physics
+	cost = 1000
+	tier = 1
+	category = { particles }
+	weight = 30
+}
+
+tech_bundle_broken_swallower = {
+	area = physics
+	cost = 2000
+	tier = 2
+	category = { particles }
+	weight = 15
+
+tech_bundle_broken_after_one = {
+	area = society
+	cost = 1200
+	tier = 1
+	category = { biology }
+	weight = 35
+}
+
+tech_bundle_broken_after_two = {
+	area = society
+	cost = 1800
+	tier = 2
+	category = { biology }
+	weight = 20
+
+	prerequisites = { "tech_bundle_broken_after_one" }
+}

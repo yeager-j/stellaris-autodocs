@@ -149,7 +149,9 @@ The host's application modules are the authority for behavior and state. Local H
 
 Parsing, hashing, generation, and conversion are CPU or filesystem work and must not run on the UI thread or occupy asynchronous I/O workers for their duration. The host runs that work through bounded background execution.
 
-Whether a build is an awaited asynchronous Tauri command or an explicit host-owned job is deferred until representative end-to-end build timings are available. Both implementations use private staging state and the same atomic publication operation. An explicit job model is justified only if builds are long enough to need reconnectable status, meaningful progress, navigation-independent execution, or user cancellation. Neither completed dependency spike decides this: Vanilla Content and one representative large mod parse in roughly 100 ms through the parallel parser-spike adapter, while the DDS spike deliberately captured correctness and determinism rather than throughput. The choice remains based on the complete production build, including resolution, documentation generation, indexing, and conversion of the assets actually referenced by that revision.
+A build is an awaited asynchronous Tauri command rather than an explicit host-owned job. Measured p95 complete builds are 1.8 to 2.3 seconds for every representative Target Mod, against the declared three-second threshold, and navigation does not need to outlive the invocation. Both models would use private staging state and the same atomic publication operation; an explicit job earns its place only when builds are long enough to need reconnectable status, meaningful progress, navigation-independent execution, or user cancellation.
+
+The threshold was missed while the build chunked 1.5 million localization keys per revision to feed a shared store. That store is no longer built, and with it removed the dominant cost is the correctness-first double fingerprint at 50% to 62% combined, followed by resolution at 23% to 31%. Parsing and generation are not what a build spends its time on. If the generator later deepens enough to approach the threshold again, an explicit job is the answer and nothing here forecloses it ([revision bundle evaluation](./spikes/revision-bundle-evaluation.md)).
 
 The Tauri process owns the complete lifecycle. Startup constructs shared host state before Tauri commands accept requests. Enabling Companion Mode starts the LAN HTTP listener only after that state is ready; disabling it stops the listener and invalidates Companion Sessions. Shutdown rejects new work, stops any active listener, safely terminates or drains active build work without publishing incomplete staging state, and then releases cache and configuration resources.
 
@@ -327,7 +329,7 @@ The shared canonical rules are:
 - Search normalization uses a pinned Unicode-data version, Unicode NFKC, default locale-independent case folding, and canonical whitespace collapse. Language-specific display collation never feeds identity or ranking ties.
 - JSON object member order is not authoritative. Bundle hashes use the canonical application encoding and required-entry content hashes, not incidental pretty-printed JSON bytes.
 
-A Revision identifier is the SHA-256 digest of a domain separator plus the canonical manifest body excluding the identifier itself. That body includes the Mod Installation identifier, input fingerprints, referenced source-asset inputs, the full analysis version vector, schema versions, required-entry hashes, required localization-chunk keys when used, and required Asset Store keys. Temporary roots, timestamps, worker schedules, and final bundle paths are excluded.
+A Revision identifier is the SHA-256 digest of a domain separator plus the canonical manifest body excluding the identifier itself. That body includes the Mod Installation identifier, input fingerprints, referenced source-asset inputs, the full analysis version vector, schema versions, required-entry hashes, and required Asset Store keys. Temporary roots, timestamps, worker schedules, and final bundle paths are excluded.
 
 The analysis version vector formally includes source-enumeration policy, parsed-model schema, Resolution Profile, documentation schema and generator, localization interpretation, search normalization and index schema, canonical encoding, Hidden Route identity, Analysis Issue propagation, and every asset conversion recipe. Any semantic change to one component changes its version.
 
@@ -358,9 +360,17 @@ Revision-level completeness is the union of registry-wide and otherwise unscoped
 - Plain-text projection for search indexing.
 - Application-owned display tokens for controlled frontend rendering.
 
-Analysis invokes localization ingestion and tokenization as internal build stages and preserves every available language plus the parsed localization structure in the Revision Candidate. Search index construction uses the localization module's plain-text projection rather than implementing another markup stripper or fallback chain.
+Analysis invokes localization ingestion and tokenization as internal build stages. It resolves the complete source tables, generates documentation, computes the transitive Static Localization Reference closure of the keys that documentation cites across every language at once, and preserves that pruned multilingual structure in the Revision Candidate. Search index construction uses the localization module's plain-text projection rather than implementing another markup stripper or fallback chain.
 
-The revision-bundle spike measures how much this all-language preservation duplicates across revisions. If that duplication is material, the pre-authorized response is an immutable content-addressed Localization Store outside individual bundles. Revision manifests would list required localization-chunk keys, the Revision Reader would validate membership before loading them, and cleanup would derive liveness from retained manifests. This changes physical storage only; selection, fallback, tokenization, and the localization module's semantic authority remain unchanged.
+A revision preserves the localization its documentation **cites**, plus the closure of that set's static references, in every available language — not the complete tables. Measured on the technology slice that is 1.15% to 1.45% of preserved localization: 1.74 to 2.59 MiB against 151 to 178 MiB. The pre-authorized shared content-addressed Localization Store is therefore not built; it would deduplicate keys no reader reads ([ADR 0009](./adr/0009-store-revisions-as-self-contained-per-document-json.md)).
+
+The closure is a correctness surface rather than an optimization. Roughly one documented text in ten embeds a static `$key$` reference, so preserving only the keys named directly would render a raw placeholder mid-sentence. It is taken across every language at once, because a reference present in one translation may be absent from another and a per-language closure would lose text on the language switch that preserving every language exists to protect.
+
+`analysis` owns which keys the documentation cites and the transitive closure over them. `localization` retains its semantic authority over selection, fallback, tokenization, and projection; only the extent of what is stored changes.
+
+The measured closure covers the keys cited by the technology generator's entry names and descriptions. As documentation adds categories, modifiers, requirements, or another content type, its newly cited keys enter the same closure automatically. Each added content type re-runs the bundle-size and closure-equivalence measurements before inheriting the format claim; it does not justify returning to complete source tables by default.
+
+Localization is not resolved from live Mod Source at read time. That would save the remaining two megabytes and cost the property the rest of this design rests on: a revision's rendered content would stop being a function of its identity, reads would depend on Mod Source being present and readable, a stale revision would render current strings against superseded documentation, and Documentation Export could not run without the game installed.
 
 At read time, the Revision Reader supplies preserved localization data to the localization module. An entry request selects a language and receives safe display tokens for text, supported style or color, inline asset references, and visibly raw unsupported constructs. React maps those tokens to controlled components and CSS; it does not parse Stellaris localization strings or recursively resolve references.
 
@@ -399,7 +409,7 @@ An Ensure cache hit skips analysis, conversion, bundle writing, and publication 
 
 The application does not expose independently sequenced Parse, Resolve, Generate, or unchecked Publish commands. Purpose-built desktop diagnostics may inspect a stage through an internal test or debug seam, but they do not require the frontend to understand pipeline ordering or construct a publishable candidate.
 
-Companion Devices receive none of these capabilities. Whether Ensure and Rebuild are awaited Tauri commands or start a host-owned job remains governed by the deferred build-duration decision.
+Companion Devices receive none of these capabilities. Ensure and Rebuild are awaited asynchronous Tauri commands available only through the desktop transport.
 
 ### Build concurrency
 
@@ -423,7 +433,7 @@ The source module implements an optimistic snapshot protocol rather than allowin
 6. Recompute the authoritative live-source fingerprint, including every referenced source asset, immediately before publication.
 7. Publish only when the current paths and contents still match the candidate's snapshot.
 
-A mismatch means the source changed during analysis. The candidate is discarded without changing the published revision, and the desktop receives an expected build outcome. Automatic retry behavior may be chosen with the build invocation model, but no retry may publish a candidate whose input check failed.
+A mismatch means the source changed during analysis. The candidate is discarded without changing the published revision, and the awaited command returns an expected build outcome. A later automatic-retry policy may repeat the complete workflow, but no retry may publish a candidate whose input check failed.
 
 The correctness-first implementation may read and hash source content twice. Filesystem timestamps and cached metadata may avoid unnecessary work only when the authoritative fingerprint protocol still proves the same content identity.
 
@@ -474,7 +484,7 @@ Each Documentation Revision is stored as one immutable directory under an applic
 - Captured Source Excerpts.
 - Logical asset references, the referenced source-asset input set, and the complete set of required Asset Store keys.
 
-A build writes a new bundle in an adjacent staging location on the same filesystem as the revisions location. After validating the manifest, every required entry, and a content-valid Asset Store proof for the exact required-key set, the host moves it to its canonical immutable revision path and atomically changes the application-state pointer for that Mod Installation.
+A build writes a new bundle in an adjacent staging location on the same filesystem as the revisions location. Deleting a superseded bundle is retention cleanup and happens after its last handle closes; it is never part of publication. After validating the manifest, every required entry, and a content-valid Asset Store proof for the exact required-key set, the host moves it to its canonical immutable revision path and atomically changes the application-state pointer for that Mod Installation.
 
 `revisions` owns this complete publication protocol. Application use cases supply the validated Revision Candidate and do not separately move the bundle or mutate state. The module finalizes the bundle, then invokes the narrow state publication-reference capability.
 
@@ -588,7 +598,9 @@ Opening a Target Mod or requesting Refresh performs or joins that installation's
 
 ### Materialized JSON read model
 
-The provisional structured-data format inside a revision bundle is build-time denormalized JSON. A Documentation Revision behaves like a compiled documentation artifact rather than a mutable operational database: it is generated in one batch, has a fixed set of read patterns, and becomes immutable at publication.
+The structured-data format inside a revision bundle is build-time denormalized JSON, one file per document ([ADR 0009](./adr/0009-store-revisions-as-self-contained-per-document-json.md)). A Documentation Revision behaves like a compiled documentation artifact rather than a mutable operational database: it is generated in one batch, has a fixed set of read patterns, and becomes immutable at publication.
+
+Bundle payloads are compact JSON. Only the manifest is human-readable; indentation in documentation records is bytes paid on every read for a form nothing reads.
 
 ### Entry identity
 
@@ -625,17 +637,23 @@ The bundle materializes JSON for:
 - Analysis Issues and revision-level diagnostics.
 - Bounded Source Excerpts when they are not embedded in their documentation record.
 
-The exact file granularity remains subject to the revision-bundle spike. Individual documents may be sharded by category or stable-identity prefix if one-file-per-document produces an excessive file count.
+File granularity is one file per document. Sharding by category or stable-identity prefix was measured and rejected: per-document bundles hold 712 to 1,475 files against a 10,000 budget, and sharding by category puts every technology record in one 3.1 MiB file that a single-entry read would have to parse whole.
+
+Build-time search material covers the effective desktop language and English, which are separate required search inputs. When the effective language is English, the bundle stores one English index rather than duplicating it. This shape measures 1.12× to 1.23× the canonical unsharded payload. Materializing all ten measured languages also passes at 1.47× to 1.67×, but is not adopted because language changes are infrequent and every additional index is derived data.
+
+If a desktop or Companion request later selects another available language, the `search` module deterministically constructs that language's index in memory from the revision's preserved localization and documentation records. It queries that index together with English, deduplicates by Entry Key, and applies one ranking policy. The derived index may enter the bounded disposable cache; it is not written into the immutable bundle, does not participate in Revision identity, and does not reparse Mod Source or rebuild Player Documentation. Build-time and on-demand construction cross the same search-module interface and use the same normalization and encoding-independent entry projection.
 
 Every denormalized representation is derived from one in-memory documentation model during the same build. Search summaries, browse summaries, and full records are never edited or generated through independent rule implementations. Bundle validation checks their identities and required references before publication.
 
-The manifest is human-readable JSON and records the bundle schema version plus hashes for required entries. An incompatible schema invalidates the revision and causes a rebuild; published bundles are not migrated in place.
+The manifest is human-readable JSON and records the bundle schema version plus hashes for required entries and required Asset Store keys. Localization is self-contained in required revision entries; there are no localization-chunk keys or second-store liveness rules. An incompatible schema invalidates the revision and causes a rebuild; published bundles are not migrated in place.
+
+Manifest validation proves integrity, not readability. It hashes bytes; it does not parse them, so a bundle can validate and publish and still fail its first read. The revision-bundle spike hit exactly that: a serializer configured to omit empty collections without a matching read-side default produced bundles whose first entry with no categories could not be decoded. Every persisted revision type therefore carries a round-trip test over a value with every optional field absent, and that test is proved to fail before the fix that makes it pass.
 
 React does not construct bundle paths or fetch revision files directly. The documentation-client interface exposes product reads, and the Rust host loads the appropriate JSON artifacts. Frequently used indexes may be retained in host memory while full documentation records are loaded on demand.
 
 Language-independent document structure refers to preserved localization data rather than duplicating every full documentation record for every language. Per-language search material may be generated because matching and ranking depend on localized names.
 
-If localization is the dominant source of cross-revision duplication, the first fallback is the shared content-addressed Localization Store defined above rather than moving unrelated read data into a database. SQLite remains the broader fallback if a real-corpus spike shows that JSON file count, bundle size, validation time, index memory, or cold-read latency is unsuitable. Either physical change leaves the documentation-client interface and Companion HTTP representation unchanged.
+SQLite was measured and not adopted. Its stated causes are absent by one to three orders of magnitude: retained memory for active browse plus one language's search index is 0.91 MiB against a 256 MiB budget, a cold open that re-hashes all 1,475 required entries takes 35 ms against a 2-second validation budget, and cold search and record reads are under 36 ms against 250 ms. Every budget that failed at any point in the spike failed on what was being written rather than on the format writing it. SQLite remains available if a later content type changes that, and the change would leave the documentation-client interface and Companion HTTP representation unchanged.
 
 ### Host-owned search
 
@@ -644,17 +662,18 @@ Search executes in the Rust host for both transports. React supplies a Mod Insta
 The deep `search` module owns both sides of its persisted contract:
 
 - Deterministic index construction from the canonical documentation model during analysis.
+- Deterministic on-demand construction from the Revision Reader's typed documentation and localization projections when the requested language was not materialized at build time.
 - The versioned application-owned index representation.
 - Encoding and decoding rules for that representation.
 - Query normalization, matching, filtering, deterministic ranking, and bounded result selection.
 
-`analysis` invokes index construction as one internal build stage. Runtime search receives the validated decoded index from a Revision Reader and invokes the same module's query operation. The application layer does not contain a parallel index builder or ranking implementation.
+`analysis` invokes index construction as one internal build stage for the selected language and English. At runtime, the application first asks the Revision Reader for a materialized index. When none exists for the requested language, it passes the reader's typed documentation and localization projections to the same search module for in-memory construction. The application layer does not contain a parallel index builder or ranking implementation.
 
-The host lazily requests the relevant revision-and-language search material from the Revision Reader. Loaded indexes are disposable and may be retained in a bounded in-memory cache; eviction only causes a later reload from the immutable bundle.
+Loaded and on-demand indexes are disposable and may be retained in one bounded in-memory cache. Eviction causes either a later reload of a materialized index or deterministic reconstruction from the immutable revision; it never causes source access or a revision write.
 
 Running search in the host provides identical ranking to desktop and Companion Devices without sending a revision's search index to each browser. Companion authorization and Companion-Ready Cache enforcement occur before the search module receives a revision.
 
-Ranking is deterministic. Exact and prefix localized-name matches precede fuzzy and identifier matches as required by the product specification, and stable content identity breaks otherwise equal ties. The search algorithm, index representation, and memory-cache bound remain subject to real-corpus measurement.
+Ranking is deterministic. Exact and prefix localized-name matches precede typo-tolerant and identifier matches as required by the product specification, and stable content identity breaks otherwise equal ties. The bundle spike established that a decoded flat index is far inside the latency and memory budgets, but deliberately measured storage and speed rather than ranking quality: its substring matcher is not the required typo-tolerant algorithm. The production matcher and any index representation it requires remain undecided pending representative typo fixtures. A decoded single-language candidate index plus browse data retained under one megabyte on the largest measured corpus, so the cache receives a simple byte bound during implementation rather than another storage-format spike.
 
 MVP cancellation is client-side result suppression. Each interactive search increments a request generation and ignores responses from older generations. The HTTP adapter may abort an obsolete fetch to save transfer work, but host cancellation is not part of the operation contract; a Tauri invocation has no cooperative cancellation token. Search input, result count, execution time, and concurrency remain bounded so abandoned host work is limited. Cooperative host cancellation requires a measured need and a new operation contract.
 
@@ -1029,7 +1048,8 @@ Focused lower-level suites exist where the full harness would hide the cause or 
 - Search index round-trips, ranking, filtering, determinism, and bounds.
 - DDS container classification independent of `ddsfile`; the pinned `image_dds` adapter and PNG encoder; recipe and asset-key fixtures; single-layer, premultiplied-alpha, and decoded-size refusals; typed materialization outcomes; injected conversion and staging failures; content validation; and analysis-owned placeholder behavior. Decoder or recipe upgrades must re-run the independent corpus cross-check, its channel-order negative controls, and the reversed-endpoint BC3 regression fixture before their versions enter the production recipe.
 - Analysis Issue evidence dependencies and exact revision, registry, entry, section, fact, and route propagation.
-- Revision schema validation, canonical identity, handle pinning, quarantine-safe cleanup, and injected crash or failure points around bundle completion and state publication.
+- Revision schema validation, canonical identity, handle pinning, quarantine-safe cleanup, and injected crash or failure points around bundle completion and state publication. Every persisted revision type additionally carries a round-trip test over a value with every optional field absent, because manifest validation hashes bytes rather than parsing them and cannot detect a bundle that is intact and undecodable.
+- Cited-key closure completeness: that the closure reached its fixpoint rather than a depth bound, and that expanded display text for every documented entry in every available language is identical to a model preserving every key. Both require a truncated-closure negative control; the second is only meaningful over *expanded* text, because entry name and description keys are closure seeds and survive any truncation.
 - Companion pairing rotation and attempt limits, event-derived readiness transitions, authorization, same-origin enforcement, and read-only boundaries.
 - Every Tauri and HTTP DTO operation and Result union variant.
 - React component behavior, keyboard and touch accessibility, and responsive diagram fallbacks.
@@ -1055,7 +1075,6 @@ The generated Tauri scaffold currently disables Content Security Policy. A relea
 ## Undecided
 
 - Final serialized fields for operation-specific Result payloads.
-- Search algorithm, index representation, and in-memory cache bound.
-- Build invocation model pending representative end-to-end timings.
+- Typo-tolerant search algorithm and any index representation it requires. The bundle spike's substring matcher measured storage and latency, not ranking quality.
 - Unresolved Resolution Profile cells pending resolver-backed investigation.
 - Graph layout implementation.

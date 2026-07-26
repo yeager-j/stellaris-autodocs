@@ -1,0 +1,62 @@
+[
+  {
+    "case": "vanilla",
+    "requested": 674,
+    "converted": 0,
+    "reused": 674,
+    "failed": 0,
+    "source_bytes": 6738036,
+    "output_bytes": 4312689,
+    "distinct_keys": 661
+  },
+  {
+    "case": "acot",
+    "requested": 1408,
+    "converted": 0,
+    "reused": 1408,
+    "failed": 0,
+    "source_bytes": 11247420,
+    "output_bytes": 8639942,
+    "distinct_keys": 1389
+  },
+  {
+    "case": "giga",
+    "requested": 966,
+    "converted": 0,
+    "reused": 966,
+    "failed": 0,
+    "source_bytes": 9632100,
+    "output_bytes": 6067452,
+    "distinct_keys": 950
+  },
+  {
+    "case": "aot",
+    "requested": 807,
+    "converted": 0,
+    "reused": 807,
+    "failed": 0,
+    "source_bytes": 7833956,
+    "output_bytes": 5184491,
+    "distinct_keys": 794
+  },
+  {
+    "case": "malformed",
+    "requested": 674,
+    "converted": 0,
+    "reused": 674,
+    "failed": 0,
+    "source_bytes": 6738036,
+    "output_bytes": 4312689,
+    "distinct_keys": 661
+  },
+  {
+    "case": "redefinition",
+    "requested": 674,
+    "converted": 0,
+    "reused": 674,
+    "failed": 0,
+    "source_bytes": 6738036,
+    "output_bytes": 4312689,
+    "distinct_keys": 661
+  }
+]

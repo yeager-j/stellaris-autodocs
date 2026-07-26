@@ -1,0 +1,105 @@
+{
+  "run": "b2-shape",
+  "purpose": "Bytes and file count for every candidate bundle layout, against the canonical unsharded read-model payload declared as the denominator before capture. Reports what each artifact class contributes, what the materialized views duplicate, and how much of the cross-revision localization total a content-addressed store would recover. Sizes and counts only: no figure here is a wall-clock reading, so the whole record is byte-comparable.",
+  "environment": {
+    "stellaris": {
+      "distPlatform": "steam",
+      "modsCompatibilityVersion": "4.4",
+      "rawVersion": "v4.4.6",
+      "version": "Pegasus v4.4.6 (fdde)"
+    },
+    "jomini": "0.35.0",
+    "image_dds": "0.7.2",
+    "bcdec_rs": "0.2.0",
+    "png": "0.18.1",
+    "parser_spike_source": "26c4575072e127c60410e6b784ba4adf077b7731870922118ea52cf339512cc2",
+    "dds_spike_source": "295ecfe00ccee4942c5fc2a30011c8eda3bebaab7bed0fe84174dfa0581139bc",
+    "bundle_spike_source": "b3d2bf3f739f35b77ad1e1f35af66bc7f18ebb9def02b36b9fa6230c4e594b3d",
+    "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+    "os": "macos",
+    "arch": "aarch64"
+  },
+  "corpora": [
+    {
+      "id": "acot",
+      "title": "Ancient Cache of Technologies (1419304439)",
+      "script_files": 1120,
+      "localisation_files": 46,
+      "total_bytes": 20608178,
+      "tree_digest": "68bb4b3daf193eba3bf7a83d316a56120e3f9e614c3861ddc45c0687a7b55535"
+    },
+    {
+      "id": "aot",
+      "title": "Acquisition of Technology (2178603631)",
+      "script_files": 437,
+      "localisation_files": 240,
+      "total_bytes": 8613813,
+      "tree_digest": "6e67e1ba87c0da3dc0bfa7384bf1cf56c35f964fd26e7fe7a031e747be2d7bc5"
+    },
+    {
+      "id": "giga",
+      "title": "Gigastructural Engineering & More (1121692237)",
+      "script_files": 1792,
+      "localisation_files": 409,
+      "total_bytes": 67054582,
+      "tree_digest": "de4bff5be5816c685a90c339222a94eaef12572782874a43f60e4d615179fd19"
+    },
+    {
+      "id": "malformed",
+      "title": "fixtures/bundle/malformed",
+      "script_files": 4,
+      "localisation_files": 2,
+      "total_bytes": 6919,
+      "tree_digest": "85b9c767df0af0a32844bf3fe8601a68e49d4644504d3b0e0525be8f56785c31",
+      "files": {
+        "common/technology/00_bundle_clean_tech.txt": "64989ee1670a85c1db3a06b1e806926d36ba18312a8d4da1ef3133e548a81a40",
+        "common/technology/01_bundle_broken_tech.txt": "0a0ca9d1e5b787dfdc2c32b73bfee2034cf2445af7966ecb6fb545c1cb5232bf",
+        "common/technology/02_bundle_truncated_tech.txt": "7c15f01bcbb1578176779970f7fbb09447e1303712c375fb88bb08cfd1320c0a",
+        "descriptor.mod": "48a6769a644a6b2a901f8b06dc26c040e7741bae98122f2a6d768c1fd49ad653",
+        "localisation/english/bundle_l_english.yml": "d5b03792589894b3dff3a26b577491869bf256b2f0fd45ed032144a44c8e6ea4",
+        "localisation/french/bundle_l_french.yml": "0fe05f74f95fcdb5a90bc59604c2d2f372eb0a2091e7838e1141f11d8fef01ed"
+      }
+    },
+    {
+      "id": "redefinition",
+      "title": "fixtures/oracle/target",
+      "script_files": 9,
+      "localisation_files": 0,
+      "total_bytes": 12140,
+      "tree_digest": "7a77e7eda29e2363544fadabd73e41203f363c44cdbbdcb27ecd5b0df9c9ad5c",
+      "files": {
+        "common/on_actions/zz_oracle_target_on_actions.txt": "f545ecc60c1200583c0cfcfc2ac6a691299d06a77c3dd7ff60c23c2c53390c50",
+        "common/scripted_effects/zz_oracle_effects.txt": "dc3e965cd7d794f704be000be3f71c687858c7cec3ecd5d91d8550278111b5c1",
+        "common/scripted_triggers/zz_oracle_triggers_a.txt": "191eb18d4b4268691849488f548e5a701b3b8fdab64bb71725fab4fa352ff5e7",
+        "common/scripted_triggers/zz_oracle_triggers_b.txt": "4dbc6acdf5391832c6d22e8a343a41b128fc31ac6aaf4a2b1af0500037152d2c",
+        "common/scripted_variables/zz_oracle_variables_a.txt": "5e2ca2df8e200de418d1e82e329252119f12178b08069f8ba35a0d6d23122c75",
+        "common/scripted_variables/zz_oracle_variables_b.txt": "0ced37e96aea52b37f1cafe8735a6fc8b07004c90b07fb36c47612e942a0458a",
+        "common/technology/zz_oracle_tech.txt": "e32c01bfb5407b00478901d6d5b70e49f57202400e37eae4a6abfb55c4f59a21",
+        "descriptor.mod": "8ba86348d2cce0a5766cbe8f6a42b5e4d9a24bfcc9b6daa10ae771266047f5b6",
+        "events/zz_oracle_target.txt": "e074c063672ca75f35db96a103f89246d864b7e2590cf16e91eaf249e92cc9d0"
+      }
+    },
+    {
+      "id": "vanilla",
+      "title": "Stellaris base game",
+      "script_files": 4578,
+      "localisation_files": 2318,
+      "total_bytes": 227186036,
+      "tree_digest": "817efbce2cf820da6af143b099a03c9753f64097a53296465a1a5820289a43d7"
+    }
+  ],
+  "artifacts": {
+    "cases.json": "8f84631c58e13b9f5dae08e5298f4cfc17d9619abf9d8ff09b75b8d670038688",
+    "localization-store.json": "394ca72ca7aa1dc5f546a8c84febdd322dad03f692508c931ad3fc6e75718035",
+    "shapes.json": "dfb24d553dbde658e2ba2df014be9e92d3eac7e302a73e2d1a4630fb030749b7",
+    "summary.txt": "a653f33a4fb356c9ea8e9c107cf287eb4b7d3012c13a7e2d302ff2d5d85f7551"
+  },
+  "warnings": [
+    "vanilla per_document+all_keys_shared_store+search_all: 2.051x the unsharded payload exceeds the declared 2.0x budget",
+    "acot per_document+all_keys_shared_store+search_all: 2.104x the unsharded payload exceeds the declared 2.0x budget",
+    "giga per_document+all_keys_shared_store+search_all: 2.028x the unsharded payload exceeds the declared 2.0x budget",
+    "aot per_document+all_keys_shared_store+search_all: 2.011x the unsharded payload exceeds the declared 2.0x budget",
+    "malformed per_document+all_keys_shared_store+search_all: 2.057x the unsharded payload exceeds the declared 2.0x budget",
+    "redefinition per_document+all_keys_shared_store+search_all: 2.055x the unsharded payload exceeds the declared 2.0x budget"
+  ]
+}

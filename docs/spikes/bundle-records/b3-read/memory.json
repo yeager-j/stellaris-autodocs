@@ -1,0 +1,56 @@
+[
+  {
+    "case": "vanilla",
+    "entries": 698,
+    "search_entries": 698,
+    "index_retained_bytes": 172772,
+    "browse_retained_bytes": 276397,
+    "rss_delta_bytes": 0,
+    "meets_budget": true
+  },
+  {
+    "case": "acot",
+    "entries": 1460,
+    "search_entries": 1460,
+    "index_retained_bytes": 369275,
+    "browse_retained_bytes": 586173,
+    "rss_delta_bytes": 0,
+    "meets_budget": true
+  },
+  {
+    "case": "giga",
+    "entries": 998,
+    "search_entries": 998,
+    "index_retained_bytes": 257677,
+    "browse_retained_bytes": 402938,
+    "rss_delta_bytes": 0,
+    "meets_budget": true
+  },
+  {
+    "case": "aot",
+    "entries": 862,
+    "search_entries": 862,
+    "index_retained_bytes": 217472,
+    "browse_retained_bytes": 340610,
+    "rss_delta_bytes": 0,
+    "meets_budget": true
+  },
+  {
+    "case": "malformed",
+    "entries": 707,
+    "search_entries": 707,
+    "index_retained_bytes": 175112,
+    "browse_retained_bytes": 278915,
+    "rss_delta_bytes": 0,
+    "meets_budget": true
+  },
+  {
+    "case": "redefinition",
+    "entries": 701,
+    "search_entries": 701,
+    "index_retained_bytes": 173512,
+    "browse_retained_bytes": 277193,
+    "rss_delta_bytes": 0,
+    "meets_budget": true
+  }
+]

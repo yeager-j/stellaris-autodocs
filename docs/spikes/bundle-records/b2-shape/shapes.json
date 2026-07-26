@@ -1,0 +1,704 @@
+[
+  {
+    "case": "vanilla",
+    "shape": "per_document+closure_in_bundle+search_selected_english",
+    "file_count": 712,
+    "total_bytes": 4043226,
+    "bytes_excluding_localization": 2122538,
+    "bytes_by_class": {
+      "browse": 227894,
+      "issues": 56905,
+      "localization": 1920688,
+      "records": 1611694,
+      "search": 139313
+    },
+    "ratio_to_unsharded": 1.126,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "vanilla",
+    "shape": "per_document+closure_in_bundle+search_selected_english_french",
+    "file_count": 713,
+    "total_bytes": 4188016,
+    "bytes_excluding_localization": 2267328,
+    "bytes_by_class": {
+      "browse": 227894,
+      "issues": 56905,
+      "localization": 1920688,
+      "records": 1611694,
+      "search": 284002
+    },
+    "ratio_to_unsharded": 1.166,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "vanilla",
+    "shape": "per_document+closure_in_bundle+search_all",
+    "file_count": 721,
+    "total_bytes": 5346670,
+    "bytes_excluding_localization": 3425982,
+    "bytes_by_class": {
+      "browse": 227894,
+      "issues": 56905,
+      "localization": 1920688,
+      "records": 1611694,
+      "search": 1441912
+    },
+    "ratio_to_unsharded": 1.489,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "vanilla",
+    "shape": "by_category+closure_in_bundle+search_selected_english",
+    "file_count": 15,
+    "total_bytes": 3958943,
+    "bytes_excluding_localization": 2038255,
+    "bytes_by_class": {
+      "browse": 227894,
+      "issues": 56905,
+      "localization": 1920688,
+      "records": 1612393,
+      "search": 139313
+    },
+    "ratio_to_unsharded": 1.103,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "vanilla",
+    "shape": "per_document+all_keys_in_bundle+search_all",
+    "file_count": 721,
+    "total_bytes": 171743530,
+    "bytes_excluding_localization": 3425983,
+    "bytes_by_class": {
+      "browse": 227894,
+      "issues": 56905,
+      "localization": 168317547,
+      "records": 1611694,
+      "search": 1441912
+    },
+    "ratio_to_unsharded": 1.01,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "vanilla",
+    "shape": "per_document+all_keys_shared_store+search_all",
+    "file_count": 711,
+    "total_bytes": 3424973,
+    "bytes_excluding_localization": 3424973,
+    "bytes_by_class": {
+      "browse": 227894,
+      "issues": 56905,
+      "records": 1611694,
+      "search": 1441912
+    },
+    "ratio_to_unsharded": 2.051,
+    "meets_file_budget": true,
+    "meets_size_budget": false
+  },
+  {
+    "case": "vanilla",
+    "shape": "per_document+all_keys_shared_store+search_selected_english",
+    "file_count": 702,
+    "total_bytes": 2121529,
+    "bytes_excluding_localization": 2121529,
+    "bytes_by_class": {
+      "browse": 227894,
+      "issues": 56905,
+      "records": 1611694,
+      "search": 139313
+    },
+    "ratio_to_unsharded": 1.271,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "acot",
+    "shape": "per_document+closure_in_bundle+search_selected_english",
+    "file_count": 1474,
+    "total_bytes": 6475653,
+    "bytes_excluding_localization": 4320901,
+    "bytes_by_class": {
+      "browse": 484850,
+      "issues": 66909,
+      "localization": 2154752,
+      "records": 3288165,
+      "search": 299242
+    },
+    "ratio_to_unsharded": 1.175,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "acot",
+    "shape": "per_document+closure_in_bundle+search_selected_english_french",
+    "file_count": 1475,
+    "total_bytes": 6780362,
+    "bytes_excluding_localization": 4625610,
+    "bytes_by_class": {
+      "browse": 484850,
+      "issues": 66909,
+      "localization": 2154752,
+      "records": 3288165,
+      "search": 603850
+    },
+    "ratio_to_unsharded": 1.23,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "acot",
+    "shape": "per_document+closure_in_bundle+search_all",
+    "file_count": 1483,
+    "total_bytes": 9218066,
+    "bytes_excluding_localization": 7063314,
+    "bytes_by_class": {
+      "browse": 484850,
+      "issues": 66909,
+      "localization": 2154752,
+      "records": 3288165,
+      "search": 3040810
+    },
+    "ratio_to_unsharded": 1.672,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "acot",
+    "shape": "by_category+closure_in_bundle+search_selected_english",
+    "file_count": 15,
+    "total_bytes": 6297127,
+    "bytes_excluding_localization": 4142375,
+    "bytes_by_class": {
+      "browse": 484850,
+      "issues": 66909,
+      "localization": 2154752,
+      "records": 3289626,
+      "search": 299242
+    },
+    "ratio_to_unsharded": 1.142,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "acot",
+    "shape": "per_document+all_keys_in_bundle+search_all",
+    "file_count": 1483,
+    "total_bytes": 177391951,
+    "bytes_excluding_localization": 7063315,
+    "bytes_by_class": {
+      "browse": 484850,
+      "issues": 66909,
+      "localization": 170328636,
+      "records": 3288165,
+      "search": 3040810
+    },
+    "ratio_to_unsharded": 1.021,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "acot",
+    "shape": "per_document+all_keys_shared_store+search_all",
+    "file_count": 1473,
+    "total_bytes": 7062305,
+    "bytes_excluding_localization": 7062305,
+    "bytes_by_class": {
+      "browse": 484850,
+      "issues": 66909,
+      "records": 3288165,
+      "search": 3040810
+    },
+    "ratio_to_unsharded": 2.104,
+    "meets_file_budget": true,
+    "meets_size_budget": false
+  },
+  {
+    "case": "acot",
+    "shape": "per_document+all_keys_shared_store+search_selected_english",
+    "file_count": 1464,
+    "total_bytes": 4319892,
+    "bytes_excluding_localization": 4319892,
+    "bytes_by_class": {
+      "browse": 484850,
+      "issues": 66909,
+      "records": 3288165,
+      "search": 299242
+    },
+    "ratio_to_unsharded": 1.287,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "giga",
+    "shape": "per_document+closure_in_bundle+search_selected_english",
+    "file_count": 1012,
+    "total_bytes": 6061472,
+    "bytes_excluding_localization": 3214639,
+    "bytes_by_class": {
+      "browse": 333419,
+      "issues": 97544,
+      "localization": 2846833,
+      "records": 2448547,
+      "search": 209826
+    },
+    "ratio_to_unsharded": 1.124,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "giga",
+    "shape": "per_document+closure_in_bundle+search_selected_english_french",
+    "file_count": 1013,
+    "total_bytes": 6276775,
+    "bytes_excluding_localization": 3429942,
+    "bytes_by_class": {
+      "browse": 333419,
+      "issues": 97544,
+      "localization": 2846833,
+      "records": 2448547,
+      "search": 425028
+    },
+    "ratio_to_unsharded": 1.164,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "giga",
+    "shape": "per_document+closure_in_bundle+search_all",
+    "file_count": 1021,
+    "total_bytes": 8013839,
+    "bytes_excluding_localization": 5167006,
+    "bytes_by_class": {
+      "browse": 333419,
+      "issues": 97544,
+      "localization": 2846833,
+      "records": 2448547,
+      "search": 2161348
+    },
+    "ratio_to_unsharded": 1.486,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "giga",
+    "shape": "by_category+closure_in_bundle+search_selected_english",
+    "file_count": 15,
+    "total_bytes": 5938915,
+    "bytes_excluding_localization": 3092082,
+    "bytes_by_class": {
+      "browse": 333419,
+      "issues": 97544,
+      "localization": 2846833,
+      "records": 2449546,
+      "search": 209826
+    },
+    "ratio_to_unsharded": 1.101,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "giga",
+    "shape": "per_document+all_keys_in_bundle+search_all",
+    "file_count": 1021,
+    "total_bytes": 203019010,
+    "bytes_excluding_localization": 5167007,
+    "bytes_by_class": {
+      "browse": 333419,
+      "issues": 97544,
+      "localization": 197852003,
+      "records": 2448547,
+      "search": 2161348
+    },
+    "ratio_to_unsharded": 1.013,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "giga",
+    "shape": "per_document+all_keys_shared_store+search_all",
+    "file_count": 1011,
+    "total_bytes": 5165997,
+    "bytes_excluding_localization": 5165997,
+    "bytes_by_class": {
+      "browse": 333419,
+      "issues": 97544,
+      "records": 2448547,
+      "search": 2161348
+    },
+    "ratio_to_unsharded": 2.028,
+    "meets_file_budget": true,
+    "meets_size_budget": false
+  },
+  {
+    "case": "giga",
+    "shape": "per_document+all_keys_shared_store+search_selected_english",
+    "file_count": 1002,
+    "total_bytes": 3213630,
+    "bytes_excluding_localization": 3213630,
+    "bytes_by_class": {
+      "browse": 333419,
+      "issues": 97544,
+      "records": 2448547,
+      "search": 209826
+    },
+    "ratio_to_unsharded": 1.262,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "aot",
+    "shape": "per_document+closure_in_bundle+search_selected_english",
+    "file_count": 876,
+    "total_bytes": 5228037,
+    "bytes_excluding_localization": 2741330,
+    "bytes_by_class": {
+      "browse": 282562,
+      "issues": 67213,
+      "localization": 2486707,
+      "records": 2108021,
+      "search": 176141
+    },
+    "ratio_to_unsharded": 1.121,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "aot",
+    "shape": "per_document+closure_in_bundle+search_selected_english_french",
+    "file_count": 877,
+    "total_bytes": 5409655,
+    "bytes_excluding_localization": 2922948,
+    "bytes_by_class": {
+      "browse": 282562,
+      "issues": 67213,
+      "localization": 2486707,
+      "records": 2108021,
+      "search": 357658
+    },
+    "ratio_to_unsharded": 1.16,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "aot",
+    "shape": "per_document+closure_in_bundle+search_all",
+    "file_count": 885,
+    "total_bytes": 6864303,
+    "bytes_excluding_localization": 4377596,
+    "bytes_by_class": {
+      "browse": 282562,
+      "issues": 67213,
+      "localization": 2486707,
+      "records": 2108021,
+      "search": 1811562
+    },
+    "ratio_to_unsharded": 1.472,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "aot",
+    "shape": "by_category+closure_in_bundle+search_selected_english",
+    "file_count": 15,
+    "total_bytes": 5123253,
+    "bytes_excluding_localization": 2636546,
+    "bytes_by_class": {
+      "browse": 282562,
+      "issues": 67213,
+      "localization": 2486707,
+      "records": 2108884,
+      "search": 176141
+    },
+    "ratio_to_unsharded": 1.098,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "aot",
+    "shape": "per_document+all_keys_in_bundle+search_all",
+    "file_count": 885,
+    "total_bytes": 176639539,
+    "bytes_excluding_localization": 4377597,
+    "bytes_by_class": {
+      "browse": 282562,
+      "issues": 67213,
+      "localization": 172261942,
+      "records": 2108021,
+      "search": 1811562
+    },
+    "ratio_to_unsharded": 1.013,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "aot",
+    "shape": "per_document+all_keys_shared_store+search_all",
+    "file_count": 875,
+    "total_bytes": 4376587,
+    "bytes_excluding_localization": 4376587,
+    "bytes_by_class": {
+      "browse": 282562,
+      "issues": 67213,
+      "records": 2108021,
+      "search": 1811562
+    },
+    "ratio_to_unsharded": 2.011,
+    "meets_file_budget": true,
+    "meets_size_budget": false
+  },
+  {
+    "case": "aot",
+    "shape": "per_document+all_keys_shared_store+search_selected_english",
+    "file_count": 866,
+    "total_bytes": 2740321,
+    "bytes_excluding_localization": 2740321,
+    "bytes_by_class": {
+      "browse": 282562,
+      "issues": 67213,
+      "records": 2108021,
+      "search": 176141
+    },
+    "ratio_to_unsharded": 1.259,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "malformed",
+    "shape": "per_document+closure_in_bundle+search_selected_english",
+    "file_count": 721,
+    "total_bytes": 4062962,
+    "bytes_excluding_localization": 2140781,
+    "bytes_by_class": {
+      "browse": 230421,
+      "issues": 59505,
+      "localization": 1922181,
+      "records": 1621739,
+      "search": 141221
+    },
+    "ratio_to_unsharded": 1.127,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "malformed",
+    "shape": "per_document+closure_in_bundle+search_selected_english_french",
+    "file_count": 722,
+    "total_bytes": 4209672,
+    "bytes_excluding_localization": 2287491,
+    "bytes_by_class": {
+      "browse": 230421,
+      "issues": 59505,
+      "localization": 1922181,
+      "records": 1621739,
+      "search": 287830
+    },
+    "ratio_to_unsharded": 1.168,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "malformed",
+    "shape": "per_document+closure_in_bundle+search_all",
+    "file_count": 730,
+    "total_bytes": 5383590,
+    "bytes_excluding_localization": 3461409,
+    "bytes_by_class": {
+      "browse": 230421,
+      "issues": 59505,
+      "localization": 1922181,
+      "records": 1621739,
+      "search": 1461004
+    },
+    "ratio_to_unsharded": 1.493,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "malformed",
+    "shape": "by_category+closure_in_bundle+search_selected_english",
+    "file_count": 15,
+    "total_bytes": 3977547,
+    "bytes_excluding_localization": 2055366,
+    "bytes_by_class": {
+      "browse": 230421,
+      "issues": 59505,
+      "localization": 1922181,
+      "records": 1622447,
+      "search": 141221
+    },
+    "ratio_to_unsharded": 1.103,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "malformed",
+    "shape": "per_document+all_keys_in_bundle+search_all",
+    "file_count": 730,
+    "total_bytes": 171780450,
+    "bytes_excluding_localization": 3461410,
+    "bytes_by_class": {
+      "browse": 230421,
+      "issues": 59505,
+      "localization": 168319040,
+      "records": 1621739,
+      "search": 1461004
+    },
+    "ratio_to_unsharded": 1.01,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "malformed",
+    "shape": "per_document+all_keys_shared_store+search_all",
+    "file_count": 720,
+    "total_bytes": 3460400,
+    "bytes_excluding_localization": 3460400,
+    "bytes_by_class": {
+      "browse": 230421,
+      "issues": 59505,
+      "records": 1621739,
+      "search": 1461004
+    },
+    "ratio_to_unsharded": 2.057,
+    "meets_file_budget": true,
+    "meets_size_budget": false
+  },
+  {
+    "case": "malformed",
+    "shape": "per_document+all_keys_shared_store+search_selected_english",
+    "file_count": 711,
+    "total_bytes": 2139772,
+    "bytes_excluding_localization": 2139772,
+    "bytes_by_class": {
+      "browse": 230421,
+      "issues": 59505,
+      "records": 1621739,
+      "search": 141221
+    },
+    "ratio_to_unsharded": 1.272,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "redefinition",
+    "shape": "per_document+closure_in_bundle+search_selected_english",
+    "file_count": 715,
+    "total_bytes": 4045915,
+    "bytes_excluding_localization": 2125227,
+    "bytes_by_class": {
+      "browse": 228693,
+      "issues": 57147,
+      "localization": 1920688,
+      "records": 1612379,
+      "search": 139909
+    },
+    "ratio_to_unsharded": 1.126,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "redefinition",
+    "shape": "per_document+closure_in_bundle+search_selected_english_french",
+    "file_count": 716,
+    "total_bytes": 4191301,
+    "bytes_excluding_localization": 2270613,
+    "bytes_by_class": {
+      "browse": 228693,
+      "issues": 57147,
+      "localization": 1920688,
+      "records": 1612379,
+      "search": 285194
+    },
+    "ratio_to_unsharded": 1.167,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "redefinition",
+    "shape": "per_document+closure_in_bundle+search_all",
+    "file_count": 724,
+    "total_bytes": 5354723,
+    "bytes_excluding_localization": 3434035,
+    "bytes_by_class": {
+      "browse": 228693,
+      "issues": 57147,
+      "localization": 1920688,
+      "records": 1612379,
+      "search": 1447872
+    },
+    "ratio_to_unsharded": 1.491,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "redefinition",
+    "shape": "by_category+closure_in_bundle+search_selected_english",
+    "file_count": 15,
+    "total_bytes": 3961273,
+    "bytes_excluding_localization": 2040585,
+    "bytes_by_class": {
+      "browse": 228693,
+      "issues": 57147,
+      "localization": 1920688,
+      "records": 1613081,
+      "search": 139909
+    },
+    "ratio_to_unsharded": 1.103,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "redefinition",
+    "shape": "per_document+all_keys_in_bundle+search_all",
+    "file_count": 724,
+    "total_bytes": 171751583,
+    "bytes_excluding_localization": 3434036,
+    "bytes_by_class": {
+      "browse": 228693,
+      "issues": 57147,
+      "localization": 168317547,
+      "records": 1612379,
+      "search": 1447872
+    },
+    "ratio_to_unsharded": 1.01,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  },
+  {
+    "case": "redefinition",
+    "shape": "per_document+all_keys_shared_store+search_all",
+    "file_count": 714,
+    "total_bytes": 3433026,
+    "bytes_excluding_localization": 3433026,
+    "bytes_by_class": {
+      "browse": 228693,
+      "issues": 57147,
+      "records": 1612379,
+      "search": 1447872
+    },
+    "ratio_to_unsharded": 2.055,
+    "meets_file_budget": true,
+    "meets_size_budget": false
+  },
+  {
+    "case": "redefinition",
+    "shape": "per_document+all_keys_shared_store+search_selected_english",
+    "file_count": 705,
+    "total_bytes": 2124218,
+    "bytes_excluding_localization": 2124218,
+    "bytes_by_class": {
+      "browse": 228693,
+      "issues": 57147,
+      "records": 1612379,
+      "search": 139909
+    },
+    "ratio_to_unsharded": 1.272,
+    "meets_file_budget": true,
+    "meets_size_budget": true
+  }
+]

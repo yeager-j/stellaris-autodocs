@@ -1,0 +1,41 @@
+# b3-read  shape per_document+closure_in_bundle+search_selected_english
+
+measurement                            median        p95        max     budget  verdict
+warm_record_read:vanilla                 0.01       0.02       0.03        100       ok
+warm_search:vanilla                      0.09       0.11       0.18        100       ok
+cold_open:vanilla                       17.09      18.24      18.26        500       ok
+cold_search:vanilla                     17.46      18.65      18.96        250       ok
+cold_record:vanilla                     17.60      22.16      35.82        250       ok
+warm_record_read:acot                    0.01       0.02       0.02        100       ok
+warm_search:acot                         0.20       0.22       0.22        100       ok
+cold_open:acot                          33.54      35.42      35.79        500       ok
+cold_search:acot                        33.76      35.03      35.17        250       ok
+cold_record:acot                        34.42      35.13      35.28        250       ok
+warm_record_read:giga                    0.02       0.04       0.04        100       ok
+warm_search:giga                         0.14       0.14       0.14        100       ok
+cold_open:giga                          25.26      26.15      26.44        500       ok
+cold_search:giga                        25.97      27.33      54.25        250       ok
+cold_record:giga                        25.82      26.75      26.85        250       ok
+warm_record_read:aot                     0.02       0.03       0.03        100       ok
+warm_search:aot                          0.11       0.12       0.12        100       ok
+cold_open:aot                           21.69      22.62      22.85        500       ok
+cold_search:aot                         22.35      23.42      23.70        250       ok
+cold_record:aot                         22.42      23.73      23.88        250       ok
+warm_record_read:malformed               0.01       0.02       0.03        100       ok
+warm_search:malformed                    0.09       0.09       0.10        100       ok
+cold_open:malformed                     17.35      18.59      18.67        500       ok
+cold_search:malformed                   17.65      18.83      19.56        250       ok
+cold_record:malformed                   18.66      19.80      20.18        250       ok
+warm_record_read:redefinition            0.02       0.03       0.03        100       ok
+warm_search:redefinition                 0.09       0.10       0.11        100       ok
+cold_open:redefinition                  16.95      25.96      30.13        500       ok
+cold_search:redefinition                17.52      18.56      20.52        250       ok
+cold_record:redefinition                17.40      18.23      18.65        250       ok
+
+case            entries    index bytes   browse bytes      rss delta   budget
+vanilla             698          0.16M          0.26M          0.00M       ok
+acot               1460          0.35M          0.56M          0.00M       ok
+giga                998          0.25M          0.38M          0.00M       ok
+aot                 862          0.21M          0.32M          0.00M       ok
+malformed           707          0.17M          0.27M          0.00M       ok
+redefinition        701          0.17M          0.26M          0.00M       ok

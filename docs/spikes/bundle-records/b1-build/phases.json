@@ -1,0 +1,122 @@
+[
+  {
+    "case": "vanilla",
+    "cold_share_percent": {
+      "assets": 18.7,
+      "fingerprint": 24.2,
+      "generate": 0.5,
+      "localization_chunk": 0.0,
+      "publish": 1.0,
+      "resolve": 26.4,
+      "reverify": 25.5,
+      "validate": 0.9,
+      "write": 2.8
+    },
+    "revision": "d34769ee4b3d7365892b999fc258bcf3131de2da2b67186731149e461ee77082",
+    "entries": 698,
+    "bundle_files": 712,
+    "bundle_bytes": 4189224,
+    "required_asset_keys": 661,
+    "required_localization_chunks": 0
+  },
+  {
+    "case": "acot",
+    "cold_share_percent": {
+      "assets": 18.8,
+      "fingerprint": 24.4,
+      "generate": 0.5,
+      "localization_chunk": 0.0,
+      "publish": 1.6,
+      "resolve": 22.5,
+      "reverify": 25.3,
+      "validate": 1.4,
+      "write": 5.5
+    },
+    "revision": "df72f1caecb7f96290cf0e02e88f3f115dc7e4da2380e740f646bda7131e170c",
+    "entries": 1460,
+    "bundle_files": 1474,
+    "bundle_bytes": 6781231,
+    "required_asset_keys": 1389,
+    "required_localization_chunks": 0
+  },
+  {
+    "case": "giga",
+    "cold_share_percent": {
+      "assets": 7.4,
+      "fingerprint": 29.5,
+      "generate": 0.5,
+      "localization_chunk": 0.0,
+      "publish": 1.2,
+      "resolve": 26.6,
+      "reverify": 30.0,
+      "validate": 1.1,
+      "write": 3.6
+    },
+    "revision": "848152baa3d6053b91bb8343f6a4d7b80f6819274a11879ab25de54cd9401891",
+    "entries": 998,
+    "bundle_files": 1012,
+    "bundle_bytes": 6270910,
+    "required_asset_keys": 950,
+    "required_localization_chunks": 0
+  },
+  {
+    "case": "aot",
+    "cold_share_percent": {
+      "assets": 5.1,
+      "fingerprint": 29.5,
+      "generate": 0.5,
+      "localization_chunk": 0.0,
+      "publish": 1.3,
+      "resolve": 29.0,
+      "reverify": 29.6,
+      "validate": 1.2,
+      "write": 3.7
+    },
+    "revision": "90d78bac4869e0a1c28a443ff9c1f6acad40a721db39b00ee3c54ff1fb84ddc5",
+    "entries": 862,
+    "bundle_files": 876,
+    "bundle_bytes": 5403029,
+    "required_asset_keys": 794,
+    "required_localization_chunks": 0
+  },
+  {
+    "case": "malformed",
+    "cold_share_percent": {
+      "assets": 1.5,
+      "fingerprint": 31.2,
+      "generate": 0.5,
+      "localization_chunk": 0.0,
+      "publish": 1.1,
+      "resolve": 30.7,
+      "reverify": 30.7,
+      "validate": 1.0,
+      "write": 3.3
+    },
+    "revision": "61d50a343d3617240a936ebd899ae2980413d012462d79908624ad64975b1a6a",
+    "entries": 707,
+    "bundle_files": 721,
+    "bundle_bytes": 4208960,
+    "required_asset_keys": 661,
+    "required_localization_chunks": 0
+  },
+  {
+    "case": "redefinition",
+    "cold_share_percent": {
+      "assets": 1.5,
+      "fingerprint": 31.1,
+      "generate": 0.5,
+      "localization_chunk": 0.0,
+      "publish": 1.1,
+      "resolve": 30.6,
+      "reverify": 30.8,
+      "validate": 1.0,
+      "write": 3.3
+    },
+    "revision": "2473dd78b8a84668e7e037e113fcea7278721eaf91d69ea802c2a30c7ee14aac",
+    "entries": 701,
+    "bundle_files": 715,
+    "bundle_bytes": 4191913,
+    "required_asset_keys": 661,
+    "required_localization_chunks": 0
+  }
+]

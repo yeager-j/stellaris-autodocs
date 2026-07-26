@@ -1,0 +1,89 @@
+# The negative control for completeness propagation.
+#
+# Nothing in this file is malformed. Two files beside it are, and the technology registry's
+# entry set is therefore incomplete — but that is a fact about the registry, not about these
+# four entries. Their evidence was read cleanly and their documented facts are complete.
+#
+# `docs/technical-design.md:336` is explicit that impact propagates along recorded dependency
+# edges only. If an entry here acquires an entry-scoped Analysis Issue, propagation has
+# widened from "the registry set is unknown" to "everything in the registry is suspect", and
+# the check that catches it is this file.
+
+tech_bundle_clean_lattice = {
+	area = engineering
+	cost = 1000
+	tier = 1
+	category = { materials }
+	weight = 25
+
+	prerequisites = { "tech_bundle_clean_alloys" }
+
+	potential = {
+		has_ethic = ethic_materialist
+	}
+
+	weight_modifier = {
+		factor = 2
+		modifier = {
+			factor = 1.5
+			has_tradition = tr_discovery_adopt
+		}
+		modifier = {
+			factor = 0
+			NOT = {
+				has_technology = tech_bundle_clean_alloys
+			}
+		}
+	}
+}
+
+tech_bundle_clean_alloys = {
+	area = engineering
+	cost = 500
+	tier = 0
+	category = { materials }
+	weight = 80
+	start_tech = yes
+}
+
+# An OR group and a negation, so the structured-requirement projection has both shapes to
+# generate from rather than only conjunction (`docs/decision-log.md` D-006).
+tech_bundle_clean_computing = {
+	area = physics
+	cost = 2000
+	tier = 2
+	category = { computing }
+	weight = 40
+
+	prerequisites = { "tech_bundle_clean_lattice" }
+
+	potential = {
+		OR = {
+			has_ethic = ethic_materialist
+			has_ethic = ethic_fanatic_materialist
+		}
+		NOT = {
+			has_civic = civic_fanatic_purifiers
+		}
+	}
+}
+
+# Zero base weight with a conditional restoration: the conditional zero-weight golden case
+# from `docs/mvp-acceptance.md`, which the documentation must explain rather than present as
+# undrawable.
+tech_bundle_clean_conditional = {
+	area = society
+	cost = 3000
+	tier = 3
+	category = { statecraft }
+	weight = 0
+
+	prerequisites = { "tech_bundle_clean_computing" }
+
+	weight_modifier = {
+		modifier = {
+			factor = 20
+			has_ascension_perk = ap_technological_ascendancy
+		}
+	}
+}

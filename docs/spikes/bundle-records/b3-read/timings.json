@@ -1,0 +1,317 @@
+{
+  "shape": "per_document+closure_in_bundle+search_selected_english",
+  "iterations": 30,
+  "warmup": 5,
+  "budgets_ms": {
+    "cold_open": 500.0,
+    "cold_open_validation": 2000.0,
+    "cold_record": 250.0,
+    "cold_search": 250.0,
+    "warm_record_read": 100.0,
+    "warm_search": 100.0
+  },
+  "distributions": [
+    {
+      "label": "warm_record_read:vanilla",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 0.01,
+      "median_ms": 0.01,
+      "p95_ms": 0.02,
+      "max_ms": 0.03
+    },
+    {
+      "label": "warm_search:vanilla",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 0.08,
+      "median_ms": 0.09,
+      "p95_ms": 0.11,
+      "max_ms": 0.18
+    },
+    {
+      "label": "cold_open:vanilla",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 16.81,
+      "median_ms": 17.09,
+      "p95_ms": 18.24,
+      "max_ms": 18.26
+    },
+    {
+      "label": "cold_search:vanilla",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 17.09,
+      "median_ms": 17.46,
+      "p95_ms": 18.65,
+      "max_ms": 18.96
+    },
+    {
+      "label": "cold_record:vanilla",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 17.32,
+      "median_ms": 17.6,
+      "p95_ms": 22.16,
+      "max_ms": 35.82
+    },
+    {
+      "label": "warm_record_read:acot",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 0.01,
+      "median_ms": 0.01,
+      "p95_ms": 0.02,
+      "max_ms": 0.02
+    },
+    {
+      "label": "warm_search:acot",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 0.2,
+      "median_ms": 0.2,
+      "p95_ms": 0.22,
+      "max_ms": 0.22
+    },
+    {
+      "label": "cold_open:acot",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 32.41,
+      "median_ms": 33.54,
+      "p95_ms": 35.42,
+      "max_ms": 35.79
+    },
+    {
+      "label": "cold_search:acot",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 33.2,
+      "median_ms": 33.76,
+      "p95_ms": 35.03,
+      "max_ms": 35.17
+    },
+    {
+      "label": "cold_record:acot",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 33.19,
+      "median_ms": 34.42,
+      "p95_ms": 35.13,
+      "max_ms": 35.28
+    },
+    {
+      "label": "warm_record_read:giga",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 0.01,
+      "median_ms": 0.02,
+      "p95_ms": 0.04,
+      "max_ms": 0.04
+    },
+    {
+      "label": "warm_search:giga",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 0.14,
+      "median_ms": 0.14,
+      "p95_ms": 0.14,
+      "max_ms": 0.14
+    },
+    {
+      "label": "cold_open:giga",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 24.87,
+      "median_ms": 25.26,
+      "p95_ms": 26.15,
+      "max_ms": 26.44
+    },
+    {
+      "label": "cold_search:giga",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 25.41,
+      "median_ms": 25.97,
+      "p95_ms": 27.33,
+      "max_ms": 54.25
+    },
+    {
+      "label": "cold_record:giga",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 25.38,
+      "median_ms": 25.82,
+      "p95_ms": 26.75,
+      "max_ms": 26.85
+    },
+    {
+      "label": "warm_record_read:aot",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 0.01,
+      "median_ms": 0.02,
+      "p95_ms": 0.03,
+      "max_ms": 0.03
+    },
+    {
+      "label": "warm_search:aot",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 0.11,
+      "median_ms": 0.11,
+      "p95_ms": 0.12,
+      "max_ms": 0.12
+    },
+    {
+      "label": "cold_open:aot",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 21.34,
+      "median_ms": 21.69,
+      "p95_ms": 22.62,
+      "max_ms": 22.85
+    },
+    {
+      "label": "cold_search:aot",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 21.95,
+      "median_ms": 22.35,
+      "p95_ms": 23.42,
+      "max_ms": 23.7
+    },
+    {
+      "label": "cold_record:aot",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 22.05,
+      "median_ms": 22.42,
+      "p95_ms": 23.73,
+      "max_ms": 23.88
+    },
+    {
+      "label": "warm_record_read:malformed",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 0.01,
+      "median_ms": 0.01,
+      "p95_ms": 0.02,
+      "max_ms": 0.03
+    },
+    {
+      "label": "warm_search:malformed",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 0.09,
+      "median_ms": 0.09,
+      "p95_ms": 0.09,
+      "max_ms": 0.1
+    },
+    {
+      "label": "cold_open:malformed",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 16.94,
+      "median_ms": 17.35,
+      "p95_ms": 18.59,
+      "max_ms": 18.67
+    },
+    {
+      "label": "cold_search:malformed",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 17.39,
+      "median_ms": 17.65,
+      "p95_ms": 18.83,
+      "max_ms": 19.56
+    },
+    {
+      "label": "cold_record:malformed",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 17.61,
+      "median_ms": 18.66,
+      "p95_ms": 19.8,
+      "max_ms": 20.18
+    },
+    {
+      "label": "warm_record_read:redefinition",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 0.01,
+      "median_ms": 0.02,
+      "p95_ms": 0.03,
+      "max_ms": 0.03
+    },
+    {
+      "label": "warm_search:redefinition",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 0.09,
+      "median_ms": 0.09,
+      "p95_ms": 0.1,
+      "max_ms": 0.11
+    },
+    {
+      "label": "cold_open:redefinition",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 16.72,
+      "median_ms": 16.95,
+      "p95_ms": 25.96,
+      "max_ms": 30.13
+    },
+    {
+      "label": "cold_search:redefinition",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 17.17,
+      "median_ms": 17.52,
+      "p95_ms": 18.56,
+      "max_ms": 20.52
+    },
+    {
+      "label": "cold_record:redefinition",
+      "warmup_iterations": 5,
+      "measured_iterations": 30,
+      "min_ms": 17.18,
+      "median_ms": 17.4,
+      "p95_ms": 18.23,
+      "max_ms": 18.65
+    }
+  ],
+  "budget_outcomes": {
+    "cold_open:acot": true,
+    "cold_open:aot": true,
+    "cold_open:giga": true,
+    "cold_open:malformed": true,
+    "cold_open:redefinition": true,
+    "cold_open:vanilla": true,
+    "cold_record:acot": true,
+    "cold_record:aot": true,
+    "cold_record:giga": true,
+    "cold_record:malformed": true,
+    "cold_record:redefinition": true,
+    "cold_record:vanilla": true,
+    "cold_search:acot": true,
+    "cold_search:aot": true,
+    "cold_search:giga": true,
+    "cold_search:malformed": true,
+    "cold_search:redefinition": true,
+    "cold_search:vanilla": true,
+    "warm_record_read:acot": true,
+    "warm_record_read:aot": true,
+    "warm_record_read:giga": true,
+    "warm_record_read:malformed": true,
+    "warm_record_read:redefinition": true,
+    "warm_record_read:vanilla": true,
+    "warm_search:acot": true,
+    "warm_search:aot": true,
+    "warm_search:giga": true,
+    "warm_search:malformed": true,
+    "warm_search:redefinition": true,
+    "warm_search:vanilla": true
+  }
+}

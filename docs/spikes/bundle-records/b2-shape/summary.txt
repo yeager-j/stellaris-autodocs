@@ -1,0 +1,66 @@
+# b2-shape
+
+case           entries   loc keys     all keys      closure    excl. loc    records     browse
+vanilla            698    1506457       162.1M        3.42M        1.59M      1.54M      0.22M
+acot              1460    1523054       165.6M        5.26M        3.20M      3.14M      0.46M
+giga               998    1700609       191.1M        5.14M        2.43M      2.34M      0.32M
+aot                862    1539896       166.4M        4.45M        2.08M      2.01M      0.27M
+malformed          707    1506476       162.1M        3.44M        1.60M      1.55M      0.22M
+redefinition       701    1506457       162.1M        3.43M        1.59M      1.54M      0.22M
+
+cited-key closure against preserved localization
+case              seeds    closure  closure MiB      all MiB    share
+vanilla            1396       1660        1.74M       151.5M    1.15%
+acot               2920       3172        1.95M       153.3M    1.27%
+giga               1996       2362        2.59M       178.5M    1.45%
+aot                1724       2007        2.26M       155.1M    1.45%
+malformed          1414       1676        1.74M       151.5M    1.15%
+redefinition       1402       1660        1.74M       151.5M    1.15%
+
+case           shape                                              files        bytes    ratio  files?   size?
+vanilla        per_document+closure_in_bundle+search_selected_english     712         3.9M    1.126      ok      ok
+vanilla        per_document+closure_in_bundle+search_selected_english_french     713         4.0M    1.166      ok      ok
+vanilla        per_document+closure_in_bundle+search_all            721         5.1M    1.489      ok      ok
+vanilla        by_category+closure_in_bundle+search_selected_english      15         3.8M    1.103      ok      ok
+vanilla        per_document+all_keys_in_bundle+search_all           721       163.8M    1.010      ok      ok
+vanilla        per_document+all_keys_shared_store+search_all        711         3.3M    2.051      ok    MISS
+vanilla        per_document+all_keys_shared_store+search_selected_english     702         2.0M    1.271      ok      ok
+acot           per_document+closure_in_bundle+search_selected_english    1474         6.2M    1.175      ok      ok
+acot           per_document+closure_in_bundle+search_selected_english_french    1475         6.5M    1.230      ok      ok
+acot           per_document+closure_in_bundle+search_all           1483         8.8M    1.672      ok      ok
+acot           by_category+closure_in_bundle+search_selected_english      15         6.0M    1.142      ok      ok
+acot           per_document+all_keys_in_bundle+search_all          1483       169.2M    1.021      ok      ok
+acot           per_document+all_keys_shared_store+search_all       1473         6.7M    2.104      ok    MISS
+acot           per_document+all_keys_shared_store+search_selected_english    1464         4.1M    1.287      ok      ok
+giga           per_document+closure_in_bundle+search_selected_english    1012         5.8M    1.124      ok      ok
+giga           per_document+closure_in_bundle+search_selected_english_french    1013         6.0M    1.164      ok      ok
+giga           per_document+closure_in_bundle+search_all           1021         7.6M    1.486      ok      ok
+giga           by_category+closure_in_bundle+search_selected_english      15         5.7M    1.101      ok      ok
+giga           per_document+all_keys_in_bundle+search_all          1021       193.6M    1.013      ok      ok
+giga           per_document+all_keys_shared_store+search_all       1011         4.9M    2.028      ok    MISS
+giga           per_document+all_keys_shared_store+search_selected_english    1002         3.1M    1.262      ok      ok
+aot            per_document+closure_in_bundle+search_selected_english     876         5.0M    1.121      ok      ok
+aot            per_document+closure_in_bundle+search_selected_english_french     877         5.2M    1.160      ok      ok
+aot            per_document+closure_in_bundle+search_all            885         6.5M    1.472      ok      ok
+aot            by_category+closure_in_bundle+search_selected_english      15         4.9M    1.098      ok      ok
+aot            per_document+all_keys_in_bundle+search_all           885       168.5M    1.013      ok      ok
+aot            per_document+all_keys_shared_store+search_all        875         4.2M    2.011      ok    MISS
+aot            per_document+all_keys_shared_store+search_selected_english     866         2.6M    1.259      ok      ok
+malformed      per_document+closure_in_bundle+search_selected_english     721         3.9M    1.127      ok      ok
+malformed      per_document+closure_in_bundle+search_selected_english_french     722         4.0M    1.168      ok      ok
+malformed      per_document+closure_in_bundle+search_all            730         5.1M    1.493      ok      ok
+malformed      by_category+closure_in_bundle+search_selected_english      15         3.8M    1.103      ok      ok
+malformed      per_document+all_keys_in_bundle+search_all           730       163.8M    1.010      ok      ok
+malformed      per_document+all_keys_shared_store+search_all        720         3.3M    2.057      ok    MISS
+malformed      per_document+all_keys_shared_store+search_selected_english     711         2.0M    1.272      ok      ok
+redefinition   per_document+closure_in_bundle+search_selected_english     715         3.9M    1.126      ok      ok
+redefinition   per_document+closure_in_bundle+search_selected_english_french     716         4.0M    1.167      ok      ok
+redefinition   per_document+closure_in_bundle+search_all            724         5.1M    1.491      ok      ok
+redefinition   by_category+closure_in_bundle+search_selected_english      15         3.8M    1.103      ok      ok
+redefinition   per_document+all_keys_in_bundle+search_all           724       163.8M    1.010      ok      ok
+redefinition   per_document+all_keys_shared_store+search_all        714         3.3M    2.055      ok    MISS
+redefinition   per_document+all_keys_shared_store+search_selected_english     705         2.0M    1.272      ok      ok
+
+localization store, across every revision measured
+  whole_language      959.2M carried ->    508.2M unique in     31 chunks, 1.89x, recovering 451.0M
+  content_defined     959.2M carried ->    352.7M unique in   5553 chunks, 2.72x, recovering 606.4M

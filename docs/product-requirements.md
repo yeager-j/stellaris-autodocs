@@ -125,7 +125,7 @@ All generated cases must also be readable through a Companion-Ready Cache.
 65. As a Stellaris player, I want a Target Mod-level completeness warning when analysis is partial, so that I do not mistake Incomplete Documentation for a complete result.
 66. As a Stellaris player, I want narrower warnings on affected pages when impact is known, so that unaffected documentation remains trustworthy.
 67. As a technically inclined player, I want each Analysis Issue to identify its source and reason where possible, so that I can investigate it.
-68. As a Stellaris player, I want all available localizations preserved, so that changing language does not require reparsing authoritative content.
+68. As a Stellaris player, I want every available language preserved for localization reachable from generated documentation, so that changing language does not require reparsing authoritative content.
 69. As a Stellaris player, I want localization to fall back from my selected language to English and then to the raw key, so that missing translations degrade visibly.
 70. As a Stellaris player, I want known Stellaris color and style markers rendered cleanly, so that localization remains readable outside the game.
 71. As a Stellaris player, I want Static Localization References resolved with cycle detection, so that nested labels display meaningful text without hanging.
@@ -175,7 +175,7 @@ This section records product-shaping constraints already accepted during discove
 21. Search indexes selected-language names, English names, script identifiers, localization keys, partial names, and typo-tolerant matches.
 22. Search does not index long descriptions or raw source in the MVP.
 23. Vanilla Content is excluded from results by default but can be included through filters.
-24. All available localizations are preserved, with selected language, English, and raw-key fallback order.
+24. Every available language is preserved for localization keys cited by generated documentation and their Static Localization Reference closure, with selected language, English, and raw-key fallback order.
 25. MVP localization rendering supports style markers, Static Localization References, and known inline icons.
 26. Runtime Localization Tokens, concept links, formatted runtime values, and unknown markup remain visibly raw.
 27. DDS assets are decoded by the Desktop Host into browser-safe PNG or WebP representations and cached.

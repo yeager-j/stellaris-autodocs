@@ -1,0 +1,61 @@
+{
+  "run": "b4-checks",
+  "purpose": "The evaluation's correctness checks, each reporting what it observed rather than a verdict, and each paired with the injection that shows it can fail. Covers manifest detection of missing, changed, and unexpected entries; reader unreachability of staging and unreferenced bundles; agreement between browse summaries, search summaries, and full records; language switching and raw-key fallback without a rebuild; Incomplete Documentation from malformed source; independence from disposable build artifacts; asset key stability and required-key exactness; garbage collection with its unreadable-manifest negative control and its runtime grace period; and build determinism.",
+  "environment": {
+    "stellaris": {
+      "distPlatform": "steam",
+      "modsCompatibilityVersion": "4.4",
+      "rawVersion": "v4.4.6",
+      "version": "Pegasus v4.4.6 (fdde)"
+    },
+    "jomini": "0.35.0",
+    "image_dds": "0.7.2",
+    "bcdec_rs": "0.2.0",
+    "png": "0.18.1",
+    "parser_spike_source": "26c4575072e127c60410e6b784ba4adf077b7731870922118ea52cf339512cc2",
+    "dds_spike_source": "295ecfe00ccee4942c5fc2a30011c8eda3bebaab7bed0fe84174dfa0581139bc",
+    "bundle_spike_source": "b3d2bf3f739f35b77ad1e1f35af66bc7f18ebb9def02b36b9fa6230c4e594b3d",
+    "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+    "os": "macos",
+    "arch": "aarch64"
+  },
+  "corpora": [
+    {
+      "id": "acot",
+      "title": "Ancient Cache of Technologies (1419304439)",
+      "script_files": 1120,
+      "localisation_files": 46,
+      "total_bytes": 20608178,
+      "tree_digest": "68bb4b3daf193eba3bf7a83d316a56120e3f9e614c3861ddc45c0687a7b55535"
+    },
+    {
+      "id": "malformed",
+      "title": "fixtures/bundle/malformed",
+      "script_files": 4,
+      "localisation_files": 2,
+      "total_bytes": 6919,
+      "tree_digest": "85b9c767df0af0a32844bf3fe8601a68e49d4644504d3b0e0525be8f56785c31",
+      "files": {
+        "common/technology/00_bundle_clean_tech.txt": "64989ee1670a85c1db3a06b1e806926d36ba18312a8d4da1ef3133e548a81a40",
+        "common/technology/01_bundle_broken_tech.txt": "0a0ca9d1e5b787dfdc2c32b73bfee2034cf2445af7966ecb6fb545c1cb5232bf",
+        "common/technology/02_bundle_truncated_tech.txt": "7c15f01bcbb1578176779970f7fbb09447e1303712c375fb88bb08cfd1320c0a",
+        "descriptor.mod": "48a6769a644a6b2a901f8b06dc26c040e7741bae98122f2a6d768c1fd49ad653",
+        "localisation/english/bundle_l_english.yml": "d5b03792589894b3dff3a26b577491869bf256b2f0fd45ed032144a44c8e6ea4",
+        "localisation/french/bundle_l_french.yml": "0fe05f74f95fcdb5a90bc59604c2d2f372eb0a2091e7838e1141f11d8fef01ed"
+      }
+    },
+    {
+      "id": "vanilla",
+      "title": "Stellaris base game",
+      "script_files": 4578,
+      "localisation_files": 2318,
+      "total_bytes": 227186036,
+      "tree_digest": "817efbce2cf820da6af143b099a03c9753f64097a53296465a1a5820289a43d7"
+    }
+  ],
+  "artifacts": {
+    "checks.json": "811974759eb6b73555debb37ab78b06ca955ab48d05b8b1f9455f8193deb591e",
+    "summary.txt": "dd8162191c063bd7a506f64a927dc4dd812d6134485b38fb11f3f3e1f3cb9442"
+  },
+  "warnings": []
+}

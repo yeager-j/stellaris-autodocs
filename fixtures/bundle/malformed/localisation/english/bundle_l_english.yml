@@ -1,0 +1,32 @@
+﻿l_english:
+
+ # Names and descriptions for the fixture technologies.
+ #
+ # `tech_bundle_clean_conditional` is deliberately absent from EVERY language. A missing key
+ # renders as its raw key — there is no fallback language for a key nothing defines
+ # (`docs/spikes/resolver-evaluation.md:106`) — so this is the raw-key case, and it must be
+ # visibly raw rather than silently empty.
+
+ tech_bundle_clean_lattice:0 "Crystalline Lattice Framing"
+ tech_bundle_clean_lattice_desc:0 "A load-bearing lattice grown rather than milled, trading fabrication time for tolerances no mill can hold."
+
+ tech_bundle_clean_alloys:0 "Foundational Alloys"
+ tech_bundle_clean_alloys_desc:0 "The first alloys worth the smelting."
+
+ tech_bundle_clean_computing:0 "Substrate Computing"
+ tech_bundle_clean_computing_desc:0 "Computation pushed into the substrate itself, where the switching is cheap and the cooling is not."
+
+ tech_bundle_broken_before:0 "Particle Confinement"
+ tech_bundle_broken_before_desc:0 "Holding a particle still long enough to ask it a question."
+
+ tech_bundle_broken_after_one:0 "Directed Xenobiology"
+ tech_bundle_broken_after_one_desc:0 "Biology as an engineering discipline, with the failure modes that implies."
+
+ tech_bundle_broken_after_two:0 "Applied Xenobiology"
+ tech_bundle_broken_after_two_desc:0 "The applications, and the ethics review that did not survive them."
+
+ tech_bundle_truncated_first:0 "Hull Sectioning"
+ tech_bundle_truncated_first_desc:0 "A hull that can be cut apart and put back together without being weaker for it."
+
+ tech_bundle_truncated_second:0 "Modular Hull Sectioning"
+ tech_bundle_truncated_second_desc:0 "The same idea, at a scale where the sections have their own crews."

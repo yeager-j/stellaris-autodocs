@@ -1,0 +1,12 @@
+﻿l_french:
+
+ # A strict subset of the English keys, on purpose.
+ #
+ # Selecting French must fall back to English for every key absent here, without rebuilding
+ # anything (`docs/technical-design.md:349`). A fixture that translated everything would
+ # exercise selection and never exercise fallback.
+
+ tech_bundle_clean_lattice:0 "Ossature en treillis cristallin"
+ tech_bundle_clean_lattice_desc:0 "Un treillis cultivé plutôt qu'usiné."
+
+ tech_bundle_clean_alloys:0 "Alliages fondamentaux"

@@ -1,0 +1,35 @@
+# FAULT: the file ends mid-definition, as a partial write or a truncated download leaves it.
+#
+# Restated from `fixtures/parser/malformed/truncated_tail.txt`, on a registry path. The fault
+# is last, so recovery can reach nothing after it. This is the positive control for blast
+# radius: exactly one definition is lost, and the two above it are unaffected.
+#
+# The file deliberately has no trailing newline. Truncation does not politely end a line.
+#
+# EXPECTATION
+#   `tech_bundle_truncated_first` and `_second` are Clean.
+#   `tech_bundle_truncated_cut` is absent.
+#   The registry entry set is incomplete for this file as well as for 01.
+
+tech_bundle_truncated_first = {
+	area = engineering
+	cost = 800
+	tier = 1
+	category = { voidcraft }
+	weight = 45
+}
+
+tech_bundle_truncated_second = {
+	area = engineering
+	cost = 1600
+	tier = 2
+	category = { voidcraft }
+	weight = 22
+
+	prerequisites = { "tech_bundle_truncated_first" }
+}
+
+tech_bundle_truncated_cut = {
+	area = engineering
+	cost = 2400
+	tier =
