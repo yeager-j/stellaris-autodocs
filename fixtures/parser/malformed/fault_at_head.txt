@@ -1,0 +1,20 @@
+parser_broken = {
+	cost = 100
+
+# FAULT: the *first* definition's brace is never closed. Everything valid is after the
+# fault, which is the opposite of the truncated case and the other bound on recovery.
+#
+# If resynchronization worked only forwards from where the reader noticed, this file would
+# yield nothing: the reader does not notice until end of input, by which point the whole
+# file has been consumed. Attributing the fault back to the brace is what makes the three
+# definitions below reachable.
+#
+# PREDICTION
+#   tape:  parses, 1 top-level definition, the other three swallowed
+#   lexer: 3 top-level definitions, 1 fault attributed to byte 16, the opening brace
+
+parser_second = { cost = 200 }
+
+parser_third = { cost = 300 }
+
+parser_fourth = { cost = 400 }

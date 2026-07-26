@@ -123,6 +123,8 @@ Source comments are not executable behavior and do not contribute authoritative 
 
 The app retains the original raw source and source ranges separately. An expandable technical view may therefore show a bounded Source Excerpt, including comments within that excerpt, without loading or presenting an entire large file.
 
+One captured excerpt is at most 16 KiB of original source, aligned to line boundaries where possible and anchored around the referenced fact. Its display projection represents undecodable bytes visibly rather than dropping them. Visible markers disclose leading or trailing truncation. Provenance retains the complete source range, but an excerpt reference cannot be expanded into arbitrary file access.
+
 **D-040 — Resolve scripted constants into player-meaningful base values**
 
 A scripted constant such as `@acot_tier7cost3` is not meaningful primary documentation. When static source resolution produces one unambiguous value, Player Documentation displays that Resolved Base Value.
@@ -591,7 +593,7 @@ The exact fields of each operation-specific union are defined alongside its appl
 
 The `analysis` module accepts exact Target Mod and Vanilla Content Source Snapshots and first produces an unpublishable Analysis Draft with logical asset slots. `assets` returns one typed materialization outcome per slot. `analysis::finalize` owns placeholder substitution, scoped Analysis Issues, and the final required-key set, then produces a Revision Candidate.
 
-Parser, resolver, generator, and indexing intermediates do not escape into application use cases or transports. Their internal modules retain direct domain tests, and the parser adapter earns a substitution seam because Jomini is an external dependency still subject to a corpus spike. Jomini's current public token tape lacks successful structural-token source ranges and fails a malformed file as a unit, so the spike is expected to evaluate a bounded wrapper or extension and quantify definitions lost per failed file rather than assume clean adoption.
+Parser, resolver, generator, and indexing intermediates do not escape into application use cases or transports. Their internal modules retain direct domain tests, and the parser adapter earns a substitution seam because Jomini is an external dependency. The corpus spike is complete: Jomini's token tape does lack structural-token source ranges, but its `TokenReader` lexer supplies byte positions for every token, so the adapter wraps the lexer and the tape is not used. See [ADR 0007](./adr/0007-parse-stellaris-source-through-a-wrapped-incremental-lexer.md).
 
 The `revisions` module consumes the finalized candidate plus a sealed content-valid Asset Store proof and owns bundle writing, validation, atomic publication, opening, and retention. Recoverable source problems become disclosed Analysis Issues; a missing or duplicate asset outcome or fatal inability to establish candidate identity or integrity produces no candidate.
 
@@ -725,6 +727,14 @@ The MVP resolver consumes a versioned policy matrix for exact-path shadowing, di
 
 Every row defines keys, semantic stream construction, duplicate and cross-source collisions, field replacement or inheritance, defaults, ordering, unresolved references, and contributed, inherited, defaulted, duplicate, and shadowed provenance. The [resolver evaluation](./spikes/resolver-evaluation.md) completed all evidence collection possible before the resolver exists. Its captured records define golden expectations for resolved cells. A content type is supported only when every policy it requires is explicit and oracle-backed; unresolved cells fail visibly without blocking implementation of unrelated resolved rows.
 
+**D-102 — Wrap Jomini's incremental lexer rather than its token tape**
+
+Jomini is an accepted dependency, consumed through `TokenReader` and adapted into the application-owned parsed representation. The tape is not used: it exposes no byte position for a brace or an operator, so a Source Excerpt cannot be bounded to a definition; it rejects real vanilla and mod files using escaped constant arithmetic, bare token lists, and conditional-compilation blocks; and it accepts unbalanced braces, silently reparenting the remainder of the file.
+
+The production adapter accepts exact bytes and a logical source identity and returns an application-owned `ParsedFile`. Definitions and nodes retain order, exact byte ranges, and Clean or Recovered evidence quality; faults retain byte positions and recovery boundaries. The adapter resynchronizes past a syntax fault and lexes the Stellaris dialect constructs Jomini does not recognize. Every range is verified by re-slicing it from the source across the whole corpus rather than across fixtures.
+
+Recovery is a layout heuristic. Any definition the parser cannot emit at a fault is absent, definitions before the first fault remain Clean, and definitions emitted after resynchronization are Recovered. `analysis` emits a file-scoped recovery issue while propagating incompleteness only from absent and Recovered evidence, preserving unaffected Clean facts. The [parser evaluation](./spikes/parser-evaluation.md) holds the measurements and residual limitations; [ADR 0007](./adr/0007-parse-stellaris-source-through-a-wrapped-incremental-lexer.md) records the decision.
+
 **D-099 — Canonicalize every identity input**
 
 Paths, source enumeration, registries, provenance, maps, sets, semantic sequences, requirements, modifiers, routes, issues, excerpts, search normalization, manifests, and revision identity use versioned application-owned canonical encodings and total orders. Temporary roots, timestamps, worker schedules, JSON object order, and absolute paths do not participate.
@@ -800,12 +810,6 @@ See [ADR 0006](./adr/0006-license-the-project-under-mit.md).
 
 ## Provisional decisions
 
-**P-001 — Lead with Jomini for Paradox-script parsing**
-
-Jomini is the front-runner because it is a mature, fast, fuzz-tested Rust parser for Paradox formats. It is not yet an accepted dependency. The decision requires a real-corpus spike proving syntax coverage, preservation of Paradox structure, source traceability, and failure isolation.
-
-See [Parser evaluation](./spikes/parser-evaluation.md).
-
 **P-002 — Store the revision read model as materialized JSON**
 
 A Documentation Revision is provisionally a compiled set of denormalized JSON read models rather than a relational database. The build materializes predictable browse, search, documentation, localization, diagnostic, and Source Excerpt reads from one canonical in-memory documentation model.
@@ -870,6 +874,12 @@ Stellaris composition is not uniformly file-level or last-wins. It can include e
 
 Tauri can package the desktop application and serve web assets, but it does not provide a complete LAN companion product automatically. The embedded service must supply the documentation API, LAN binding, access control, and companion discovery or pairing.
 
+### Parsing cost
+
+Parsing the pinned corpora through the spike adapter takes a median 211 ms serially and 63 ms in parallel for the 53.5 MiB vanilla script set, and 133 ms and 39 ms for Gigastructural Engineering, at a peak resident set of 194 MiB with every corpus held at once. The wrapper costs 10 to 35% over Jomini's tape.
+
+Parsing is therefore roughly an order of magnitude cheaper than the second-pass hashing measured beside it, so the deferred choice between an awaited command and a host-owned job should not be decided on parsing cost. These are spike-harness measurements rather than the real adapter in a real build, and carry the same directional caveat as the fingerprint figures below. See [Parser evaluation](./spikes/parser-evaluation.md).
+
 ### Fingerprint verification cost
 
 A preliminary local measurement hashed a broad set of script, localization, and UI-definition files from the installed macOS corpus:
@@ -888,10 +898,6 @@ This is a directional filesystem-and-SHA-256 measurement rather than the final R
 **Q-002 — Project identity**
 
 The project name and copyright-holder wording are not yet chosen. Create the root `LICENSE` file after those are known.
-
-**Q-003 — Parser selection**
-
-Complete the parser spike before accepting Jomini or recording a parser ADR.
 
 **Q-004 — Remaining Resolution Profile cells**
 

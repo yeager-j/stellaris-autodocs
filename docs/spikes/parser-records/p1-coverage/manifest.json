@@ -1,0 +1,74 @@
+{
+  "run": "p1-coverage",
+  "purpose": "Parse every file of every pinned corpus through both adapters and compare the results. Path A is Jomini's TextTape; Path B is this spike's TokenReader wrapper, which adds source spans and fault recovery. Every file both adapters accept must produce an identical application-owned model once spans are excluded, so a divergence is a defect in the wrapper rather than a difference of opinion. The run also censuses which syntax the corpus actually contains, because a coverage claim over source that never used a comparison operator or a mixed container would have no denominator.",
+  "environment": {
+    "stellaris": {
+      "distPlatform": "steam",
+      "modsCompatibilityVersion": "4.4",
+      "rawVersion": "v4.4.6",
+      "version": "Pegasus v4.4.6 (fdde)"
+    },
+    "jomini": "0.35.0",
+    "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+    "os": "macos",
+    "arch": "aarch64"
+  },
+  "corpora": [
+    {
+      "id": "vanilla",
+      "title": "Stellaris base game",
+      "file_count": 4578,
+      "total_bytes": 56085735,
+      "tree_digest": "3966a6a985d774a19d413832c9809233dc1b86d51c187fb012d21882e0e48b6f"
+    },
+    {
+      "id": "giga",
+      "title": "Gigastructural Engineering & More (1121692237)",
+      "file_count": 1792,
+      "total_bytes": 35108525,
+      "tree_digest": "e517fb7c71fa6c904ae392dce418b54741da1aaeaccced12053a19fdb9f95d36"
+    },
+    {
+      "id": "acot",
+      "title": "Ancient Cache of Technologies (1419304439)",
+      "file_count": 1120,
+      "total_bytes": 18521905,
+      "tree_digest": "477289ad31f426cac059f59fa7422838ceb04222cf1aeca7abd3457d39a8c38d"
+    },
+    {
+      "id": "aot",
+      "title": "Acquisition of Technology (2178603631)",
+      "file_count": 437,
+      "total_bytes": 4586347,
+      "tree_digest": "8b4b2751bc682fd23f273ebc27f8c9f6212f243260e198924730386baa9a9e11"
+    },
+    {
+      "id": "fixtures",
+      "title": "Hand-authored parser fixtures (valid)",
+      "file_count": 11,
+      "total_bytes": 15062,
+      "tree_digest": "30f18d5bbcbe88949cc0d6947fcb172db8d5a5460cb3489aace32cfbd0ff1f5e",
+      "files": {
+        "common/inline_scripts/parser/fragment.txt": "49d876ad5f8d20d2f9e04ce088fc44c729e9dd7c5de6cb30d3688fa20cbf2c96",
+        "common/parser_containers.txt": "7940b98a7f0401c522e75242b812752b7e2add221db9aa2ebb5684b926ab6a0a",
+        "common/parser_encoding_bom.txt": "e6924d292ea947f3d9a117ea298f5417ba69fd0319f4ab77b67cecd5486d48ce",
+        "common/parser_encoding_invalid.txt": "96616093b400c1ffd063d89aa5f8e9fc1609f459ecc489c0b108e1cbd50cbc68",
+        "common/parser_encoding_windows1252.txt": "3a1a7b7c80701409eb12702f5a592b62533126c3d9d4b739f409dc715bb28a5f",
+        "common/parser_operators.txt": "0e11e210b799312ae143a2ce06bd640732733b4069c68f60655fae368331058c",
+        "common/scripted_variables/parser_constants.txt": "e0216882f0be80c124ce7e2a9223b1aa0319288d3a7e8723156da594d3474796",
+        "common/technology/parser_duplicates.txt": "c7a032efb67435eb70d1617d932207b96bd8e0ee4f74bf957dc918f2bcef8b35",
+        "common/technology/parser_inline_and_keys.txt": "9e1aa96951e7b1bb59fc513c7a8ab775f34d5248088f85b9217c636fcbbe7a72",
+        "descriptor.mod": "a779a7f059b8d5e6b3045c9c1aa8c6e5dbc9129b930bb2501b5de5a62f8cc98d",
+        "interface/parser_sprites.gfx": "d9d0470746fd1127477cdfbeb56ceb3e7a64a57d66734119223dd6e4788f321c"
+      }
+    }
+  ],
+  "artifacts": {
+    "coverage.json": "13e6b21bbb89a07265f7c0739f4b0eede3be07c9ccacd96953892f0ffd05fd20",
+    "divergences.txt": "fecd6f17adcff7abf88bf66cd351fdfb5cbc614095f4ba0d62fb46be25640b42",
+    "lexer-recoveries.txt": "d873d25f9cf692a658d82e67fd4f93c5de3407600f547bd5c27b60f3407de86b",
+    "span-faults.txt": "97bc104f25d552b4c730e85e31186a9f229b7e354f5184d713a2f6ca046291e5",
+    "tape-failures.txt": "dc91d32ce1c837f71543dca46418dcec327ce4249ce676adb5197d6929514c4d"
+  },
+  "warnings": []
+}

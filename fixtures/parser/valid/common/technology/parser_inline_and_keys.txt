@@ -1,0 +1,75 @@
+# Inline-script call forms, conditional compilation, and a definition keyed by an inner
+# field.
+#
+# Three separate discriminators share this file because none of them can fail
+# catastrophically — nothing here is a syntax fault, so one result cannot make another
+# unattributable. The cases that *can* cascade live one per file under `../../malformed`.
+#
+# 1. Inline scripts are written two ways, and both must survive as syntax rather than being
+#    expanded or dropped. Failing to expand is invisible to the game — the game expands
+#    correctly, only the app would be skipping it — so a resolver that ignored these would
+#    produce technology pages with no weight logic and no error anywhere to reveal it
+#    (`docs/spikes/resolver-evaluation.md:734`).
+#
+# 2. `[[NAME] … ]` compiles its body in only when the argument is supplied. The body is
+#    therefore not unconditionally part of the definition, and flattening it would state
+#    that a technology always has fields it only sometimes has — and would present both
+#    halves of a `[[X]` / `[[!X]` pair at once, which is never what runs.
+#
+# 3. A ship component is keyed by its inner `key` field, not by the `utility_component_template`
+#    block name shared by thousands of definitions. A resolver that used the block name
+#    would collapse every utility component in the game into one entry
+#    (`docs/spikes/resolver-evaluation.md:291`).
+#
+# Expected: four top-level definitions; the two `utility_component_template` blocks share a
+# name and differ by inner key; three conditional blocks, one of them negated.
+#
+# OBSERVED: `TextTape` rejects this whole file — "unrecognized operator" at the `!` of
+# `[[!EXTRA]`. Its parameter-block support only holds while the enclosing container is
+# object-shaped; `optimize_memory` makes this one mixed, and from there `[[EXTRA]` lexes as
+# the three separate scalars `[`, `[EXTRA`, `]` and the negation mark becomes an operator.
+# Vanilla, Gigastructural Engineering, and Acquisition of Technology all ship definitions in
+# this shape. The lexer adapter reads the file.
+
+parser_tech_inline_scalar = {
+	cost = 100
+	weight_modifier = {
+		inline_script = "parser/fragment"
+	}
+}
+
+parser_tech_inline_parameterized = {
+	cost = 100
+	weight_modifier = {
+		inline_script = {
+			script = parser/fragment
+			FACTOR = 1000000
+		}
+	}
+}
+
+parser_tech_conditional = {
+	cost = 100
+	optimize_memory
+	[[EXTRA]
+		prerequisites = { $EXTRA$ }
+	]
+	[[!EXTRA]
+		prerequisites = { parser_tech_inline_scalar }
+	]
+	# An empty conditional body. Vanilla and Gigastructural Engineering both write this to
+	# suppress a failure when an argument is absent.
+	[[FACTOR]]
+}
+
+utility_component_template = {
+	key = "PARSER_COMPONENT_ONE"
+	size = small
+	power = 0
+}
+
+utility_component_template = {
+	key = "PARSER_COMPONENT_TWO"
+	size = small
+	power = 0
+}

@@ -1,0 +1,8 @@
+# outcome	requirement	check	detail
+PASS	req8	scripted constants and their references stay distinct	declaration, alias, and consuming reference all retained; `tier` still visible
+PASS	req9	numeric lexemes survive exactly	lexemes preserved distinctly: 0.1, 0.10, -2.50; `2200.1.1` not read as a number
+PASS	req10	inline scripts are preserved, not expanded	fragment, quoted call, and parameter bindings all retained unexpanded
+PASS	req10	conditional-compilation blocks stay conditional	three blocks: one plain, one negated, one empty; bodies not flattened
+PASS	req11	inner-field identifiers remain addressable	component keys ["PARSER_COMPONENT_ONE", "PARSER_COMPONENT_TWO"] under one block name; 3 sprites likewise
+PASS	req2	duplicate definitions survive in order	three occurrences in source order, bodies intact
+PASS	req5	unfamiliar bytes are retained, not rejected	BOM skipped; both non-UTF-8 files parsed by each adapter without a fault

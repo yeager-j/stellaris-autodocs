@@ -1,0 +1,17 @@
+# A file carrying a byte that is invalid in UTF-8 and in Windows-1252 alike.
+#
+# Discriminates the same claim as the Windows-1252 fixture, one step further out: 0x80 is a
+# bare continuation byte, so no re-decoding rescues it. The parser must still return the
+# definitions around it rather than reporting a syntax fault, because the byte is data the
+# app does not understand, not source it cannot read.
+#
+# Expected: two top-level definitions, and no fault.
+
+parser_invalid_byte = {
+	name = "bad€byte"
+	cost = 100
+}
+
+parser_after_invalid = {
+	cost = 200
+}

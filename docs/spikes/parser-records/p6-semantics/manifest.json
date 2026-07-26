@@ -1,0 +1,42 @@
+{
+  "run": "p6-semantics",
+  "purpose": "Capture the semantic checks that fixtures answer and the corpus cannot. Coverage runs establish that files parse; these establish that what comes out means what the source said — a scripted constant still resolvable, a numeric lexeme unrounded, an inline script unexpanded, a conditional block still conditional, an inner-field key still addressable, and an unfamiliar byte still data. The same functions run under `cargo test`, so a green suite and a green record cannot disagree.",
+  "environment": {
+    "stellaris": {
+      "distPlatform": "steam",
+      "modsCompatibilityVersion": "4.4",
+      "rawVersion": "v4.4.6",
+      "version": "Pegasus v4.4.6 (fdde)"
+    },
+    "jomini": "0.35.0",
+    "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+    "os": "macos",
+    "arch": "aarch64"
+  },
+  "corpora": [
+    {
+      "id": "fixtures",
+      "title": "Hand-authored parser fixtures (valid)",
+      "file_count": 11,
+      "total_bytes": 15062,
+      "tree_digest": "30f18d5bbcbe88949cc0d6947fcb172db8d5a5460cb3489aace32cfbd0ff1f5e",
+      "files": {
+        "common/inline_scripts/parser/fragment.txt": "49d876ad5f8d20d2f9e04ce088fc44c729e9dd7c5de6cb30d3688fa20cbf2c96",
+        "common/parser_containers.txt": "7940b98a7f0401c522e75242b812752b7e2add221db9aa2ebb5684b926ab6a0a",
+        "common/parser_encoding_bom.txt": "e6924d292ea947f3d9a117ea298f5417ba69fd0319f4ab77b67cecd5486d48ce",
+        "common/parser_encoding_invalid.txt": "96616093b400c1ffd063d89aa5f8e9fc1609f459ecc489c0b108e1cbd50cbc68",
+        "common/parser_encoding_windows1252.txt": "3a1a7b7c80701409eb12702f5a592b62533126c3d9d4b739f409dc715bb28a5f",
+        "common/parser_operators.txt": "0e11e210b799312ae143a2ce06bd640732733b4069c68f60655fae368331058c",
+        "common/scripted_variables/parser_constants.txt": "e0216882f0be80c124ce7e2a9223b1aa0319288d3a7e8723156da594d3474796",
+        "common/technology/parser_duplicates.txt": "c7a032efb67435eb70d1617d932207b96bd8e0ee4f74bf957dc918f2bcef8b35",
+        "common/technology/parser_inline_and_keys.txt": "9e1aa96951e7b1bb59fc513c7a8ab775f34d5248088f85b9217c636fcbbe7a72",
+        "descriptor.mod": "a779a7f059b8d5e6b3045c9c1aa8c6e5dbc9129b930bb2501b5de5a62f8cc98d",
+        "interface/parser_sprites.gfx": "d9d0470746fd1127477cdfbeb56ceb3e7a64a57d66734119223dd6e4788f321c"
+      }
+    }
+  ],
+  "artifacts": {
+    "checks.txt": "ad74286392ee0aace2fb1d68f9f70dee4c80efe479f04198104798682bf45774"
+  },
+  "warnings": []
+}

@@ -1,0 +1,21 @@
+# FAULT: the `name` value in the second definition opens a quote that never closes.
+#
+# The one class the tape does reject. From the opening quote the rest of the file is one
+# string, so the reader reaches end of input with a container still open, and the tape
+# returns an error with no tokens at all — every valid definition in the file goes with it.
+#
+# PREDICTION
+#   tape:  rejects the file, 0 definitions available
+#   lexer: 3 top-level definitions — `parser_first` before the fault, `parser_third` and
+#          `parser_fourth` recovered after it
+
+parser_first = { cost = 100 }
+
+parser_broken = {
+	name = "never closed
+	cost = 200
+}
+
+parser_third = { cost = 300 }
+
+parser_fourth = { cost = 400 }

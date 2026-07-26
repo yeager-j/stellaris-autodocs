@@ -1,0 +1,19 @@
+# A file carrying a byte that is not valid UTF-8.
+#
+# Discriminates: does an unfamiliar byte become a syntax failure? Requirement 5 says it must
+# not. Paradox tooling has emitted Windows-1252 for years and mod authors edit in whatever
+# their editor defaults to, so a mod containing one such byte must not lose its whole file.
+#
+# The value below holds byte 0xE9, which is `é` in Windows-1252 and invalid on its own in
+# UTF-8. The parser keeps bytes rather than a `String` precisely so this survives.
+#
+# Expected: two top-level definitions; the `name` value preserved byte for byte.
+
+parser_latin1_definition = {
+	name = "Café Provisions"
+	cost = 100
+}
+
+parser_after_latin1 = {
+	cost = 200
+}

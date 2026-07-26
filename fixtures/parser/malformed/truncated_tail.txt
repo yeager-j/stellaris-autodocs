@@ -1,0 +1,20 @@
+# FAULT: the file ends mid-definition, as a partial write or a truncated download would
+# leave it.
+#
+# The fault is at the end, so nothing valid follows it. This is the positive control for the
+# blast-radius measurement: recovery can have no effect here, and the lexer must lose
+# exactly the one definition that was cut off — no more, and not the file.
+#
+# PREDICTION
+#   tape:  rejects the file, 0 definitions available
+#   lexer: 3 top-level definitions, 1 fault, no resume point
+
+parser_first = { cost = 100 }
+
+parser_second = { cost = 200 }
+
+parser_third = { cost = 300 }
+
+parser_fourth = {
+	cost = 400
+	tier =

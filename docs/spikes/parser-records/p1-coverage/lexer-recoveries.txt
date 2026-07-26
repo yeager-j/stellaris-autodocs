@@ -1,0 +1,22 @@
+# vanilla: 8 total
+common/HOW_TO_MAKE_NEW_SHIPS.txt	tape-rejected	operator without a key at byte 1694 resumed Some(1761) abandoned 0
+common/scripted_loc/scripted_loc_ruloc.txt	tape-accepted	container never closed at byte 6223 resumed None abandoned 4
+gfx/models/effects/nomads.gfx	tape-accepted	container never closed at byte 14 resumed None abandoned 7
+gfx/models/ui/nomads_frontend.gfx	tape-accepted	container never closed at byte 14 resumed None abandoned 2
+interface/credits.txt	tape-rejected	operator without a key at byte 132382 resumed Some(132388) abandoned 0
+interface/credits.txt	tape-rejected	operator without a key at byte 133577 resumed Some(133582) abandoned 0
+interface/credits_l_simp_chinese.txt	tape-rejected	operator without a key at byte 132383 resumed Some(132389) abandoned 0
+interface/credits_l_simp_chinese.txt	tape-rejected	operator without a key at byte 133578 resumed Some(133583) abandoned 0
+
+# giga: 4 total
+common/scripted_effects/giga_scripted_effects.txt	tape-rejected	close brace with nothing open at byte 186233 resumed Some(186488) abandoned 9
+common/scripted_effects/giga_scripted_effects.txt	tape-rejected	close brace with nothing open at byte 187080 resumed Some(187336) abandoned 10
+common/scripted_effects/giga_scripted_effects.txt	tape-rejected	close brace with nothing open at byte 187895 resumed None abandoned 9
+events/giga_013_psychic_beacon.txt	tape-accepted	operator without a key at byte 75632 resumed Some(79462) abandoned 7
+
+# acot: 0 total
+
+# aot: 0 total
+
+# fixtures: 0 total
+

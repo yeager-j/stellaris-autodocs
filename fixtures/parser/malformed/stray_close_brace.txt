@@ -1,0 +1,18 @@
+# FAULT: one close brace too many, after the second definition.
+#
+# The mirror of the unclosed case, and the tape is lenient here too: it discards the extra
+# brace silently and reports four definitions. Silence is the wrong answer in both
+# directions — a file with a brace error is a file whose structure cannot be trusted, and
+# the application needs to say so.
+#
+# PREDICTION
+#   tape:  parses, 4 top-level definitions, extra brace ignored
+#   lexer: 4 top-level definitions, 1 fault at the stray brace, 0 items abandoned
+
+parser_first = { cost = 100 }
+
+parser_second = { cost = 200 } }
+
+parser_third = { cost = 300 }
+
+parser_fourth = { cost = 400 }

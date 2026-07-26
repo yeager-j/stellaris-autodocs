@@ -1,0 +1,22 @@
+3407
+# FAULT: a stray token before anything else, on line 1.
+#
+# Not invented. `common/component_templates/acot_1_components_weapons_mutations_delta.txt`
+# in Ancient Cache of Technologies begins with the literal bytes `3407` before its first
+# comment, and the mod ships and loads that way.
+#
+# Both adapters accept it, and both then mis-pair what follows, because a stray scalar in a
+# sequence of elided assignments shifts every subsequent pairing by one. Neither reports
+# anything. This fixture exists because the cross-check between the two adapters is what
+# surfaced it in the real corpus, and nothing else did.
+#
+# PREDICTION
+#   tape:  parses, no fault, pairing shifted
+#   lexer: parses, no fault, pairing shifted differently — the two disagree, and the
+#          disagreement is the only signal either produces
+
+parser_first = { cost = 100 }
+
+parser_second = { cost = 200 }
+
+parser_third = { cost = 300 }

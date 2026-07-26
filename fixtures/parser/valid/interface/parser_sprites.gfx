@@ -1,0 +1,49 @@
+# A sprite file, plus the runtime scope tokens that appear in script as well as in
+# localization.
+#
+# Two discriminators.
+#
+# A sprite is keyed by the `name` inside its `spriteType` block, across every
+# `interface/*.gfx`, and the blocks repeat under one `spriteTypes` parent
+# (`docs/spikes/resolver-evaluation.md:107`). So this is the second shape — after ship
+# components — where the semantic identifier is an inner field rather than the enclosing
+# block name, and where repeated siblings are the normal case rather than a collision.
+#
+# `[From.GetName]` is a Runtime Localization Token: its value needs live game scope, so it
+# can only be preserved, never resolved (`CONTEXT.md`). It is one token. Splitting it at the
+# brackets would leave the resolver with three fragments it cannot recognize as a reference.
+#
+# Expected: one `spriteTypes` block holding three `spriteType` siblings; the scope tokens
+# retained whole, brackets included.
+#
+# OBSERVED: the two adapters disagree about `parser_scope_tokens`. `TextTape` splits
+# `[From.GetName]` into three tokens, which the tape adapter rejoins, but the split has
+# already turned the enclosing container mixed by then, so it reports Mixed where the lexer
+# reports Object. The lexer takes the token whole from the bytes. Gigastructural
+# Engineering's `zz_e_stellar_ring_habitat.txt` diverges for the same reason.
+
+spriteTypes = {
+	spriteType = {
+		name = "GFX_parser_first"
+		texturefile = "gfx/interface/icons/parser_first.dds"
+	}
+
+	spriteType = {
+		name = "GFX_parser_second"
+		texturefile = "gfx/interface/icons/parser_second.dds"
+	}
+
+	spriteType = {
+		name = "GFX_parser_third"
+		texturefile = "gfx/interface/icons/parser_third.dds"
+		effectFile = "gfx/FX/buttonstate.lua"
+	}
+}
+
+parser_scope_tokens = {
+	set_name = {
+		key = PARSER_ORBITAL_NAME
+		variable_string = [From.From.System.GetName]
+	}
+	simple = [Root.GetName]
+}

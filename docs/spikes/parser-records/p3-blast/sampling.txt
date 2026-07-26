@@ -1,0 +1,3 @@
+every 25th file by sorted logical path
+sampled 320 of 7938 files
+files already faulty, already rejected by the tape, or holding fewer than three definitions are excluded from injection because they cannot measure the cost of a new fault

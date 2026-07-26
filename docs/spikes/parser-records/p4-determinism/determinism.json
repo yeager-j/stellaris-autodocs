@@ -1,0 +1,46 @@
+[
+  {
+    "corpus": "vanilla",
+    "files": 4578,
+    "corpus_digest": "7bc1aad893f9442e6bc452ff43f597af7a968c11682610f3a32f8987d0b3ce82",
+    "sorted_matches_reversed": true,
+    "serial_matches_parallel": true,
+    "copied_to_second_root": null
+  },
+  {
+    "corpus": "giga",
+    "files": 1792,
+    "corpus_digest": "d5d17b77e1c465970729ba6c25c01e5d9f2c39dbbd9e281c6501bce66641b45f",
+    "sorted_matches_reversed": true,
+    "serial_matches_parallel": true,
+    "copied_to_second_root": null
+  },
+  {
+    "corpus": "acot",
+    "files": 1120,
+    "corpus_digest": "b5600a18232ea1babd1a0569a67646b242febba40b17518513f52c08dbe544e1",
+    "sorted_matches_reversed": true,
+    "serial_matches_parallel": true,
+    "copied_to_second_root": null
+  },
+  {
+    "corpus": "aot",
+    "files": 437,
+    "corpus_digest": "9fd6cd3ab7f77b36907f0a2bd82659d85fdf24fdbcf83e535a3417bfc8be3c0d",
+    "sorted_matches_reversed": true,
+    "serial_matches_parallel": true,
+    "copied_to_second_root": {
+      "files_compared": 437,
+      "mismatches": [],
+      "digest_matches": true
+    }
+  },
+  {
+    "corpus": "fixtures",
+    "files": 11,
+    "corpus_digest": "25ccc0ca0bdf986648cc979f70e0a6bd7e2ad6f42d54cadd7f1cc0dc2969af4c",
+    "sorted_matches_reversed": true,
+    "serial_matches_parallel": true,
+    "copied_to_second_root": null
+  }
+]

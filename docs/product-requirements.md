@@ -160,9 +160,9 @@ This section records product-shaping constraints already accepted during discove
 6. Full Playset composition is a future resolver capability, not a second documentation pipeline.
 7. Effective definitions retain provenance and future override history rather than being flattened without origin information.
 8. Generated facts are deterministic and rule-based. AI is neither required nor authoritative.
-9. Jomini is the provisional parser front-runner, subject to the separate real-corpus parser spike.
+9. Jomini is the accepted parser dependency, consumed through its incremental `TokenReader` lexer rather than `TextTape` and hidden behind an application-owned parser interface.
 10. The parsed representation remains application-owned and must not expose a parser dependency throughout the product.
-11. The parser preserves field order, duplicate fields, operators, mixed containers, unknown constructs, scripted-constant references, and source ranges required by the product.
+11. The parser preserves field order, duplicate fields, operators, mixed containers, unknown constructs, scripted-constant references, exact source ranges, syntax faults, recovery boundaries, and Clean or Recovered evidence quality.
 12. Raw source is retained separately from the semantic model to support bounded Source Excerpts.
 13. Source comments do not contribute generated facts.
 14. Analysis failures are isolated so supported content can still produce Incomplete Documentation.
@@ -242,18 +242,16 @@ The later technical design may introduce focused lower seams where failures cann
 18. Atomic Documentation Revision publication across successful, incomplete, failed, and cancelled builds with concurrent readers.
 19. Real-machine packaging and smoke testing on macOS, Windows, and Linux before public release, including macOS Documents-folder access grant and denial.
 
-### Parser spike evidence
+### Validated parser evidence
 
-Before parser adoption, the real-corpus spike must demonstrate:
+The completed real-corpus spike established:
 
-1. Successful parsing of all syntactically valid files in the evaluation corpus.
-2. Preservation of field order, duplicate fields, operators, and mixed containers.
-3. Source ranges sufficient for definitions and recognized facts.
-4. Failure isolation for malformed files, including the number of otherwise valid definitions lost when one large file fails as a unit.
-5. Retention of unknown keys and values.
-6. A stable application-owned representation.
-7. Acceptable parsing time and memory use across Vanilla Content and representative large mods.
-8. Preservation of scripted-constant definitions and references.
+1. The wrapped `TokenReader` path parses all 7,938 evaluated files; `TextTape` rejects 37, including 29 real script files.
+2. Field order, duplicate definitions, all operators, mixed containers, unknown constructs, exact numeric lexemes, scripted-constant references, inline-script syntax, and inner semantic keys are preserved.
+3. Every scalar, container, and definition carries an exact source range; all 8,690,226 measured ranges re-slice without failure.
+4. Heuristic recovery loses roughly one definition per detected fault in the measured cases instead of silently reshaping or discarding the file. Recovered evidence remains visibly lower quality.
+5. The parsed representation is deterministic across enumeration order, parallelism, and absolute source root and does not expose Jomini types.
+6. Parsing Vanilla Content and one representative large mod takes roughly 100 ms through the parallel spike adapter, an order of magnitude below the adjacent hashing measurements, so parsing does not decide the build invocation model.
 
 ## Out of Scope
 
@@ -287,9 +285,8 @@ The following are outside this MVP PRD:
 ### Open decisions
 
 1. The project name and copyright-holder wording remain undecided.
-2. Parser selection remains provisional until the Jomini real-corpus spike is complete.
-3. The representative ordinary drawable vanilla technology for the golden acceptance set will be pinned when implementation begins.
-4. Pre-implementation resolver evidence collection is complete. The first Resolution Profile remains partial until resolver-backed tests close its named open cells; unresolved cells fail visibly and block only the content types that require them.
+2. The representative ordinary drawable vanilla technology for the golden acceptance set will be pinned when implementation begins.
+3. Pre-implementation resolver evidence collection is complete. The first Resolution Profile remains partial until resolver-backed tests close its named open cells; unresolved cells fail visibly and block only the content types that require them.
 
 ### Validated feasibility
 

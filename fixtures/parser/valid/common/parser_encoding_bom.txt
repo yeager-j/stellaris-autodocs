@@ -1,0 +1,13 @@
+﻿# A file that opens with a UTF-8 byte order mark.
+#
+# Discriminates: is the mark skipped, or does it become part of the first key? 92 vanilla
+# script files and 3 Gigastructural Engineering files carry one, so a parser that read it as
+# content would silently produce a definition nobody can reference.
+#
+# The mark is the first three bytes of this file, before the `#` above.
+#
+# Expected: one top-level definition named exactly `parser_bom_definition`.
+
+parser_bom_definition = {
+	cost = 100
+}

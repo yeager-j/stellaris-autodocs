@@ -1,0 +1,59 @@
+# Scripted constants, their references, and the numeric lexemes they carry.
+#
+# Discriminates two things the resolver depends on and cannot recover if the parser loses
+# them.
+#
+# First, the exact lexeme. `docs/decision-log.md` D-099 and `docs/technical-design.md:328`
+# forbid binary floating point from reaching source equality, identity, hashes, or a
+# displayed Base Value. The resolver oracle watched the game compare `0.1 + 0.2` against
+# `0.3` as exactly equal (`docs/spikes/resolver-evaluation.md:240`), so the game is doing
+# exact decimal arithmetic and an `f64` at parse time would already have lost the argument.
+# `0.10` and `0.1` are therefore different lexemes and must stay different.
+#
+# Second, an `@` reference must stay a reference. When a reference does not resolve, the
+# game reinterprets the consuming field as a script-value block and swallows the lines that
+# follow (`docs/spikes/resolver-evaluation.md:244`). The resolver has to detect that itself,
+# which it can only do if the parser has not already imitated the misreading.
+#
+# Expected: every `@` name classified as a variable reference, every numeric value keeping
+# its written form, and `parser_forward_consumer` still followed by a visible `tier`.
+#
+# OBSERVED: `TextTape` rejects this whole file — "expected start of parameter definition" at
+# the `@\[` on the last line. The escaped expression form is beyond it, and because the tape
+# fails a file as a unit, the constants and lexemes above become unavailable too. Eight
+# vanilla files and several mod files fail the same way. The lexer adapter reads the file.
+
+@parser_cost_small = 36
+@parser_cost_large = 272
+
+# Deliberately distinct lexemes for the same mathematical value.
+@parser_tenth_short = 0.1
+@parser_tenth_long = 0.10
+@parser_one_exact = 1
+@parser_one_decimal = 1.0
+@parser_negative = -2.50
+@parser_signed = +3
+
+# A constant whose value is another constant.
+@parser_alias = @parser_cost_small
+
+# A date is not a number: it has two separators. Reading it as one would invent a value.
+parser_numeric_shapes = {
+	tenth_short = @parser_tenth_short
+	tenth_long = @parser_tenth_long
+	start_date = 2200.1.1
+	percentage = 25
+}
+
+# The consuming site. If the parser turned `cost` into a block here, the `tier` below would
+# disappear into it — which is precisely what the game does and what the parser must not.
+parser_forward_consumer = {
+	cost = @parser_alias
+	tier = 1
+}
+
+# An inline arithmetic expression over constants, in both of its written forms.
+parser_expressions = {
+	plain = @[ parser_cost_small + 1 ]
+	escaped = @\[ ( parser_cost_large - parser_cost_small ) / 2 ]
+}

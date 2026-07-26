@@ -1,0 +1,33 @@
+# The same key defined three times in one file.
+#
+# Discriminates: does the parser hand the resolver every definition in order, or a map?
+#
+# This is the resolver spike's single most important result. Within one game build, two
+# registries resolve duplicates in *opposite* directions: technologies, scripted triggers,
+# and scripted effects keep the **last** registration, while scripted constants and events
+# keep the **first** (`docs/spikes/resolver-evaluation.md:113`). The winner is decided by
+# enumeration order, not by content.
+#
+# So a parser that deduplicated — in either direction — would destroy the evidence before
+# the resolver ever saw it, and would be wrong for one group whichever direction it chose.
+# Ordinals matter as much as presence: duplicates occur both within one file and across
+# files, and the resolver enumerates by normalized logical path plus definition ordinal
+# (`docs/technical-design.md:315`).
+#
+# Expected: three top-level definitions, all named `parser_tech_repeated`, with costs 100,
+# 200, 300 in that order.
+
+parser_tech_repeated = {
+	cost = 100
+	tier = 1
+}
+
+parser_tech_repeated = {
+	cost = 200
+	tier = 2
+}
+
+parser_tech_repeated = {
+	cost = 300
+	tier = 3
+}

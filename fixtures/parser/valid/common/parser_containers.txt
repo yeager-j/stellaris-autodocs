@@ -1,0 +1,71 @@
+# Container shapes, including the ones that are neither object nor array.
+#
+# Discriminates: is a container's shape derived from what it holds, or assumed from the
+# first thing in it? Paradox script permits `{ a b key = value }`, and a parser that
+# committed to "object" or "array" on the first item would either drop the bare values or
+# drop the pairs.
+#
+# `empty_container` matters separately. `docs/AGENTS.md` lists "empty and absent conflated"
+# as a diagnostic: `{ }` is a container that holds nothing, which is a different fact from
+# a field that was never written.
+#
+# Expected: `object` Object, `array` Array, `mixed` Mixed, `empty_container` Empty.
+
+object = {
+	first = 1
+	second = 2
+}
+
+array = {
+	industry
+	computing
+	statecraft
+}
+
+# A bare flag followed by ordinary fields. Vanilla writes this constantly —
+# `optimize_memory` opens hundreds of scripted effects — and it is what makes a container
+# mixed rather than an exotic edge case.
+mixed = {
+	optimize_memory
+	first = 1
+	second = 2
+}
+
+empty_container = { }
+
+quoted_array = {
+	"Utilities"
+	"Gameplay"
+}
+
+# Repeated sibling blocks sharing one name, the shape `.gfx` sprite lists and `.asset`
+# entity files are built from.
+repeated_siblings = {
+	entry = { name = "one" }
+	entry = { name = "two" }
+	entry = { name = "three" }
+}
+
+# A tagged literal: a scalar in value position followed by a container. The tag is part of
+# the value, not a sibling of it.
+tagged_value = {
+	shade = rgb { 12 34 56 }
+}
+
+# The same two tokens in *item* position are an assignment with the `=` left out. Vanilla
+# writes `rotation {0 0 0}` in `.asset` entities and closes
+# `common/named_colors/01_trait_colors.txt` with a definition written this way.
+implied_assignment {
+	rotation {0 0 0}
+	position {1 2 3}
+}
+
+deep_nesting = {
+	one = {
+		two = {
+			three = {
+				four = { leaf = yes }
+			}
+		}
+	}
+}

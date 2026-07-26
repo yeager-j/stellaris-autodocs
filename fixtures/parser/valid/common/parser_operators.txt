@@ -1,0 +1,32 @@
+# Every operator Paradox script admits, one per definition.
+#
+# Discriminates: does the parser preserve the operator, or does it flatten every relation
+# into an assignment? A comparison is not a synonym for an assignment — `count > 2` and
+# `count = 2` are different requirements — so collapsing them would silently rewrite the
+# mechanics this application exists to document.
+#
+# The real corpus supplies `<`, `<=`, `>`, `>=`, and `!=` in quantity, but no file in
+# vanilla, Gigastructural Engineering, Ancient Cache of Technologies, or Acquisition of
+# Technology uses `==` or `?=`. Without this fixture those two would be claimed as covered
+# on the strength of a census that never saw them.
+#
+# Expected: eight top-level definitions, eight distinct operators, in this order.
+
+assign = 1
+exact_match == 2
+not_equal != 3
+less_than < 4
+less_or_equal <= 5
+greater_than > 6
+greater_or_equal >= 7
+exists_check ?= 8
+
+# The same operators nested inside a requirement block, which is where the game actually
+# writes them.
+requirement_shape = {
+	limit = {
+		num_pops > 25
+		num_districts <= 4
+		has_modifier != some_modifier
+	}
+}

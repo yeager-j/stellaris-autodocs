@@ -1,0 +1,309 @@
+[
+  {
+    "corpus": "vanilla",
+    "files": 4578,
+    "bytes": 56085735,
+    "tape_parsed": 4560,
+    "tape_failed": 18,
+    "lexer_clean": 4572,
+    "lexer_with_faults": 6,
+    "divergent": 2,
+    "unexpected_faults": 3,
+    "spans_verified": 4578,
+    "span_faults": 0,
+    "encodings": {
+      "utf8": 4486,
+      "utf8_bom": 92
+    },
+    "tape_tokens": {
+      "array": 73944,
+      "header": 408,
+      "mixed_container": 98,
+      "object": 605937,
+      "operator": 9714,
+      "parameter": 26,
+      "quoted": 375703,
+      "undefined_parameter": 11,
+      "unquoted": 3030280
+    },
+    "census": {
+      "definitions": 58398,
+      "fields": 1959148,
+      "elements": 236049,
+      "max_depth": 16,
+      "operators": {
+        "!=": 23,
+        "<": 2259,
+        "<=": 547,
+        "=": 1949534,
+        ">": 3650,
+        ">=": 3135
+      },
+      "scalar_kinds": {
+        "number": 473953,
+        "parameter": 2772,
+        "quoted": 376270,
+        "scope_token": 2,
+        "unquoted": 2570815,
+        "variable_expr": 135,
+        "variable_ref": 39787
+      },
+      "container_kinds": {
+        "array": 68448,
+        "empty": 5446,
+        "mixed": 116,
+        "object": 617009
+      },
+      "tagged_values": 408,
+      "conditionals": 50,
+      "negated_conditionals": 15,
+      "duplicate_top_level_definitions": 27819
+    },
+    "files_with_duplicate_top_level_definitions": 1009
+  },
+  {
+    "corpus": "giga",
+    "files": 1792,
+    "bytes": 35108525,
+    "tape_parsed": 1779,
+    "tape_failed": 13,
+    "lexer_clean": 1790,
+    "lexer_with_faults": 2,
+    "divergent": 2,
+    "unexpected_faults": 1,
+    "spans_verified": 1792,
+    "span_faults": 0,
+    "encodings": {
+      "utf8": 1789,
+      "utf8_bom": 3
+    },
+    "tape_tokens": {
+      "array": 95935,
+      "header": 158,
+      "mixed_container": 1091,
+      "object": 395536,
+      "operator": 7989,
+      "parameter": 74,
+      "quoted": 325793,
+      "undefined_parameter": 11,
+      "unquoted": 1852667
+    },
+    "census": {
+      "definitions": 42142,
+      "fields": 1207242,
+      "elements": 272421,
+      "max_depth": 16,
+      "operators": {
+        "!=": 2,
+        "<": 1775,
+        "<=": 440,
+        "=": 1200365,
+        ">": 1090,
+        ">=": 3570
+      },
+      "scalar_kinds": {
+        "number": 450965,
+        "parameter": 3858,
+        "quoted": 325939,
+        "scope_token": 1,
+        "unquoted": 1394221,
+        "variable_expr": 318,
+        "variable_ref": 16630
+      },
+      "container_kinds": {
+        "array": 93657,
+        "empty": 2200,
+        "mixed": 1089,
+        "object": 398185
+      },
+      "tagged_values": 158,
+      "conditionals": 632,
+      "negated_conditionals": 18,
+      "duplicate_top_level_definitions": 27221
+    },
+    "files_with_duplicate_top_level_definitions": 485
+  },
+  {
+    "corpus": "acot",
+    "files": 1120,
+    "bytes": 18521905,
+    "tape_parsed": 1118,
+    "tape_failed": 2,
+    "lexer_clean": 1120,
+    "lexer_with_faults": 0,
+    "divergent": 1,
+    "unexpected_faults": 0,
+    "spans_verified": 1120,
+    "span_faults": 0,
+    "encodings": {
+      "utf8": 1119,
+      "utf8_bom": 1
+    },
+    "tape_tokens": {
+      "array": 38618,
+      "header": 28,
+      "mixed_container": 1,
+      "object": 173667,
+      "operator": 5818,
+      "parameter": 3,
+      "quoted": 180174,
+      "undefined_parameter": 0,
+      "unquoted": 1054351
+    },
+    "census": {
+      "definitions": 15773,
+      "fields": 677692,
+      "elements": 91587,
+      "max_depth": 11,
+      "operators": {
+        "<": 295,
+        "<=": 3634,
+        "=": 672069,
+        ">": 555,
+        ">=": 1139
+      },
+      "scalar_kinds": {
+        "number": 213594,
+        "parameter": 254,
+        "quoted": 180174,
+        "unquoted": 827316,
+        "variable_expr": 13,
+        "variable_ref": 13332
+      },
+      "container_kinds": {
+        "array": 35725,
+        "empty": 2893,
+        "object": 173698
+      },
+      "tagged_values": 28,
+      "conditionals": 13,
+      "negated_conditionals": 0,
+      "duplicate_top_level_definitions": 7847
+    },
+    "files_with_duplicate_top_level_definitions": 340
+  },
+  {
+    "corpus": "aot",
+    "files": 437,
+    "bytes": 4586347,
+    "tape_parsed": 435,
+    "tape_failed": 2,
+    "lexer_clean": 437,
+    "lexer_with_faults": 0,
+    "divergent": 1,
+    "unexpected_faults": 0,
+    "spans_verified": 437,
+    "span_faults": 0,
+    "encodings": {
+      "utf8": 437
+    },
+    "tape_tokens": {
+      "array": 5916,
+      "header": 27,
+      "mixed_container": 61,
+      "object": 36590,
+      "operator": 1011,
+      "parameter": 10,
+      "quoted": 30683,
+      "undefined_parameter": 0,
+      "unquoted": 204576
+    },
+    "census": {
+      "definitions": 5090,
+      "fields": 133228,
+      "elements": 13199,
+      "max_depth": 11,
+      "operators": {
+        "<": 143,
+        "<=": 446,
+        "=": 132338,
+        ">": 55,
+        ">=": 246
+      },
+      "scalar_kinds": {
+        "number": 33208,
+        "parameter": 1077,
+        "quoted": 30885,
+        "unquoted": 167518,
+        "variable_expr": 561,
+        "variable_ref": 3605
+      },
+      "container_kinds": {
+        "array": 5527,
+        "empty": 369,
+        "mixed": 54,
+        "object": 36878
+      },
+      "tagged_values": 27,
+      "conditionals": 22,
+      "negated_conditionals": 0,
+      "duplicate_top_level_definitions": 2344
+    },
+    "files_with_duplicate_top_level_definitions": 160
+  },
+  {
+    "corpus": "fixtures",
+    "files": 11,
+    "bytes": 15062,
+    "tape_parsed": 9,
+    "tape_failed": 2,
+    "lexer_clean": 11,
+    "lexer_with_faults": 0,
+    "divergent": 1,
+    "unexpected_faults": 0,
+    "spans_verified": 11,
+    "span_faults": 0,
+    "encodings": {
+      "not_utf8": 2,
+      "utf8": 8,
+      "utf8_bom": 1
+    },
+    "tape_tokens": {
+      "array": 9,
+      "header": 1,
+      "mixed_container": 3,
+      "object": 28,
+      "operator": 12,
+      "parameter": 0,
+      "quoted": 20,
+      "undefined_parameter": 0,
+      "unquoted": 134
+    },
+    "census": {
+      "definitions": 51,
+      "fields": 127,
+      "elements": 20,
+      "max_depth": 5,
+      "operators": {
+        "!=": 2,
+        "<": 1,
+        "<=": 2,
+        "=": 117,
+        "==": 1,
+        ">": 2,
+        ">=": 1,
+        "?=": 1
+      },
+      "scalar_kinds": {
+        "number": 50,
+        "parameter": 2,
+        "quoted": 23,
+        "scope_token": 2,
+        "unquoted": 133,
+        "variable_expr": 2,
+        "variable_ref": 13
+      },
+      "container_kinds": {
+        "array": 8,
+        "empty": 1,
+        "mixed": 2,
+        "object": 39
+      },
+      "tagged_values": 1,
+      "conditionals": 3,
+      "negated_conditionals": 1,
+      "duplicate_top_level_definitions": 3
+    },
+    "files_with_duplicate_top_level_definitions": 2
+  }
+]

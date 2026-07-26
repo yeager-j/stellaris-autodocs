@@ -1,0 +1,26 @@
+# FAULT: the second definition's opening brace is never closed. Line 14, byte offset of the
+# `{` after `parser_broken`.
+#
+# Discriminates the difference between the two adapters most sharply. `TextTape` does not
+# reject this file — it accepts it and makes `parser_third` and `parser_fourth` children of
+# `parser_broken`, reporting nothing. Structure that the source does not state becomes
+# structure the resolver would act on, with no signal to attach an Analysis Issue to
+# (`docs/technical-design.md:332`).
+#
+# Two vanilla files ship in exactly this condition: `gfx/models/effects/nomads.gfx` and
+# `common/scripted_loc/scripted_loc_ruloc.txt` each have one more `{` than `}`.
+#
+# PREDICTION
+#   tape:  parses, 2 top-level definitions, `parser_third` and `parser_fourth` swallowed
+#   lexer: 3 top-level definitions, 1 fault attributed to the unclosed brace, 2 items
+#          abandoned inside it
+
+parser_first = { cost = 100 }
+
+parser_broken = {
+	cost = 200
+	tier = 2
+
+parser_third = { cost = 300 }
+
+parser_fourth = { cost = 400 }

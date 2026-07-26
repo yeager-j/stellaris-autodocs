@@ -1,0 +1,19 @@
+# An inline-script callee: a fragment, not a definition.
+#
+# Discriminates: does the parser require a whole `key = { … }` definition per file? Every
+# inline script in the game is a bare body meant to be spliced into a consumer, so a parser
+# that demanded a complete definition would reject the entire `common/inline_scripts` tree —
+# 31 uses in vanilla's `00_ancient_relics_tech.txt` alone, and all of them inside
+# `weight_modifier`, which is where Base Draw Weight and every conditional Weight Modifier
+# come from (`docs/spikes/resolver-evaluation.md:734`).
+#
+# `$FACTOR$` must survive as a parameter placeholder. Requirement 10 forbids the parser from
+# expanding or discarding it; expansion belongs to the resolver, which needs the binding
+# site to still be here when it runs.
+#
+# Expected: one top-level `modifier` field; `$FACTOR$` classified as a parameter.
+
+modifier = {
+	factor = $FACTOR$
+	always = yes
+}

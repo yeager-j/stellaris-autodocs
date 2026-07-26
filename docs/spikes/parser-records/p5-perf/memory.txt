@@ -1,0 +1,2 @@
+peak_resident_bytes	203358208
+note	process-wide high-water mark across every corpus and both adapters, measured with getrusage(RUSAGE_SELF). Not a per-corpus figure, and inflated by holding all corpora in memory at once.

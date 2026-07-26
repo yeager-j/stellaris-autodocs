@@ -1,0 +1,112 @@
+[
+  {
+    "fault": "add_close_brace",
+    "position": "first",
+    "cases": 139,
+    "not_a_fault": 0,
+    "baseline_definitions": 4127,
+    "tape_definitions": 4127,
+    "tape_rejected_file": 0,
+    "lexer_definitions": 4124,
+    "lexer_reported_fault": 139
+  },
+  {
+    "fault": "add_close_brace",
+    "position": "last",
+    "cases": 139,
+    "not_a_fault": 0,
+    "baseline_definitions": 4127,
+    "tape_definitions": 4127,
+    "tape_rejected_file": 0,
+    "lexer_definitions": 4127,
+    "lexer_reported_fault": 139
+  },
+  {
+    "fault": "add_close_brace",
+    "position": "middle",
+    "cases": 139,
+    "not_a_fault": 0,
+    "baseline_definitions": 4127,
+    "tape_definitions": 4127,
+    "tape_rejected_file": 0,
+    "lexer_definitions": 4118,
+    "lexer_reported_fault": 139
+  },
+  {
+    "fault": "open_quote",
+    "position": "first",
+    "cases": 47,
+    "not_a_fault": 56,
+    "baseline_definitions": 669,
+    "tape_definitions": 222,
+    "tape_rejected_file": 34,
+    "lexer_definitions": 668,
+    "lexer_reported_fault": 47
+  },
+  {
+    "fault": "open_quote",
+    "position": "last",
+    "cases": 74,
+    "not_a_fault": 60,
+    "baseline_definitions": 1528,
+    "tape_definitions": 275,
+    "tape_rejected_file": 61,
+    "lexer_definitions": 1570,
+    "lexer_reported_fault": 74
+  },
+  {
+    "fault": "open_quote",
+    "position": "middle",
+    "cases": 72,
+    "not_a_fault": 58,
+    "baseline_definitions": 1567,
+    "tape_definitions": 948,
+    "tape_rejected_file": 52,
+    "lexer_definitions": 1610,
+    "lexer_reported_fault": 72
+  },
+  {
+    "fault": "remove_close_brace",
+    "position": "first",
+    "cases": 103,
+    "not_a_fault": 0,
+    "baseline_definitions": 3031,
+    "tape_definitions": 101,
+    "tape_rejected_file": 2,
+    "lexer_definitions": 2925,
+    "lexer_reported_fault": 103
+  },
+  {
+    "fault": "remove_close_brace",
+    "position": "last",
+    "cases": 134,
+    "not_a_fault": 0,
+    "baseline_definitions": 4032,
+    "tape_definitions": 4028,
+    "tape_rejected_file": 1,
+    "lexer_definitions": 3898,
+    "lexer_reported_fault": 134
+  },
+  {
+    "fault": "remove_close_brace",
+    "position": "middle",
+    "cases": 130,
+    "not_a_fault": 0,
+    "baseline_definitions": 3778,
+    "tape_definitions": 1969,
+    "tape_rejected_file": 3,
+    "lexer_definitions": 3639,
+    "lexer_reported_fault": 130
+  },
+  {
+    "fault": "truncate",
+    "position": "last",
+    "cases": 135,
+    "not_a_fault": 4,
+    "baseline_definitions": 4036,
+    "tape_definitions": 4028,
+    "tape_rejected_file": 2,
+    "lexer_definitions": 3901,
+    "lexer_reported_fault": 135
+  }
+]

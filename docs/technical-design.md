@@ -149,7 +149,7 @@ The host's application modules are the authority for behavior and state. Local H
 
 Parsing, hashing, generation, and conversion are CPU or filesystem work and must not run on the UI thread or occupy asynchronous I/O workers for their duration. The host runs that work through bounded background execution.
 
-Whether a build is an awaited asynchronous Tauri command or an explicit host-owned job is deferred until representative end-to-end build timings are available. Both implementations use private staging state and the same atomic publication operation. An explicit job model is justified only if builds are long enough to need reconnectable status, meaningful progress, navigation-independent execution, or user cancellation.
+Whether a build is an awaited asynchronous Tauri command or an explicit host-owned job is deferred until representative end-to-end build timings are available. Both implementations use private staging state and the same atomic publication operation. An explicit job model is justified only if builds are long enough to need reconnectable status, meaningful progress, navigation-independent execution, or user cancellation. The parser spike does not decide this: Vanilla Content and one representative large mod parse in roughly 100 ms through the parallel spike adapter, an order of magnitude below the adjacent hashing measurements. The choice remains based on the complete production build.
 
 The Tauri process owns the complete lifecycle. Startup constructs shared host state before Tauri commands accept requests. Enabling Companion Mode starts the LAN HTTP listener only after that state is ready; disabling it stops the listener and invalidates Companion Sessions. Shutdown rejects new work, stops any active listener, safely terminates or drains active build work without publishing incomplete staging state, and then releases cache and configuration resources.
 
@@ -266,7 +266,13 @@ The `assets` module returns exactly one typed outcome for each requested slot: a
 
 Parser-library values, the application-owned parsed representation, resolved registries, the Analysis Draft, and asset outcome types do not escape into transports, revision readers, or React.
 
-Internal `parser`, `resolver`, `documentation`, and excerpt-related modules retain direct domain tests. The parser adapter has an internal substitution seam because Jomini is an external dependency and remains provisional pending the corpus spike. Its current public `TextToken` API does not expose successful structural-token byte ranges: container `end` values are token indexes, and only borrowed scalar bytes offer a possible unofficial offset derivation. `TextTape::from_slice` also fails the whole file on a syntax error rather than recovering later definitions. The spike must therefore evaluate a bounded extension or wrapper for source ranges and quantify the file-level failure blast radius; clean adoption is not assumed. This seam does not turn every analysis stage into a public service or require application-layer orchestration.
+Internal `parser`, `resolver`, `documentation`, and excerpt-related modules retain direct domain tests. The parser adapter has an internal substitution seam because Jomini is an external dependency. The corpus spike is complete and Jomini is accepted, consumed through its `TokenReader` incremental lexer rather than its `TextTape`: the tape's `TextToken` API exposes no structural-token byte ranges, rejects real vanilla and mod syntax, and silently reparents a file whose braces do not balance, while the lexer supplies a byte position for every token and can be resumed after a fault. The production adapter must derive and verify a source range for every node, resynchronize past a syntax fault, and lex the Stellaris dialect constructs Jomini does not recognize. This seam does not turn every analysis stage into a public service or require application-layer orchestration.
+
+The parser's private interface accepts one logical source identity plus exact bytes and returns an application-owned `ParsedFile`. It preserves ordered definitions and nodes with exact byte ranges and an evidence quality of Clean or Recovered, plus parse faults with their byte positions and recovery boundaries. Parser-library types, absolute paths, and raw recovery implementation details do not cross the seam.
+
+Recovery is a heuristic about source layout, not a rule of the grammar. Any definition the parser cannot emit at a fault is absent, definitions proven before the first fault remain Clean, and definitions emitted after heuristic resynchronization are Recovered because their nesting may have been misattributed. `analysis` creates a visible file-scoped recovery issue, but completeness impact propagates only from absent or Recovered evidence; the diagnostic scope does not make earlier Clean facts incomplete. A stray token that leaves source syntactically valid is not detectable by either measured adapter and remains a disclosed limitation. The [parser evaluation](./spikes/parser-evaluation.md) holds the measurements, the captured records, and the residual limitations.
+
+Source ranges may be much larger than a useful technical excerpt. Each captured Source Excerpt contains at most 16 KiB of original source bytes, aligned to line boundaries where possible and anchored around the referenced fact. Its display projection represents undecodable bytes visibly rather than dropping them, and leading or trailing omission is shown explicitly. Provenance retains the complete source range, but neither desktop nor companion excerpt reads can expand the reference into an arbitrary full-file read.
 
 Search indexing remains an internal stage from the application layer's perspective, but `analysis` delegates its implementation to the shared deep `search` module described below. This preserves one owner for the index contract and ranking semantics used during both build and read.
 
@@ -1004,7 +1010,8 @@ Golden tests assert semantic facts, identities, relationships, completeness, pro
 Focused lower-level suites exist where the full harness would hide the cause or cannot economically exercise the failure:
 
 - `source` normalization, symlink and reparse containment, fingerprint, referenced-asset freshness, snapshot, and mid-build-change behavior.
-- Parser adaptation, exact numeric representation, Resolution Profile rows, and content-type-specific resolver fixtures.
+- Parser adaptation through `TokenReader`, whole-corpus range re-slicing, Stellaris-dialect fixtures, Clean and Recovered evidence quality, fault resynchronization, deterministic parsed-model digests, exact numeric representation, Resolution Profile rows, and content-type-specific resolver fixtures.
+- Source Excerpt anchoring, 16 KiB enforcement, visible truncation, undecodable-byte projection, and rejection of arbitrary range or file reads.
 - Localization tokenization, fallback, reference cycles, and plain-text projection.
 - Search index round-trips, ranking, filtering, determinism, and bounds.
 - DDS decoding, conversion recipes, typed materialization outcomes, content validation, and analysis-owned placeholder behavior.
@@ -1037,6 +1044,5 @@ The generated Tauri scaffold currently disables Content Security Policy. A relea
 - Final serialized fields for operation-specific Result payloads.
 - Search algorithm, index representation, and in-memory cache bound.
 - Build invocation model pending representative end-to-end timings.
-- Parser selection pending the real-corpus spike.
 - Unresolved Resolution Profile cells pending resolver-backed investigation.
 - Graph layout implementation.

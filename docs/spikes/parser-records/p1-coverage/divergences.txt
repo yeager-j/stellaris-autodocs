@@ -1,0 +1,17 @@
+# vanilla: 2 total
+common/scripted_effects/02_machine_age_effects.txt	[25].synth_queen_spawn_history_projects: item count 10 vs 8
+interface/reference.txt	<root>: item count 111 vs 93
+
+# giga: 2 total
+common/megastructures/zz_e_stellar_ring_habitat.txt	[19].stellar_ring_habitat_3[10].on_build_complete[1].fromfrom.planet[15].set_name: container kind Mixed vs Object
+common/scripted_effects/compound_effects.txt	[39].giga_set_if_not_set: item count 5 vs 3
+
+# acot: 1 total
+common/component_templates/acot_1_components_weapons_mutations_delta.txt	<root>: item count 336 vs 326
+
+# aot: 1 total
+common/scripted_effects/aot_scripted_effects.txt	[3].save_aot_habitat_districts: container kind Mixed vs Array
+
+# fixtures: 1 total
+interface/parser_sprites.gfx	[1].parser_scope_tokens: container kind Mixed vs Object
+
