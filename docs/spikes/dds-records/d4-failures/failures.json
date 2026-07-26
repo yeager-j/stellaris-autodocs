@@ -1,0 +1,149 @@
+{
+  "totality": [
+    {
+      "scope": "fixtures",
+      "inputs": 27,
+      "decoded": 14,
+      "malformed_media": 8,
+      "unsupported_format": 5,
+      "conversion_failure": 0,
+      "missing_bytes": 0,
+      "sum": 27
+    },
+    {
+      "scope": "vanilla",
+      "inputs": 22469,
+      "decoded": 22457,
+      "malformed_media": 2,
+      "unsupported_format": 10,
+      "conversion_failure": 0,
+      "missing_bytes": 0,
+      "sum": 22469
+    },
+    {
+      "scope": "workshop",
+      "inputs": 10649,
+      "decoded": 10647,
+      "malformed_media": 0,
+      "unsupported_format": 2,
+      "conversion_failure": 0,
+      "missing_bytes": 0,
+      "sum": 10649
+    }
+  ],
+  "missing_bytes_candidates": 47,
+  "real_world_cases": [
+    {
+      "corpus": "vanilla",
+      "logical": "gfx/interface/icons/traits/all_negative.dds",
+      "bytes": 0,
+      "outcome": "malformed-media",
+      "detail": "file is 0 bytes; a DDS header needs 128",
+      "referenced": false
+    },
+    {
+      "corpus": "vanilla",
+      "logical": "gfx/interface/main/paused_bar_glow.dds",
+      "bytes": 3,
+      "outcome": "malformed-media",
+      "detail": "file is 3 bytes; a DDS header needs 128",
+      "referenced": true
+    },
+    {
+      "corpus": "vanilla",
+      "logical": "gfx/map/sky_core.dds",
+      "bytes": 25165952,
+      "outcome": "unsupported-format",
+      "detail": "6 array layers; the recipe materializes one image per slot",
+      "referenced": false
+    },
+    {
+      "corpus": "vanilla",
+      "logical": "gfx/map/sky_mid.dds",
+      "bytes": 25165952,
+      "outcome": "unsupported-format",
+      "detail": "6 array layers; the recipe materializes one image per slot",
+      "referenced": false
+    },
+    {
+      "corpus": "vanilla",
+      "logical": "gfx/map/sky_rim.dds",
+      "bytes": 25165952,
+      "outcome": "unsupported-format",
+      "detail": "6 array layers; the recipe materializes one image per slot",
+      "referenced": false
+    },
+    {
+      "corpus": "vanilla",
+      "logical": "gfx/map/sky_ycocg.dds",
+      "bytes": 25165952,
+      "outcome": "unsupported-format",
+      "detail": "6 array layers; the recipe materializes one image per slot",
+      "referenced": false
+    },
+    {
+      "corpus": "vanilla",
+      "logical": "gfx/worldgfx/cubemap_filtered_ldr.dds",
+      "bytes": 2097440,
+      "outcome": "unsupported-format",
+      "detail": "6 array layers; the recipe materializes one image per slot",
+      "referenced": false
+    },
+    {
+      "corpus": "vanilla",
+      "logical": "gfx/worldgfx/cubemap_filtered_ldr_bright.dds",
+      "bytes": 786560,
+      "outcome": "unsupported-format",
+      "detail": "6 array layers; the recipe materializes one image per slot",
+      "referenced": false
+    },
+    {
+      "corpus": "vanilla",
+      "logical": "gfx/worldgfx/cubemap_filtered_ldr_yellow.dds",
+      "bytes": 2097440,
+      "outcome": "unsupported-format",
+      "detail": "6 array layers; the recipe materializes one image per slot",
+      "referenced": false
+    },
+    {
+      "corpus": "vanilla",
+      "logical": "gfx/worldgfx/lava_noise.dds",
+      "bytes": 3145856,
+      "outcome": "unsupported-format",
+      "detail": "6 array layers; the recipe materializes one image per slot",
+      "referenced": false
+    },
+    {
+      "corpus": "vanilla",
+      "logical": "gfx/worldgfx/stars.dds",
+      "bytes": 16777424,
+      "outcome": "unsupported-format",
+      "detail": "6 array layers; the recipe materializes one image per slot",
+      "referenced": false
+    },
+    {
+      "corpus": "vanilla",
+      "logical": "gfx/worldgfx/t_class_noise.dds",
+      "bytes": 3145856,
+      "outcome": "unsupported-format",
+      "detail": "6 array layers; the recipe materializes one image per slot",
+      "referenced": false
+    },
+    {
+      "corpus": "workshop",
+      "logical": "1121692237/gfx/map/ehof_whitehole.dds",
+      "bytes": 25165952,
+      "outcome": "unsupported-format",
+      "detail": "6 array layers; the recipe materializes one image per slot",
+      "referenced": false
+    },
+    {
+      "corpus": "workshop",
+      "logical": "1121692237/gfx/worldgfx/ehof_cubemap.dds",
+      "bytes": 1572992,
+      "outcome": "unsupported-format",
+      "detail": "6 array layers; the recipe materializes one image per slot",
+      "referenced": false
+    }
+  ]
+}

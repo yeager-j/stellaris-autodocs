@@ -1,0 +1,14 @@
+# corpus	logical path	bytes	fault
+fixtures	malformed/bad_magic.dds	144	magic is [58, 44, 53, 20], not `DDS `
+fixtures	malformed/bom_only.dds	3	file is 3 bytes; a DDS header needs 128
+fixtures	malformed/empty.dds	0	file is 0 bytes; a DDS header needs 128
+fixtures	malformed/header_size_120.dds	144	header size is 120, not 124
+fixtures	malformed/pixelformat_size_28.dds	144	pixel format size is 28, not 32
+fixtures	malformed/truncated_dx10_header.dds	140	DX10 four-character code but only 140 bytes
+fixtures	malformed/truncated_pixels_dxt5.dds	140	mip 0 needs 16 pixel bytes; 12 are present
+fixtures	malformed/zero_height.dds	144	dimensions are 2x0
+fixtures	unsupported/dxt2_premultiplied_4x4.dds	144	DXT2 carries premultiplied alpha, which is not un-premultiplied
+fixtures	unsupported/fourcc_zzzz_4x4.dds	144	four-character code "ZZZZ" is not supported
+fixtures	unsupported/volume_2x2x2.dds	160	volume textures are not supported
+vanilla	gfx/interface/icons/traits/all_negative.dds	0	file is 0 bytes; a DDS header needs 128
+vanilla	gfx/interface/main/paused_bar_glow.dds	3	file is 3 bytes; a DDS header needs 128

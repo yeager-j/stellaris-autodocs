@@ -1,0 +1,87 @@
+{
+  "pinned": {
+    "version": 1,
+    "decoder": {
+      "image_dds": "0.7.2",
+      "bcdec_rs": "0.2.0"
+    },
+    "mip": "Base",
+    "layers": "SingleLayer",
+    "colorspace": "SrgbDeclaredNoTransform",
+    "alpha": "Straight",
+    "output": "Png",
+    "encoder": {
+      "crate_name": "png",
+      "crate_version": "0.18.1",
+      "settings": "compression=balanced;filter=adaptive;no-ancillary-chunks"
+    },
+    "max_decoded_pixels": 16777216
+  },
+  "findings": [
+    {
+      "parameter": "colorspace",
+      "question": "Does declaring a surface sRGB-encoded change any decoded byte?",
+      "result": "8 surfaces decoded both as UNORM and as UNORM_SRGB; 0 differed. image_dds dispatches both to the same 8-bit decode, so the recipe's colorspace field is a declaration carried into the output, not a conversion applied to it.",
+      "changes_output": false
+    },
+    {
+      "parameter": "mip",
+      "question": "Does the selected mip level change the output?",
+      "result": "the four-level fixture decodes at (8, 8) with first pixel [16, 32, 48, 255], which is level 0's colour. Each level stores a different flat colour, so a wrong level would change both the dimensions and every pixel.",
+      "changes_output": true
+    },
+    {
+      "parameter": "layers",
+      "question": "What does decoding every layer produce?",
+      "result": "a 2x2 six-face cube map decodes to 2x12 when every layer is taken, because layers are stacked vertically and no error is reported. The recipe refuses it instead (refused = true). At corpus scale the same rule turns a 2048x2048 cube map into a 2048x12288 image that a caller would have no reason to question.",
+      "changes_output": true
+    },
+    {
+      "parameter": "encoder",
+      "question": "Do encoder settings change the output bytes for identical pixels?",
+      "result": "one identical decoded image encoded 8 ways produced 6 distinct digests: none/nofilter=332B/ccf8682586b2 none/adaptive=332B/ccf8682586b2 fast/nofilter=332B/ccf8682586b2 fast/adaptive=143B/fdaf93c3be70 balanced/nofilter=88B/7e6aa145afd3 balanced/adaptive=93B/741f6f232509 high/nofilter=88B/9b0ac919ab35 high/adaptive=93B/f7a000bca26b. The pixels never changed. This is why the encoder's crate, version, and settings are fields of the recipe: an asset key derived only from source bytes and pixel content would address two different files at once. png's own documentation states that its DEFLATE implementation may evolve without a semver-breaking release, so the version alone is necessary but not sufficient — the settings must be named too.",
+      "changes_output": true
+    },
+    {
+      "parameter": "asset key",
+      "question": "Is the key a function of exactly source bytes and recipe?",
+      "result": "same bytes and recipe give the same key: true. Changing the output format changes it: true. Changing the recipe version changes it: true. Different source bytes change it: true.",
+      "changes_output": true
+    }
+  ],
+  "formats": [
+    {
+      "scope": "vanilla",
+      "images": 11560,
+      "decoded_bytes": 168027244,
+      "png_bytes": 56720031,
+      "webp_bytes": 52824894,
+      "png_lossless": true,
+      "webp_lossless": true,
+      "png_round_trip_failures": 0,
+      "webp_round_trip_failures": 0
+    },
+    {
+      "scope": "workshop",
+      "images": 7756,
+      "decoded_bytes": 122327196,
+      "png_bytes": 43815876,
+      "webp_bytes": 40565658,
+      "png_lossless": true,
+      "webp_lossless": true,
+      "png_round_trip_failures": 0,
+      "webp_round_trip_failures": 0
+    },
+    {
+      "scope": "fixtures",
+      "images": 14,
+      "decoded_bytes": 792,
+      "png_bytes": 1255,
+      "webp_bytes": 2412,
+      "png_lossless": true,
+      "webp_lossless": true,
+      "png_round_trip_failures": 0,
+      "webp_round_trip_failures": 0
+    }
+  ]
+}

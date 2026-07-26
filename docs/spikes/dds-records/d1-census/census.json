@@ -1,0 +1,257 @@
+{
+  "corpora": [
+    {
+      "id": "vanilla",
+      "files": 22469,
+      "total_bytes": 18013628640,
+      "formats": {
+        "BC1_UNORM": 659,
+        "BC2_UNORM": 156,
+        "BC3_UNORM": 6634,
+        "MALFORMED": 2,
+        "UNCOMP16_r10:5g5:5b0:5a15:1": 15,
+        "UNCOMP24_r16:8g8:8b0:8a-": 634,
+        "UNCOMP32_r0:8g8:8b16:8a24:8": 8,
+        "UNCOMP32_r16:8g8:8b0:8a24:8": 14361
+      },
+      "dimensions_top": [
+        [
+          "2048x2048",
+          1892
+        ],
+        [
+          "512x512",
+          1668
+        ],
+        [
+          "1024x1024",
+          1203
+        ],
+        [
+          "25x25",
+          1128
+        ],
+        [
+          "29x29",
+          1120
+        ],
+        [
+          "52x52",
+          990
+        ],
+        [
+          "58x58",
+          679
+        ],
+        [
+          "256x256",
+          645
+        ]
+      ],
+      "mip_counts": {
+        "0": 13607,
+        "1": 2877,
+        "2": 2,
+        "3": 12,
+        "4": 20,
+        "5": 380,
+        "6": 144,
+        "7": 93,
+        "8": 229,
+        "9": 670,
+        "10": 850,
+        "11": 1157,
+        "12": 2378,
+        "13": 48
+      },
+      "cubemaps": 10,
+      "volumes": 0,
+      "block_unaligned": {
+        "BC1_UNORM": 42,
+        "BC2_UNORM": 8,
+        "BC3_UNORM": 212
+      },
+      "unaligned_24bpp_rows": 274,
+      "malformed": 2,
+      "unsupported": 0,
+      "reverse_channel_order": [
+        "gfx/interface/buttons/standard_button_200_24_dlc_overlay_animated.dds",
+        "gfx/interface/buttons/standard_button_200_24_dlc_overlay_mask.dds",
+        "gfx/interface/fleet_view/paladin_class_ability.dds",
+        "gfx/interface/fleet_view/paladin_resolution_ability.dds",
+        "gfx/interface/icons/resolutions/resolution_placeholder.dds",
+        "gfx/interface/icons/ship_parts/ship_part_placeholder.dds",
+        "gfx/map/storms/NebulaOpacity.dds",
+        "gfx/map/storms/infestation.dds"
+      ]
+    },
+    {
+      "id": "workshop",
+      "files": 10649,
+      "total_bytes": 4776542971,
+      "formats": {
+        "BC1_UNORM": 398,
+        "BC2_UNORM": 1006,
+        "BC3_UNORM": 1917,
+        "UNCOMP24_r16:8g8:8b0:8a-": 851,
+        "UNCOMP32_r0:8g8:8b16:8a24:8": 4,
+        "UNCOMP32_r16:8g8:8b0:8a24:8": 6473
+      },
+      "dimensions_top": [
+        [
+          "52x52",
+          1616
+        ],
+        [
+          "58x58",
+          1177
+        ],
+        [
+          "25x25",
+          509
+        ],
+        [
+          "60x60",
+          481
+        ],
+        [
+          "1024x1024",
+          351
+        ],
+        [
+          "78x78",
+          280
+        ],
+        [
+          "2048x2048",
+          239
+        ],
+        [
+          "30x30",
+          221
+        ]
+      ],
+      "mip_counts": {
+        "0": 4101,
+        "1": 4702,
+        "4": 5,
+        "5": 104,
+        "6": 357,
+        "7": 106,
+        "8": 106,
+        "9": 181,
+        "10": 384,
+        "11": 323,
+        "12": 262,
+        "13": 18
+      },
+      "cubemaps": 2,
+      "volumes": 0,
+      "block_unaligned": {
+        "BC1_UNORM": 48,
+        "BC2_UNORM": 28,
+        "BC3_UNORM": 505
+      },
+      "unaligned_24bpp_rows": 246,
+      "malformed": 0,
+      "unsupported": 0,
+      "reverse_channel_order": [
+        "1121692237/gfx/interface/tiles/dark_area_70_percent.dds",
+        "1623423360/gfx/ui_overhaul_qhd/research/tech_bg_unlocked.dds",
+        "3449760193/gfx/ui_overhaul_qhd/research/tech_bg_unlocked.dds"
+      ]
+    },
+    {
+      "id": "fixtures",
+      "files": 27,
+      "total_bytes": 4040,
+      "formats": {
+        "BC1_UNORM": 2,
+        "BC2_UNORM": 1,
+        "BC3_UNORM": 5,
+        "MALFORMED": 8,
+        "UNCOMP16_r10:5g5:5b0:5a15:1": 1,
+        "UNCOMP24_r16:8g8:8b0:8a-": 1,
+        "UNCOMP32_r0:8g8:8b16:8a24:8": 2,
+        "UNCOMP32_r16:8g8:8b0:8a-": 1,
+        "UNCOMP32_r16:8g8:8b0:8a24:8": 3,
+        "UNSUPPORTED": 3
+      },
+      "dimensions_top": [
+        [
+          "4x4",
+          8
+        ],
+        [
+          "2x2",
+          7
+        ],
+        [
+          "1x1",
+          1
+        ],
+        [
+          "3x2",
+          1
+        ],
+        [
+          "5x3",
+          1
+        ],
+        [
+          "8x8",
+          1
+        ]
+      ],
+      "mip_counts": {
+        "1": 18,
+        "4": 1
+      },
+      "cubemaps": 1,
+      "volumes": 1,
+      "block_unaligned": {
+        "BC3_UNORM": 2
+      },
+      "unaligned_24bpp_rows": 1,
+      "malformed": 8,
+      "unsupported": 3,
+      "reverse_channel_order": [
+        "valid/rgba8_2x2.dds"
+      ]
+    }
+  ],
+  "reachable": [
+    {
+      "corpus": "vanilla",
+      "referenced_paths": 7241,
+      "resolved": 7194,
+      "dangling": 47,
+      "doubled_separators": 14,
+      "formats": {
+        "BC1_UNORM": 54,
+        "BC2_UNORM": 15,
+        "BC3_UNORM": 142,
+        "MALFORMED": 1,
+        "UNCOMP16_r10:5g5:5b0:5a15:1": 5,
+        "UNCOMP24_r16:8g8:8b0:8a-": 179,
+        "UNCOMP32_r0:8g8:8b16:8a24:8": 2,
+        "UNCOMP32_r16:8g8:8b0:8a24:8": 6796
+      }
+    },
+    {
+      "corpus": "workshop",
+      "referenced_paths": 3911,
+      "resolved": 3905,
+      "dangling": 6,
+      "doubled_separators": 0,
+      "formats": {
+        "BC1_UNORM": 52,
+        "BC2_UNORM": 111,
+        "BC3_UNORM": 475,
+        "UNCOMP24_r16:8g8:8b0:8a-": 127,
+        "UNCOMP32_r0:8g8:8b16:8a24:8": 3,
+        "UNCOMP32_r16:8g8:8b0:8a24:8": 3137
+      }
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Last updated: 2026-07-25
+Last updated: 2026-07-26
 
 This document turns the accepted product requirements into an implementable design. It records decisions as they are made; undecided areas remain explicit rather than being filled with speculative structure.
 
@@ -149,7 +149,7 @@ The host's application modules are the authority for behavior and state. Local H
 
 Parsing, hashing, generation, and conversion are CPU or filesystem work and must not run on the UI thread or occupy asynchronous I/O workers for their duration. The host runs that work through bounded background execution.
 
-Whether a build is an awaited asynchronous Tauri command or an explicit host-owned job is deferred until representative end-to-end build timings are available. Both implementations use private staging state and the same atomic publication operation. An explicit job model is justified only if builds are long enough to need reconnectable status, meaningful progress, navigation-independent execution, or user cancellation. The parser spike does not decide this: Vanilla Content and one representative large mod parse in roughly 100 ms through the parallel spike adapter, an order of magnitude below the adjacent hashing measurements. The choice remains based on the complete production build.
+Whether a build is an awaited asynchronous Tauri command or an explicit host-owned job is deferred until representative end-to-end build timings are available. Both implementations use private staging state and the same atomic publication operation. An explicit job model is justified only if builds are long enough to need reconnectable status, meaningful progress, navigation-independent execution, or user cancellation. Neither completed dependency spike decides this: Vanilla Content and one representative large mod parse in roughly 100 ms through the parallel parser-spike adapter, while the DDS spike deliberately captured correctness and determinism rather than throughput. The choice remains based on the complete production build, including resolution, documentation generation, indexing, and conversion of the assets actually referenced by that revision.
 
 The Tauri process owns the complete lifecycle. Startup constructs shared host state before Tauri commands accept requests. Enabling Companion Mode starts the LAN HTTP listener only after that state is ready; disabling it stops the listener and invalidates Companion Sessions. Shutdown rejects new work, stops any active listener, safely terminates or drains active build work without publishing incomplete staging state, and then releases cache and configuration resources.
 
@@ -260,7 +260,7 @@ Source Snapshots
 
 Parsing, adaptation into the application-owned parsed representation, content-type-specific resolution, documentation generation, search indexing, Source Excerpt capture, initial Analysis Issue accumulation, and determination of logical asset slots produce an Analysis Draft. The draft is not publishable and exposes only the typed asset requests needed by the application coordinator.
 
-The `assets` module returns exactly one typed outcome for each requested slot: a materialized immutable key plus trusted blob metadata, or a typed missing-byte, malformed-media, unsupported-format, or conversion-failure result. It does not choose user-facing placeholders or mutate documentation.
+The `assets` module returns exactly one typed outcome for each requested slot: a materialized immutable key plus trusted blob metadata, or a typed missing-byte, malformed-media, unsupported-format, or conversion-failure result. Missing bytes are decided while reading the Source Snapshot; malformed media and unsupported input are classified before decoding; a conversion failure means a supported input failed during decode, encode, or publication staging. The module does not choose user-facing placeholders or mutate documentation.
 
 `analysis::finalize` consumes the complete draft and outcome set. It deterministically substitutes placeholders for failed slots, adds revision, entry, section, or fact-scoped Analysis Issues, computes the final required-key set, and only then yields a Revision Candidate. A missing, duplicate, or unknown slot outcome is an internal contract failure and yields no candidate. This keeps documentation and completeness semantics inside `analysis` while `assets` retains byte-conversion mechanics.
 
@@ -282,7 +282,7 @@ Expected source problems become Analysis Issues in a completed candidate when pa
 
 ### Resolver contract and game oracle
 
-The MVP resolver implements a two-contributor scope: one Vanilla Content Source Snapshot containing the base-game file set and one Target Mod Source Snapshot. DLC archives do not contribute script, localization, interface, or map definitions. DLC-gated definitions already live in Vanilla Content; `host_has_dlc` is analyzed as a requirement rather than as source selection or precedence. DLC archives may still supply referenced visual assets through the Stellaris Installation.
+The MVP resolver implements a two-contributor scope: one Vanilla Content Source Snapshot containing the base-game file set and one Target Mod Source Snapshot. DLC archives do not contribute script, localization, interface, or map definitions. DLC-gated definitions already live in Vanilla Content; `host_has_dlc` is analyzed as a requirement rather than as source selection or precedence. Whether DLC archives supply referenced visual assets is unexercised at the pinned build: the [DDS evaluation](./spikes/dds-evaluation.md) opened all 30 archives under `dlc/` and found only audio, `.asset`, and `.txt` entries, and no image of any format. The asset module therefore reads textures from the installation tree, and a future build that ships images inside an archive would be a new source-selection question rather than a covered one.
 
 Two contributors do not imply two ordered layers. After applying exact-path shadowing and Target Mod `replace_path` declarations, a versioned Resolution Profile constructs the semantic file stream separately for each content family. Script registries and sprite definitions use one global normalized logical-path order across surviving Vanilla and Target Mod files. Localization uses its own ordered stream: surviving Vanilla files, ordinary mod files in enabled-mod order, then `replace/` files, with its content-specific collision rule. Inline scripts are path-addressed textual expansion rather than registry entries. The resolver refuses to substitute source origin, a generic merge, or a universal first- or last-wins rule for a missing policy.
 
@@ -500,20 +500,31 @@ Browser-safe assets are immutable blobs stored outside Documentation Revision bu
 
 Analysis owns the Stellaris-specific decision about which asset belongs to a documented concept. It interprets icon conventions, sprite definitions, source precedence, and provenance, then emits a resolved Source Asset Reference plus an explicit conversion recipe. The asset module does not interpret technologies, content overrides, localization markup, or sprite-selection rules.
 
-An asset key is derived from:
+An asset key is the SHA-256 digest of a domain separator plus this canonical body:
 
 ```text
-source asset bytes
-+ explicit conversion-recipe version
-+ output format
-+ conversion parameters
+SHA-256(source asset bytes)
++ canonical conversion recipe
 ```
 
-The recipe version changes whenever decoder choice or application behavior can change the output. Paths, mod titles, declared versions, and filesystem timestamps do not participate in asset identity.
+The canonical recipe contains every decoder, policy, and encoder choice that can change the output. Changing any field changes the derived key. Paths, mod titles, declared versions, filesystem timestamps, and wall-clock conversion data do not participate in asset identity.
 
-The asset module accepts the resolved Source Asset Reference and slot identifier, reads it through the Source Snapshot capability, hashes the source bytes and recipe, and reuses an existing blob only when its trusted metadata or content validation proves that it matches the key. Otherwise it decodes the DDS or other supported source, produces the browser-safe output and metadata in adjacent temporary storage, and atomically publishes the immutable blob. The original source asset is not copied into the Asset Store.
+The recipe is a value with explicit fields rather than a version number attached to implicit behavior, because a choice with a default but no field is a decision with no home. Its measured fields are decoder identity, mip selection, layer policy, colorspace declaration, alpha policy, output format, encoder identity and settings, and a decoded-size limit ([ADR 0008](./adr/0008-decode-source-textures-through-a-pinned-conversion-recipe.md)). Two of those inputs are not first-party: the decoder's transitive dependency decides output pixels, and one identical decoded image encoded eight ways through one encoder version produced six distinct digests. The recipe therefore records the resolved `image_dds`, `bcdec_rs`, and `png` versions and the encoder settings in addition to its application-owned semantic version.
 
-A missing semantic reference enters the Analysis Draft as an analysis issue and placeholder slot. Missing resolved bytes, malformed or unsupported media, and conversion failures return typed asset outcomes. `analysis::finalize` turns those outcomes into the appropriate scoped issue and deterministic placeholder rather than a required key. Publication validates required non-placeholder blobs by trusted metadata or content, never by path existence alone.
+The only MVP recipe is DDS to PNG:
+
+- Decode with `image_dds` `0.7.2`, built with `default-features = false` and only the `ddsfile` feature. The adapter calls `Surface::decode_layers_mipmaps_rgba8` for mip 0 and one layer; `image_from_dds` is not available or used.
+- Produce an application-owned straight-alpha RGBA8 image. Treat stored color values as sRGB-encoded without applying a transfer function, and emit an untagged PNG with no color-profile or timing metadata.
+- Encode with `png` `0.18.1` using balanced compression, adaptive filtering, and no ancillary chunks. Lossless WebP is not an MVP output; its measured roughly 7% size saving does not justify another production encoder, and the output-format field keeps later adoption additive.
+- Reject multi-layer surfaces, including cube maps, rather than silently selecting or stacking faces. Reject premultiplied-alpha `DXT2` and `DXT4` rather than returning straight-alpha pixels that are quietly wrong. Reject inputs above the recipe's 4,096 × 4,096 decoded-pixel limit before allocation.
+
+Supporting another source or output format requires a new explicit recipe and evidence; it does not widen the existing DDS recipe by convention.
+
+The asset module's interface remains one resolved Source Asset Reference, slot identifier, and recipe in, with one typed materialization outcome out. Its application-owned DDS container reader, decoded-image representation, `image_dds` adapter, and PNG encoder are private implementation. No decoder or encoder type crosses this seam.
+
+The asset module reads the reference through the Source Snapshot capability, hashes the source bytes and canonical recipe, and reuses an existing blob only when trusted metadata or content validation proves that it matches the key. Otherwise it classifies the container, decodes and encodes it, writes the browser-safe PNG plus trusted metadata in adjacent temporary storage, and atomically publishes the immutable blob. The original DDS is not copied into the Asset Store.
+
+A missing semantic reference enters the Analysis Draft as an analysis issue and placeholder slot. A resolved reference that yields no bytes returns `MissingBytes` from the source-read part of materialization. The application-owned DDS container reader distinguishes `MalformedMedia` from `UnsupportedFormat` before the decoder runs; unsupported includes a recognized container refused by the recipe's format, layer, alpha, or size policy. `ConversionFailure` is reserved for a supported input whose decoder, encoder, or staging write fails. `analysis::finalize` turns those outcomes into the appropriate scoped issue and deterministic placeholder rather than a required key. Publication validates required non-placeholder blobs by trusted metadata or content, never by path existence alone.
 
 Asset resolution accepts a logical reference in the context of an authorized revision handle and confirms that the resulting key belongs to that revision before returning a transport-specific descriptor. Companion HTTP additionally performs this check before opening the blob. The exact desktop delivery mechanism remains a transport decision.
 
@@ -525,13 +536,15 @@ The desktop documentation adapter resolves a logical asset reference through Rus
 
 Tauri's asset-protocol scope contains one entry equivalent to `$APPDATA/asset-store/**`, resolved by Tauri to the platform application-data directory. It does not include revision JSON, Source Excerpts, mutable state, Discovery Locations, or Mod Source. The desktop CSP permits `asset:` and `http://asset.localhost` only in `img-src` where required by the platform WebView.
 
-The Companion HTTP adapter resolves the same logical reference through its companion revision handle and serves the blob from an authenticated same-origin asset route with the correct content type and immutable private-cache headers.
+The Companion HTTP adapter resolves the same logical reference through its companion revision handle and serves the PNG from an authenticated same-origin asset route as `image/png` with immutable private-cache headers.
 
 React components receive an opaque browser URL from the documentation client. They do not receive an absolute path, construct an Asset Store location, invoke Tauri directly, or branch by runtime.
 
 The MVP does not introduce an application-specific Tauri URI protocol or transfer ordinary image files as IPC array buffers. Those remain fallbacks only if the built-in scoped asset protocol fails a cross-platform packaging or CSP test.
 
-The DDS feasibility record is reproducible. The repository retains the decoder and converter versions, invocation, output hashes, input logical paths and hashes, and license-compatible fixture assets. Proprietary Vanilla or mod samples are not redistributed without permission; their checksums and acquisition paths allow a licensed local installation to reproduce the conversion.
+The [DDS evaluation](./spikes/dds-evaluation.md) is complete and its records are reproducible. The repository retains the pinned decoder, encoder, and toolchain versions, the exact invocations, corpus tree digests, and license-clean fixture assets generated from committed source. Proprietary Vanilla or mod samples are not redistributed: records hold logical paths and checksums, which is what a licensed local installation needs to reproduce a run, and a drift gate reports which records a changed input invalidates.
+
+Decoding is confined to the asset module's adapter and governed by the pinned recipe. Correctness is established by an independent second reading of the same bytes rather than by inspection, because the failure mode is a plausible image with its channels exchanged; that second reading lives in the spike harness and is how a decoder upgrade is validated. BC4, BC5, BC6, and BC7 remain unexercised by the pinned corpus and gain no corpus-backed support claim by implication. `ConversionFailure` likewise requires an injected decoder, encoder, or staging-write failure because no pinned real input naturally reaches it.
 
 ### Revision retention
 
@@ -1014,7 +1027,7 @@ Focused lower-level suites exist where the full harness would hide the cause or 
 - Source Excerpt anchoring, 16 KiB enforcement, visible truncation, undecodable-byte projection, and rejection of arbitrary range or file reads.
 - Localization tokenization, fallback, reference cycles, and plain-text projection.
 - Search index round-trips, ranking, filtering, determinism, and bounds.
-- DDS decoding, conversion recipes, typed materialization outcomes, content validation, and analysis-owned placeholder behavior.
+- DDS container classification independent of `ddsfile`; the pinned `image_dds` adapter and PNG encoder; recipe and asset-key fixtures; single-layer, premultiplied-alpha, and decoded-size refusals; typed materialization outcomes; injected conversion and staging failures; content validation; and analysis-owned placeholder behavior. Decoder or recipe upgrades must re-run the independent corpus cross-check, its channel-order negative controls, and the reversed-endpoint BC3 regression fixture before their versions enter the production recipe.
 - Analysis Issue evidence dependencies and exact revision, registry, entry, section, fact, and route propagation.
 - Revision schema validation, canonical identity, handle pinning, quarantine-safe cleanup, and injected crash or failure points around bundle completion and state publication.
 - Companion pairing rotation and attempt limits, event-derived readiness transitions, authorization, same-origin enforcement, and read-only boundaries.
@@ -1023,7 +1036,7 @@ Focused lower-level suites exist where the full harness would hide the cause or 
 
 The verification program additionally includes:
 
-- **Reproducibility:** build the same corpus under different temporary roots, randomized enumeration input, and worker schedules; compare canonical documentation, entry hashes, route identities, and Revision identifiers.
+- **Reproducibility:** build the same corpus under different temporary roots, randomized enumeration input, and worker schedules; compare canonical documentation, entry hashes, route identities, asset keys, encoded-asset hashes, and Revision identifiers.
 - **Metamorphic behavior:** comments and whitespace change no authoritative fact; insertions that only shift ranges preserve route identity; supported commutative reordering preserves identity; unrelated binary assets alter nothing.
 - **Game oracle:** run the pinned resolver fixture against the supported Stellaris build, including the omitted-`potential` redefinition, and compare every expected effective field and provenance record.
 - **Completeness propagation:** inject parser, resolver, localization, route, and asset failures and assert exact typed fact states plus revision, registry, entry, section, and route warnings.
@@ -1033,7 +1046,7 @@ The verification program additionally includes:
 
 The publication suite injects failures before and after each normative commit point and proves that readers see either the prior complete revision or the replacement, never staging state. It includes a negative control for garbage collection with an unreadable manifest. Transport suites reuse shared cases rather than restating application behavior independently.
 
-The selected first-release packages are a macOS `.dmg`, a Windows NSIS installer, and Linux AppImage plus Debian `.deb`. Packaged smoke tests cover startup, filesystem replacement semantics, browser-history fallback, exact asset scope, Companion Mode and firewall behavior, and single-instance behavior. The macOS suite includes stale single-instance-socket recovery and manual allow/deny coverage for Documents-folder access. Windows and Linux exercise their replacement and single-instance adapters on real machines. RPM, Flatpak, Snap, and other package formats are deferred and do not inherit release claims from the tested formats.
+The selected first-release packages are a macOS `.dmg`, a Windows NSIS installer, and Linux AppImage plus Debian `.deb`. Packaged smoke tests cover startup, filesystem replacement semantics, browser-history fallback, exact asset scope, one fixture DDS conversion and display through each runtime's delivery path, Companion Mode and firewall behavior, and single-instance behavior. The release build also proves that the production dependency graph keeps `image_dds` encoding and its ISPC toolchain disabled. The macOS suite includes stale single-instance-socket recovery and manual allow/deny coverage for Documents-folder access. Windows and Linux exercise their replacement and single-instance adapters on real machines. RPM, Flatpak, Snap, and other package formats are deferred and do not inherit release claims from the tested formats.
 
 ## Security release gate
 

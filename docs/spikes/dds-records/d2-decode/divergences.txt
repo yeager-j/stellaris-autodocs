@@ -1,0 +1,2 @@
+# corpus	logical path	format	detail
+fixtures	unsupported/x8r8g8b8_2x2.dds	UNCOMP32_r16:8g8:8b0:8a-	outcomes unsupported-format vs decoded

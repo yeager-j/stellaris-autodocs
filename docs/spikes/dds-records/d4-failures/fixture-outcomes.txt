@@ -1,0 +1,28 @@
+# fixture	claimed	actual	verdict	decided by
+malformed/bad_magic.dds	malformed-media	malformed-media	match	container reading
+malformed/bom_only.dds	malformed-media	malformed-media	match	container reading
+malformed/empty.dds	malformed-media	malformed-media	match	container reading
+malformed/header_size_120.dds	malformed-media	malformed-media	match	container reading
+malformed/pixelformat_size_28.dds	malformed-media	malformed-media	match	container reading
+malformed/truncated_dx10_header.dds	malformed-media	malformed-media	match	container reading
+malformed/truncated_pixels_dxt5.dds	malformed-media	malformed-media	match	container reading
+malformed/zero_height.dds	malformed-media	malformed-media	match	container reading
+unsupported/cubemap_2x2.dds	unsupported-format	unsupported-format	match	recipe policy
+unsupported/dxt2_premultiplied_4x4.dds	unsupported-format	unsupported-format	match	container reading
+unsupported/fourcc_zzzz_4x4.dds	unsupported-format	unsupported-format	match	container reading
+unsupported/volume_2x2x2.dds	unsupported-format	unsupported-format	match	container reading
+unsupported/x8r8g8b8_2x2.dds	unsupported-format	unsupported-format	match	supported-format set
+valid/bgr5a1_2x2.dds	decoded	decoded	match	decoder
+valid/bgr8_5x3.dds	decoded	decoded	match	decoder
+valid/bgra8_2x2.dds	decoded	decoded	match	decoder
+valid/bgra8_mips_8x8.dds	decoded	decoded	match	decoder
+valid/dx10_rgba8_srgb_2x2.dds	decoded	decoded	match	decoder
+valid/dxt1_opaque_4x4.dds	decoded	decoded	match	decoder
+valid/dxt1_punchthrough_4x4.dds	decoded	decoded	match	decoder
+valid/dxt3_4x4.dds	decoded	decoded	match	decoder
+valid/dxt5_1x1.dds	decoded	decoded	match	decoder
+valid/dxt5_3x2.dds	decoded	decoded	match	decoder
+valid/dxt5_eight_value_4x4.dds	decoded	decoded	match	decoder
+valid/dxt5_reversed_endpoints_4x4.dds	decoded	decoded	match	decoder
+valid/dxt5_six_value_4x4.dds	decoded	decoded	match	decoder
+valid/rgba8_2x2.dds	decoded	decoded	match	decoder

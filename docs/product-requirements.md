@@ -233,7 +233,7 @@ The later technical design may introduce focused lower seams where failures cann
 9. Multiple route preservation, manual hiding, restoration, and invalidation of stale hidden-route preferences.
 10. Static constant resolution and explicit ambiguous/runtime fallbacks.
 11. Localization fallback, recursive-reference cycle handling, style rendering, icon fallback, and raw runtime-token preservation.
-12. DDS conversion across observed RGB/RGBA and DXT1, DXT3, and DXT5 inputs.
+12. DDS conversion across every observed input class: uncompressed 32-bit in both channel orders, 24-bit, 16-bit A1R5G5B5, DXT1, DXT3, DXT5, DX10-header surfaces, block-unaligned compressed surfaces, and mip chains; plus the typed malformed, unsupported, and missing outcomes and their placeholders.
 13. Partial generation, completeness warnings, diagnostic source ranges, and unsupported-primitive presentation.
 14. Companion enablement, sequential-device QR pairing, secret rotation and expiry, connection troubleshooting, and rejection of unauthorized requests.
 15. Derived Unavailable, Needs build, Checking, Out of date, Corrupt, Ready, and Incomplete states across startup verification, opening, refresh, build, and active companion browsing.

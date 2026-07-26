@@ -1,0 +1,31 @@
+# archive	entries	extension counts
+dlc/dlc002_arachnoid/dlc002.zip	0	
+dlc/dlc004_plantoid/dlc004.zip	0	
+dlc/dlc012_leviathans/dlc012.zip	9	asset=2 ogg=5 txt=2
+dlc/dlc013_horizon_signal/dlc013.zip	0	
+dlc/dlc014_utopia/dlc014.zip	10	asset=2 ogg=6 txt=2
+dlc/dlc015_anniversary/dlc015.zip	0	
+dlc/dlc016_synthetic_dawn/dlc016.zip	7	asset=2 ogg=3 txt=2
+dlc/dlc017_apocalypse/dlc017.zip	8	(none)=1 asset=2 ogg=3 txt=2
+dlc/dlc018_humanoids/dlc018.zip	247	(none)=3 asset=2 ogg=3 txt=1 wav=238
+dlc/dlc019_distant_stars/dlc019.zip	8	(none)=1 asset=2 ogg=3 txt=2
+dlc/dlc020_megacorp/dlc020.zip	295	(none)=3 asset=3 ogg=4 txt=2 wav=283
+dlc/dlc021_ancient_relics/dlc021.zip	9	(none)=1 asset=2 ogg=4 txt=2
+dlc/dlc022_lithoids/dlc022.zip	96	(none)=2 asset=1 wav=93
+dlc/dlc023_federations/dlc023.zip	9	(none)=1 asset=2 ogg=4 txt=2
+dlc/dlc024_necroids/dlc024.zip	72	(none)=2 asset=1 wav=69
+dlc/dlc025_nemesis/dlc025.zip	8	(none)=1 asset=2 ogg=3 txt=2
+dlc/dlc026_aquatics/dlc026.zip	120	(none)=2 asset=1 wav=117
+dlc/dlc027_overlord/dlc027.zip	10	(none)=1 asset=2 ogg=5 txt=2
+dlc/dlc028_toxoids/dlc028.zip	122	(none)=4 asset=1 ds_store=2 wav=115
+dlc/dlc029_firstcontact/dlc029.zip	0	
+dlc/dlc030_paragon/dlc030.zip	0	
+dlc/dlc031_astral_planes/dlc031.zip	6	(none)=1 asset=1 ogg=3 txt=1
+dlc/dlc032_machine_age/dlc032.zip	100	(none)=1 asset=3 ogg=7 txt=2 wav=87
+dlc/dlc033_cosmic_storms/dlc033.zip	0	
+dlc/dlc034_grand_archive/dlc034.zip	6	(none)=1 asset=1 ogg=3 txt=1
+dlc/dlc035_rick_the_cube/dlc035.zip	0	
+dlc/dlc036_biogenesis/dlc036.zip	103	(none)=3 asset=3 ogg=7 txt=2 wav=88
+dlc/dlc037_shadows_shroud/dlc037.zip	97	(none)=3 asset=2 ogg=4 txt=1 wav=87
+dlc/dlc038_infernals/dlc038.zip	67	(none)=2 asset=1 wav=64
+dlc/dlc039_stargazer/dlc039.zip	0	

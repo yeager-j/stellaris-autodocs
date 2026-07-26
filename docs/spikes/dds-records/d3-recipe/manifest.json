@@ -1,0 +1,77 @@
+{
+  "run": "d3-recipe",
+  "purpose": "Measure every conversion choice that could change the output, so the recipe's fields are the ones that earn a place in the asset key rather than the ones that seemed plausible. Covers the sRGB declaration, mip level selection, array-layer policy, encoder settings, and the choice between PNG and lossless WebP. Its central result is the encoder table: one identical decoded image encoded several ways yields several distinct digests, which is why pixel equality is not key equality and why the encoder version participates in the key.",
+  "environment": {
+    "stellaris": {
+      "distPlatform": "steam",
+      "modsCompatibilityVersion": "4.4",
+      "rawVersion": "v4.4.6",
+      "version": "Pegasus v4.4.6 (fdde)"
+    },
+    "image_dds": "0.7.2",
+    "bcdec_rs": "0.2.0",
+    "texture2ddecoder": "0.1.2",
+    "png": "0.18.1",
+    "image_webp": "0.2.4",
+    "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+    "os": "macos",
+    "arch": "aarch64"
+  },
+  "corpora": [
+    {
+      "id": "fixtures",
+      "title": "Hand-generated DDS fixtures",
+      "file_count": 27,
+      "total_bytes": 4040,
+      "tree_digest": "87964ce8ff8f70f59bd9c966ad3f99735085750f4bfaada2558e56c8d35ed665",
+      "files": {
+        "malformed/bad_magic.dds": "5025a7642e47c0e3284333d70de096ada00c10886fce6f49b50f85b4a1b89ad9",
+        "malformed/bom_only.dds": "f1945cd6c19e56b3c1c78943ef5ec18116907a4ca1efc40a57d48ab1db7adfc5",
+        "malformed/empty.dds": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "malformed/header_size_120.dds": "d020a9a63bfc6d1162ba8be39772bf9c7c0b3d445a9b5f91919ed9b414647bba",
+        "malformed/pixelformat_size_28.dds": "024daf9d32977b0ed70da04be9dd6575f5f1e2ce4797a25eb5c05602a6a66277",
+        "malformed/truncated_dx10_header.dds": "65dc67ba96ebe77011281ca1f13a03b4eda8b63530f2799c9db11598d9f3d75d",
+        "malformed/truncated_pixels_dxt5.dds": "e0249e6f312b3664cf57914626466adec24e8d71b93747307312a9f882e2f815",
+        "malformed/zero_height.dds": "af6020b15576de829278b1923206444b09490e726b6cf398595a58800cfad6d6",
+        "unsupported/cubemap_2x2.dds": "43335432bb8343da8e3d66a40acc55d5e372e2f2d8124b4a9c058413693312f1",
+        "unsupported/dxt2_premultiplied_4x4.dds": "de33b3c3e5d08bb6de9f44955586126140b2844f9d5125d7785d16af00cc3734",
+        "unsupported/fourcc_zzzz_4x4.dds": "f68a3d3b9fe80713c85fc329909a279addfa8dc7c3112c165623b6c7156c35f3",
+        "unsupported/volume_2x2x2.dds": "33d0f61efcdc6ab2bea4cc9b973cfa644e471b02bde322618936104a2a33c51c",
+        "unsupported/x8r8g8b8_2x2.dds": "7fd9fb747d12b6fe879fb132aa8ad9288a1ee51ce57a0eeeda321a33c8ba6b50",
+        "valid/bgr5a1_2x2.dds": "ca65d869ffdac6c3b5e07409388a1e1be94cc35224bb1aef61290a28ccf2a983",
+        "valid/bgr8_5x3.dds": "158c98eed9893fef927bda1f0a75d45e6d26106ef50fde8fd770243f3d7cb619",
+        "valid/bgra8_2x2.dds": "690f8903de3b955d5d8b0c47fee0840a850fd3bdd5ae60844a77c9d6e767dbbb",
+        "valid/bgra8_mips_8x8.dds": "d9c05890256976e31ca3d05cdf0b1d83a8a5af174c8ff1699e2ed5b832c58f78",
+        "valid/dx10_rgba8_srgb_2x2.dds": "d989e47edd7dbe1bfe754bea77f1ea9fef2cf7a3728e4f7642f0712a1d8025ae",
+        "valid/dxt1_opaque_4x4.dds": "b73383ef947a3627eb14d16fad83a35cd0ace4ef17739605bd1c02fcc226ed3d",
+        "valid/dxt1_punchthrough_4x4.dds": "f4f5ec86cc4826499a598d5bc11bac0ec12324b2d4bddb385fbdb64cde30e4fd",
+        "valid/dxt3_4x4.dds": "4f0637ed56ba92e43679e4776432a29fd169a7502a9d4c51ae6f57c74fd493be",
+        "valid/dxt5_1x1.dds": "dc124daf67b2eba009fe1d0d2618aba5b1fe840cdf3df9d3b933c945ab41a588",
+        "valid/dxt5_3x2.dds": "5deb08aedb86eb78e60cf2f4fb2fbe744acf99cb1dc433ab20ba611649baae0f",
+        "valid/dxt5_eight_value_4x4.dds": "3ad62a29b752f21294bf173962f0f9e84f064bc70dded6e11cd0078a6b612cb5",
+        "valid/dxt5_reversed_endpoints_4x4.dds": "dfa6607f5a13c02dc23794ea4c4c52cc4615a45870bfa8b079843680a71db69c",
+        "valid/dxt5_six_value_4x4.dds": "a220d5efd99625c1e034ae7ac21c581a50947c7c7d648b86272025942ef67540",
+        "valid/rgba8_2x2.dds": "4ba2deb278cf8873e334c84019a714cf227f6a2b2f1b19f61894a81092a5e5f4"
+      }
+    },
+    {
+      "id": "vanilla",
+      "title": "Stellaris base game",
+      "file_count": 22469,
+      "total_bytes": 18013628640,
+      "tree_digest": "e23a4908035a129a82a66d0e6b28af1a489280e0599ec13d95b735d848906ccd"
+    },
+    {
+      "id": "workshop",
+      "title": "Installed Workshop mods (281990)",
+      "file_count": 10649,
+      "total_bytes": 4776542971,
+      "tree_digest": "398a7022b5529b4be568dbb427f6b8dabf3848ece260c281997b4187b78be4d0"
+    }
+  ],
+  "artifacts": {
+    "canonical-recipe.txt": "a0a1001a27e54067b4c3c82fe86832b7af32ea3a9ba395575176488a406b800d",
+    "recipe.json": "1472080c132c35ed52481f3d5068113b006aebf598a7dad8056a5eec96685245"
+  },
+  "warnings": []
+}

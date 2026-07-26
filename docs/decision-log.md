@@ -81,7 +81,7 @@ See [ADR 0002](./adr/0002-resolve-content-before-generating-documentation.md).
 
 **D-010 — Treat Vanilla Content as the base-game file set**
 
-Vanilla Content is the base-game file set, including definitions gated at runtime by DLC ownership. DLC archives do not form a script, localization, interface, or map source layer; `host_has_dlc` is documented as a requirement. DLC archives may still supply referenced assets through the Stellaris Installation.
+Vanilla Content is the base-game file set, including definitions gated at runtime by DLC ownership. DLC archives do not form a script, localization, interface, or map source layer; `host_has_dlc` is documented as a requirement. Whether DLC archives supply referenced assets is unexercised at the pinned build: all 30 archives under `dlc/` hold only audio, `.asset`, and `.txt` entries, and no image of any format.
 
 Vanilla and Target Mod script pass through the same parser, but source origin is provenance rather than universal precedence. Exact-path and `replace_path` selection run before content-family-specific ordering and registry collision rules.
 
@@ -856,15 +856,13 @@ The cross-language suite covers every operation, every success shape, every expe
 
 ### DDS technology icons
 
-The local installation contained:
+The original note recorded 976 vanilla and 1,550 modded technology DDS icons in uncompressed RGB/RGBA plus DXT1, DXT3, and DXT5 variants, and reported that one vanilla and one modded DXT5 icon converted to 52×52 RGBA PNG and looked right.
 
-- 976 vanilla technology DDS icons.
-- 1,550 technology DDS icons across installed Workshop mods.
-- Uncompressed RGB/RGBA and DXT1, DXT3, and DXT5 variants.
+The completed [DDS evaluation](./spikes/dds-evaluation.md) supersedes it and corrects its emphasis. Across 33,145 measured files, DXT5 is 114 of the 2,621 files on a technology path — the two icons that were converted were the rarest class of the set they stood for, while 1,257 uncompressed 32-bit and 880 uncompressed 24-bit icons had never been decoded. The corpus also contains classes the note did not list: a 16-bit A1R5G5B5 layout, a DX10 header, 844 block-unaligned compressed surfaces, 520 24-bit surfaces with unaligned rows, 12 cube maps, and two files that are not DDS at all.
 
-A vanilla DXT5 icon and a modded DXT5 icon were successfully converted to 52×52 RGBA PNG and visually inspected. Rust's `image_dds` supports the observed formats, so asset decoding is considered feasible. Resolving a game concept to the correct texture may be more involved than conversion.
+`image_dds` is accepted at `0.7.2` with encoding disabled ([ADR 0008](./adr/0008-decode-source-textures-through-a-pinned-conversion-recipe.md)). Correctness is established by an independent second reading rather than by inspection: the failure mode here is a plausible image with its channels exchanged, and only eleven files in the corpus can expose it.
 
-Exact converter versions, commands, paths, hashes, and license-compatible fixtures remain a required recapture in the [DDS evaluation](./spikes/dds-evaluation.md); feasibility alone is not the implementation contract.
+Resolving a game concept to the correct texture remains a separate and larger question than conversion, and belongs to `analysis`.
 
 ### Playset composition
 

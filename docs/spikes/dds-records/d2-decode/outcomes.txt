@@ -1,0 +1,29 @@
+# every input that did not decode. 33118 further inputs decoded and are counted in coverage.json rather than listed here.
+# corpus	logical path	format	outcome	detail
+fixtures	malformed/bad_magic.dds	MALFORMED	malformed-media	magic is [58, 44, 53, 20], not `DDS `
+fixtures	malformed/bom_only.dds	MALFORMED	malformed-media	file is 3 bytes; a DDS header needs 128
+fixtures	malformed/empty.dds	MALFORMED	malformed-media	file is 0 bytes; a DDS header needs 128
+fixtures	malformed/header_size_120.dds	MALFORMED	malformed-media	header size is 120, not 124
+fixtures	malformed/pixelformat_size_28.dds	MALFORMED	malformed-media	pixel format size is 28, not 32
+fixtures	malformed/truncated_dx10_header.dds	MALFORMED	malformed-media	DX10 four-character code but only 140 bytes
+fixtures	malformed/truncated_pixels_dxt5.dds	MALFORMED	malformed-media	mip 0 needs 16 pixel bytes; 12 are present
+fixtures	malformed/zero_height.dds	MALFORMED	malformed-media	dimensions are 2x0
+fixtures	unsupported/cubemap_2x2.dds	UNCOMP32_r16:8g8:8b0:8a24:8	unsupported-format	6 array layers; the recipe materializes one image per slot
+fixtures	unsupported/dxt2_premultiplied_4x4.dds	UNSUPPORTED	unsupported-format	DXT2 carries premultiplied alpha, which is not un-premultiplied
+fixtures	unsupported/fourcc_zzzz_4x4.dds	UNSUPPORTED	unsupported-format	four-character code "ZZZZ" is not supported
+fixtures	unsupported/volume_2x2x2.dds	UNSUPPORTED	unsupported-format	volume textures are not supported
+fixtures	unsupported/x8r8g8b8_2x2.dds	UNCOMP32_r16:8g8:8b0:8a-	unsupported-format	image_dds names no format for UNCOMP32_r16:8g8:8b0:8a-
+vanilla	gfx/interface/icons/traits/all_negative.dds	MALFORMED	malformed-media	file is 0 bytes; a DDS header needs 128
+vanilla	gfx/interface/main/paused_bar_glow.dds	MALFORMED	malformed-media	file is 3 bytes; a DDS header needs 128
+vanilla	gfx/map/sky_core.dds	BC3_UNORM	unsupported-format	6 array layers; the recipe materializes one image per slot
+vanilla	gfx/map/sky_mid.dds	BC3_UNORM	unsupported-format	6 array layers; the recipe materializes one image per slot
+vanilla	gfx/map/sky_rim.dds	BC3_UNORM	unsupported-format	6 array layers; the recipe materializes one image per slot
+vanilla	gfx/map/sky_ycocg.dds	BC3_UNORM	unsupported-format	6 array layers; the recipe materializes one image per slot
+vanilla	gfx/worldgfx/cubemap_filtered_ldr.dds	BC3_UNORM	unsupported-format	6 array layers; the recipe materializes one image per slot
+vanilla	gfx/worldgfx/cubemap_filtered_ldr_bright.dds	BC1_UNORM	unsupported-format	6 array layers; the recipe materializes one image per slot
+vanilla	gfx/worldgfx/cubemap_filtered_ldr_yellow.dds	BC3_UNORM	unsupported-format	6 array layers; the recipe materializes one image per slot
+vanilla	gfx/worldgfx/lava_noise.dds	BC1_UNORM	unsupported-format	6 array layers; the recipe materializes one image per slot
+vanilla	gfx/worldgfx/stars.dds	BC1_UNORM	unsupported-format	6 array layers; the recipe materializes one image per slot
+vanilla	gfx/worldgfx/t_class_noise.dds	BC1_UNORM	unsupported-format	6 array layers; the recipe materializes one image per slot
+workshop	1121692237/gfx/map/ehof_whitehole.dds	BC3_UNORM	unsupported-format	6 array layers; the recipe materializes one image per slot
+workshop	1121692237/gfx/worldgfx/ehof_cubemap.dds	BC3_UNORM	unsupported-format	6 array layers; the recipe materializes one image per slot

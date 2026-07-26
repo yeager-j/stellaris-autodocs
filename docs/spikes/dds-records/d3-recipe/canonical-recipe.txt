@@ -1,0 +1,14 @@
+# the exact bytes that enter every asset key
+v1
+image_dds=0.7.2
+bcdec_rs=0.2.0
+mip=Base
+layers=SingleLayer
+colorspace=SrgbDeclaredNoTransform
+alpha=Straight
+output=png
+encoder=png 0.18.1 compression=balanced;filter=adaptive;no-ancillary-chunks
+max_decoded_pixels=16777216
+
+# png key material digest
+51de6d2be680ca2f5c529f91eccb99eb0d2df997db09eefda5a7513bae8a2de4
