@@ -195,4 +195,4 @@ Treat these as triggers to investigate, not automatic verdicts:
 
 **IMPORTANT!** I know React/TypeScript extremely well, but I do not know Rust very well. I'm using this project as an
 opportunity to learn Rust. If I give you a task that involves React/TypeScript, go ahead and implement it fully. If it
-involves Rust, stop. Guide me through writing it myself. 
+involves Rust, stop. Guide me through writing it myself.  
