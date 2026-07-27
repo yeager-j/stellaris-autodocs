@@ -1,0 +1,240 @@
+//! The versioned enumeration policy: which files under a Mod Source root are
+//! analysis-relevant (docs/technical-design.md, "Source module", "Source snapshot
+//! consistency" step 1).
+//!
+//! The policy is an allowlist of top-level directories and exact lowercase extensions,
+//! taken from the parser spike's corpus conventions (tools/parser-spike/src/corpus.rs)
+//! and re-verified against the local installation. A denylist would have to keep pace
+//! with everything a game install and a Workshop mod happen to contain: licence text,
+//! launcher payloads, sound banks, an application bundle, a mod author's stray `.git`
+//! directory. All of those hold `.txt` files that were never script.
+//!
+//! `<install>/checksum_manifest.txt` is explicitly **not** the rule. It declares the
+//! game's checksum scope — `common/**.txt`, `common/**.shader`, `common/**.csv`,
+//! `events/**.txt`, `map/**.shader`, `map/**.txt` — which omits `interface/`, `gfx/`,
+//! `prescripted_countries/` and every localization file. Documentation that ignored
+//! those would be missing content the game loads.
+//!
+//! Two families, because they are two languages with two owners: Clausewitz script
+//! belongs to the parser, and `.yml` localization belongs to `localization`
+//! (docs/technical-design.md, "Localization module"). Feeding one to the other's reader
+//! would manufacture failures that describe neither.
+//!
+//! Known deliberate exclusions, each a policy-version decision rather than an oversight:
+//!
+//! - Binary and non-script content under script directories (`.dds`, `.mesh`, `.anim`,
+//!   `.shader`, fonts, audio). Referenced source assets are frozen and hashed lazily
+//!   through asset requests; the build "does not hash unrelated large binary assets
+//!   merely because they are present" (docs/technical-design.md, "Source snapshot
+//!   consistency").
+//! - `localisation_synced/`, a Paradox convention in other titles. No such directory
+//!   exists in the local install or in any of the 30 installed Workshop mods, and the
+//!   game's own logs never name one, so including it would be unevidenced.
+//! - Case-variant extensions (`.TXT`). No uppercase script or localization extension
+//!   occurs anywhere in the local corpora.
+//! - `dlc/`. DLC archives supply visual assets, not a script layer.
+//!
+//! Changing any of this changes which bytes every fingerprint covers, so the change
+//! protocol is: bump `analysis::AnalysisVersionVector::source_enumeration`, then re-pin
+//! `tests::pinned_policy_surface`. Never the re-pin alone.
+
+use crate::canonical::path::LogicalPath;
+
+/// Which language a selected file is written in, decided once at enumeration so no
+/// downstream stage re-derives it from a path (Meyer's Single Choice).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum FileFamily {
+    /// Clausewitz script, including the root `.mod` descriptor.
+    Script,
+    /// Stellaris localization YAML.
+    Localization,
+}
+
+/// Top-level directories holding Clausewitz script. Sorted; kept in step with
+/// [`enumerated_root_directories`].
+pub const SCRIPT_DIRECTORIES: &[&str] = &[
+    "common",
+    "events",
+    "gfx",
+    "interface",
+    "map",
+    "prescripted_countries",
+];
+
+/// Extensions parsed as Clausewitz script inside [`SCRIPT_DIRECTORIES`].
+///
+/// The list is deliberately not a curation of *parseable* files: `common/` and
+/// `interface/` still hold prose such as `common/HOW_TO_MAKE_NEW_SHIPS.txt`. How the
+/// parser treats those is a real question about failure isolation, not a nuisance to
+/// filter away here.
+pub const SCRIPT_EXTENSIONS: &[&str] = &["asset", "gfx", "gui", "txt"];
+
+/// The localization tree. British spelling, as the game ships it.
+pub const LOCALIZATION_DIRECTORY: &str = "localisation";
+
+pub const LOCALIZATION_EXTENSIONS: &[&str] = &["yml"];
+
+/// Root-level descriptors only. The root descriptor is what declares `replace_path` and
+/// supported versions; a `.mod` file buried inside content describes some other source.
+pub const DESCRIPTOR_EXTENSION: &str = "mod";
+
+/// The analysis-relevant family of a logical path, or `None` when the policy excludes it.
+///
+/// The single authority for the question. The filesystem walk uses
+/// [`enumerated_root_directories`] to avoid descending trees that cannot contribute, but
+/// nothing is *selected* except here.
+pub fn family_for(path: &LogicalPath) -> Option<FileFamily> {
+    let Some((first, rest)) = path.as_str().split_once('/') else {
+        // A root-level file.
+        return (extension_of(path.as_str()) == Some(DESCRIPTOR_EXTENSION))
+            .then_some(FileFamily::Script);
+    };
+    let name = rest.rsplit_once('/').map_or(rest, |(_, name)| name);
+    let extension = extension_of(name)?;
+    if SCRIPT_DIRECTORIES.contains(&first) && SCRIPT_EXTENSIONS.contains(&extension) {
+        return Some(FileFamily::Script);
+    }
+    if first == LOCALIZATION_DIRECTORY && LOCALIZATION_EXTENSIONS.contains(&extension) {
+        return Some(FileFamily::Localization);
+    }
+    None
+}
+
+/// The top-level directories a source walk descends. Everything else under the root is
+/// skipped without being read.
+pub fn enumerated_root_directories() -> Vec<&'static str> {
+    let mut roots = SCRIPT_DIRECTORIES.to_vec();
+    roots.push(LOCALIZATION_DIRECTORY);
+    roots
+}
+
+/// The text after the final `.`, or `None` when the name has no dot or ends in one.
+/// Dotfiles such as `.gitignore` have no extension, matching `Path::extension`.
+fn extension_of(name: &str) -> Option<&str> {
+    let (stem, extension) = name.rsplit_once('.')?;
+    (!stem.is_empty() && !extension.is_empty()).then_some(extension)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn family(raw: &str) -> Option<FileFamily> {
+        family_for(&LogicalPath::parse(raw).unwrap())
+    }
+
+    #[test]
+    fn script_directories_and_extensions_are_included() {
+        assert_eq!(
+            family("common/technology/00_phys_tech.txt"),
+            Some(FileFamily::Script)
+        );
+        assert_eq!(family("events/acot_events.txt"), Some(FileFamily::Script));
+        assert_eq!(family("interface/topbar.gui"), Some(FileFamily::Script));
+        assert_eq!(
+            family("gfx/models/ships/corvette.asset"),
+            Some(FileFamily::Script)
+        );
+        assert_eq!(
+            family("gfx/interface/icons/icons.gfx"),
+            Some(FileFamily::Script)
+        );
+        assert_eq!(
+            family("map/setup_scenarios/a.txt"),
+            Some(FileFamily::Script)
+        );
+        assert_eq!(
+            family("prescripted_countries/humans.txt"),
+            Some(FileFamily::Script)
+        );
+    }
+
+    #[test]
+    fn localization_files_are_their_own_family() {
+        assert_eq!(
+            family("localisation/english/l_english.yml"),
+            Some(FileFamily::Localization)
+        );
+        assert_eq!(
+            family("localisation/languages.yml"),
+            Some(FileFamily::Localization)
+        );
+        // A `.txt` readme inside localisation is not localization content and is not
+        // Clausewitz script either: vanilla ships 99_README_GRAMMAR.txt there.
+        assert_eq!(family("localisation/99_README_GRAMMAR.txt"), None);
+    }
+
+    #[test]
+    fn root_level_descriptors_are_script_and_nested_mod_files_are_not() {
+        assert_eq!(family("descriptor.mod"), Some(FileFamily::Script));
+        // Only the root descriptor declares `replace_path` and supported versions; a
+        // `.mod` file buried in content is not a descriptor of this source.
+        assert_eq!(family("common/deep/other.mod"), None);
+        assert_eq!(family("stray.txt"), None);
+    }
+
+    #[test]
+    fn assets_and_non_script_trees_are_excluded() {
+        // Binary assets are resolved lazily through asset requests, never hashed merely
+        // for being present (docs/technical-design.md, "Source snapshot consistency").
+        assert_eq!(family("gfx/models/ships/corvette.dds"), None);
+        assert_eq!(family("gfx/models/ships/corvette.mesh"), None);
+        assert_eq!(family("gfx/FX/pdxmesh.shader"), None);
+        // Directories outside the allowlist: prose and third-party text that were never
+        // script (licenses/, pdx_launcher/, sound/), plus repository leftovers mods ship.
+        assert_eq!(family("licenses/font_license.txt"), None);
+        assert_eq!(family("sound/soundeffects.txt"), None);
+        assert_eq!(family("dlc/dlc001_symbols_of_domination/desc.txt"), None);
+        assert_eq!(family(".git/COMMIT_EDITMSG"), None);
+        assert_eq!(family("README.md"), None);
+    }
+
+    #[test]
+    fn extension_matching_is_exact_lowercase() {
+        // No uppercase script extension occurs in the local corpora (vanilla plus the
+        // four pinned Workshop mods); accepting case variants would be an unevidenced
+        // widening, and widening is a policy-version change rather than a tweak.
+        assert_eq!(family("common/technology/A.TXT"), None);
+        assert_eq!(family("common/technology/a.txt"), Some(FileFamily::Script));
+    }
+
+    #[test]
+    fn enumerated_roots_are_the_directories_the_walk_descends() {
+        let roots = enumerated_root_directories();
+        assert!(roots.contains(&"common"));
+        assert!(roots.contains(&"localisation"));
+        assert!(!roots.contains(&"sound"));
+    }
+
+    #[test]
+    fn pinned_policy_surface() {
+        // Change protocol: this vector is the enumeration policy itself. Any edit to the
+        // directory or extension allowlists must bump
+        // `analysis::AnalysisVersionVector::source_enumeration` (which re-pins its own
+        // digest and invalidates previously built revisions) and only then re-pin here.
+        // Re-pinning alone silently changes what every fingerprint covers.
+        //
+        // Grounding (tools/parser-spike/src/corpus.rs, verified against the local
+        // install): an allowlist, not a denylist, because the install also contains
+        // licenses/, pdx_launcher/, sound/ and an application bundle full of .txt files
+        // that were never script. The checksum manifest is explicitly NOT the rule: it
+        // declares a narrower checksum scope (common/**.txt, common/**.shader,
+        // common/**.csv, events/**.txt, map/**.shader, map/**.txt) that omits
+        // interface/, gfx/, prescripted_countries/ and all localization.
+        assert_eq!(
+            SCRIPT_DIRECTORIES,
+            &[
+                "common",
+                "events",
+                "gfx",
+                "interface",
+                "map",
+                "prescripted_countries",
+            ]
+        );
+        assert_eq!(SCRIPT_EXTENSIONS, &["asset", "gfx", "gui", "txt"]);
+        assert_eq!(LOCALIZATION_DIRECTORY, "localisation");
+        assert_eq!(LOCALIZATION_EXTENSIONS, &["yml"]);
+        assert_eq!(DESCRIPTOR_EXTENSION, "mod");
+    }
+}
