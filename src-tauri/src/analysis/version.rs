@@ -27,7 +27,13 @@ pub struct AnalysisVersionVector {
 impl AnalysisVersionVector {
     pub fn current() -> Self {
         Self {
-            source_enumeration: 1,
+            // 2: the source fingerprint moved to domain /v2, framing each entry as a
+            // nested two-item sequence. The scheme that names a build's inputs changed,
+            // so the component that invalidates builds changes with it — the protocol
+            // stated in source::fingerprint. No revision has been published yet, so the
+            // bump invalidates nothing today; following it now is what keeps the rule
+            // from being learned as optional.
+            source_enumeration: 2,
             parsed_model: 1,
             resolution_profile: 1,
             documentation: 1,
@@ -77,9 +83,11 @@ mod tests {
     fn pinned_current_digest() {
         // Pinned regression value: any component bump changes this and must re-pin it,
         // which is exactly the review moment the version vector exists to force.
+        // Re-derived independently for source_enumeration = 2 (Phase 2A, fingerprint
+        // domain /v2).
         assert_eq!(
             AnalysisVersionVector::current().digest().to_hex(),
-            "49cfc070bfea607cf7b100761587ebe9599e0ce106e963736ae3882506c98641"
+            "aecc912e9f7874b5617b77260dc8189540a8db8a05e8c6b9b0238989acf5bbe6"
         );
     }
 

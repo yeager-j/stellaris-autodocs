@@ -69,6 +69,23 @@ impl LogicalPath {
     }
 }
 
+impl fmt::Display for PathError {
+    /// Prose, because enumeration shows this to a user as the reason a file was rejected.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::InvalidUnicode => "path is not valid Unicode",
+            Self::Empty => "path is empty",
+            Self::AbsolutePrefix => "path is absolute or carries a drive prefix",
+            Self::EmptyComponent => "path has a leading, trailing, or doubled separator",
+            Self::DotComponent => "path has a `.` or `..` relative component",
+            Self::BackslashComponent => "path contains a backslash",
+            Self::NulByte => "path contains a NUL byte",
+        })
+    }
+}
+
+impl std::error::Error for PathError {}
+
 impl fmt::Display for LogicalPath {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.0)
@@ -134,6 +151,33 @@ mod tests {
             LogicalPath::from_raw_bytes(&[0x66, 0xff, 0x6f]),
             Err(PathError::InvalidUnicode)
         );
+    }
+
+    #[test]
+    fn path_errors_render_a_reason_a_rejection_report_can_show() {
+        // Source enumeration reports a rejected file to the user with its reason
+        // (STE-11: "rejections are visible results"), so the reason must render as prose
+        // rather than as a `{:?}` type name.
+        fn assert_error<E: std::error::Error>(_: &E) {}
+        assert_error(&PathError::InvalidUnicode);
+        assert!(
+            PathError::DotComponent
+                .to_string()
+                .contains("relative component")
+        );
+        for error in [
+            PathError::InvalidUnicode,
+            PathError::Empty,
+            PathError::AbsolutePrefix,
+            PathError::EmptyComponent,
+            PathError::DotComponent,
+            PathError::BackslashComponent,
+            PathError::NulByte,
+        ] {
+            let rendered = error.to_string();
+            assert!(!rendered.is_empty());
+            assert!(!rendered.contains("PathError"), "{rendered}");
+        }
     }
 
     #[test]
