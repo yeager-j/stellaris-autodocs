@@ -20,7 +20,9 @@
 //! **The first rule is unconditional, and that is the decision STE-17 should write against.**
 //! One publication failure deliberately leaves its attempt behind
 //! ([`PublishError::PublishedBundleUnusable`](crate::revisions::PublishError)), and the
-//! sweep removes it at the next open like any other. The two rules do not conflict, because
+//! sweep will remove it at the next open like any other — *will*, because neither sweep
+//! exists yet, so until STE-17 lands them a retained attempt survives every launch. The two
+//! rules do not conflict, because
 //! a retained attempt is a diagnostic for the failure being reported *now* — the directory
 //! a person can compare against the occupant this protocol refuses to delete — and never
 //! recoverable state: nothing reads a staging directory back, and the candidate that

@@ -7,7 +7,16 @@ on:
 
 jobs:
   rust:
-    runs-on: macos-latest
+    # Windows is a first-release target, and `src-tauri/src/durability.rs` decides one
+    # platform question inside a `#[cfg(windows)]` arm that a macOS-only matrix never
+    # compiles. This job is what compiles it, and what executes the `durability` tests
+    # where the Win32 error codes they name are real rather than cited.
+    # `fail-fast: false` so a Windows failure never hides the macOS result, or vice versa.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       # Pinned to a commit (master, 2026-07-16): the action repo publishes no version

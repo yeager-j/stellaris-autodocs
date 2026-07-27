@@ -169,9 +169,20 @@ pub enum PublishError {
     /// untouched, and the partial staging directory was removed best-effort.
     StagingFailed(StageError),
     /// What was staged is not this revision's bundle: it disagreed with its own manifest,
-    /// or that manifest is not the one staging sealed. Nothing was moved, and the staging
-    /// directory was removed best-effort — it is damaged evidence of a build this process
-    /// can simply repeat, and the refusal is the diagnostic.
+    /// that manifest is not the one staging sealed, or the tree is intact but carries
+    /// material the manifest does not account for — the third condition commit point 1
+    /// applies at both of its routes (D-119). Nothing was moved.
+    ///
+    /// **The staging directory is removed best-effort here, and retained by
+    /// [`PublishError::PublishedBundleUnusable`].** The two routes reach the same finding
+    /// and make opposite retention choices deliberately, because what a person could learn
+    /// from the directory differs. A staging tree is this process's own scratch work: it was
+    /// written moments ago from a candidate the caller still holds, it is reproducible by
+    /// repeating the build, and the [`BundleRefusal`] already names what was wrong with it —
+    /// including, for the stowaway case, the offending entries. Keeping it would preserve
+    /// nothing the refusal does not already carry. At the final path the occupant is not
+    /// ours to delete and not ours to reproduce, so the staging tree is the only thing left
+    /// to compare it against, and that is what earns the retention there.
     BundleInvalid { refusal: BundleRefusal },
     /// The final path is occupied by something this publication may not adopt: a damaged
     /// directory, another revision's bundle, or this revision's bundle with material beside
@@ -181,10 +192,16 @@ pub enum PublishError {
     ///
     /// **The staging directory is retained**, as the one directory a person diagnosing this
     /// can compare against the occupant nothing is allowed to remove. It is a diagnostic and
-    /// not recoverable state: nothing reads a staging directory back, so the retention lasts
-    /// only until the next open, whose sweep is unconditional over `staging/` (stage.rs,
-    /// "Layout"). Repeated retries therefore leave one directory each within a session and
-    /// none across launches.
+    /// not recoverable state: nothing reads a staging directory back.
+    ///
+    /// **Nothing removes it yet.** The retention rule it is decided against is that STE-17's
+    /// sweep will be unconditional over `staging/` (stage.rs, "Layout"; D-119), and once that
+    /// sweep lands, retries will leave one directory each within a session and none across
+    /// launches. Until then there is no sweep at all — `RevisionStore::open` does not
+    /// enumerate `staging/` — so retained attempts survive every launch and accumulate, one
+    /// per refusal. That is a bounded, inert pile of directories rather than a correctness
+    /// problem, and it is stated here so the bound above is not read as one this phase
+    /// enforces.
     PublishedBundleUnusable { refusal: BundleRefusal },
     /// The move reported failure and the final path does not hold a complete bundle, so
     /// commit point 1 did not pass. Nothing is published, the pointer is unchanged, and
@@ -325,7 +342,8 @@ pub(super) fn publish_revision(
         }
         FinalPath::Occupied(refusal) => {
             // Staging is deliberately kept as the diagnostic counterpart to an occupant
-            // nothing is allowed to delete; the next open sweeps it.
+            // nothing is allowed to delete. STE-17's sweep will remove it at the next open;
+            // there is no sweep in this phase, so it survives until then.
             return Err(PublishError::PublishedBundleUnusable { refusal });
         }
         FinalPath::Absent => match commit_bundle(io_seam, validated, &final_path) {
@@ -1532,6 +1550,47 @@ mod tests {
                 // Retained, for the same reason as a damaged occupant: the intended
                 // replacement has no other evidence.
                 staging_attempts: 1,
+            }
+        );
+    }
+
+    #[test]
+    fn a_retained_attempt_survives_reopening_because_this_phase_sweeps_nothing() {
+        // The bound `PublishedBundleUnusable` documents — "one directory per retry within a
+        // session and none across launches" — belongs to STE-17's sweep, which does not
+        // exist. Reopening the store is what a relaunch does, and it removes nothing, so a
+        // retained attempt is currently permanent and retries accumulate.
+        //
+        // **This test is meant to go red when the sweep lands**, and that is its job: the
+        // comments that describe the sweep's rule in the future tense (`PublishError`,
+        // stage.rs "Layout", D-119) must be corrected to the present tense in the same
+        // change, and a green suite would let them stay wrong a second time.
+        let fixture = Fixture::new();
+        let candidate = fixture.candidate("tech_b");
+        let revision = identity_of(&candidate);
+        fixture.plant_bundle(revision, &fixture.candidate("tech_a"));
+
+        // Two refusals, so the accumulation itself is observed rather than inferred.
+        for expected_attempts in 1..=2 {
+            let error = fixture.publish(&candidate).unwrap_err();
+            assert!(
+                matches!(error, PublishError::PublishedBundleUnusable { .. }),
+                "expected the occupant to be refused, got {error}"
+            );
+            assert_eq!(
+                entries(&staging_root(&fixture.root)).len(),
+                expected_attempts
+            );
+        }
+
+        // A fresh store over the same root: the only thing a relaunch does differently.
+        RevisionStore::open(&fixture.root).unwrap();
+        assert_eq!(
+            fixture.observe(revision, &[&revision.to_hex()]),
+            Observed {
+                reference: None,
+                bundle: BundleAtFinalPath::NotThisRevision,
+                staging_attempts: 2,
             }
         );
     }

@@ -40,18 +40,22 @@
 //! re-reads the pointer republishes the same identifier — finds its own bundle already
 //! complete — and races the same way again. The caller re-derives its intent or gives up.
 //!
-//! # Platform caveat: Windows provides no directory flush
+//! # Platform caveat: a directory flush is not universally available
 //!
-//! Both commit points rest on a directory's entries reaching disk, and Windows has no
-//! operation that means that: a directory handle needs `FILE_FLAG_BACKUP_SEMANTICS` to open
-//! at all, and `FlushFileBuffers` on the result refuses. The decision, its NTFS
-//! metadata-journal rationale, and the residual risk on non-journalling volumes are homed
-//! once in [`durability`](crate::durability) and recorded as D-123, because
-//! [`state::replace`](crate::state::replace) commits against the same platform fact. What
-//! it means here: on Windows, step 8's refusal — [`PublishError::BundleDurabilityUnconfirmed`],
-//! the D-121 behaviour — is reachable only from a flush that was attempted and failed,
-//! never from the platform having nothing to offer. Without that qualifier no revision
-//! could ever be published on Windows at all.
+//! Both commit points rest on a directory's entries reaching disk, and not every platform
+//! and filesystem provides an operation that means that. Windows needs a handle opened with
+//! `FILE_FLAG_BACKUP_SEMANTICS` and carrying `GENERIC_WRITE`, and some redirectors answer
+//! "incorrect function" even then. The decision, the two Win32 contracts it quotes, and the
+//! residual risk are homed once in [`durability`](crate::durability) and recorded as D-123,
+//! because [`state::replace`](crate::state::replace) commits against the same platform fact.
+//!
+//! What it means here: step 8's refusal — [`PublishError::BundleDurabilityUnconfirmed`], the
+//! D-121 behaviour — is reachable only from a flush that was attempted and failed, never
+//! from the platform having nothing to offer. Without that qualifier no revision could ever
+//! be published where the operation is unavailable. The converse matters just as much and is
+//! the correction D-123 records: the tolerance must stay narrow enough that this refusal is
+//! still *reachable* on Windows, or the module would be claiming a durability check it never
+//! performs.
 //!
 //! # Platform caveat: an open handle can refuse a directory rename
 //!
