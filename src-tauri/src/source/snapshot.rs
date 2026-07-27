@@ -178,6 +178,15 @@ pub enum AssetAbsence {
     /// The path resolved outside the canonical source root. A containment refusal, not an
     /// absence — kept distinct so it can never be read as "the mod didn't ship it".
     OutsideSourceRoot,
+    /// Two raw entries normalized to this logical path, so no single file answers to it.
+    ///
+    /// Enumeration refuses to pick a winner between collided entries because an arbitrary
+    /// winner is silent data loss (`enumerate`'s collision rule), and an asset read refuses
+    /// for the same reason. The path is already reported in [`SourceSnapshot::gaps`] and
+    /// already inside the fingerprint. Reachable only when analysis requests a
+    /// policy-selected path as an asset: assets are not enumerated, so they cannot collide
+    /// on their own.
+    Collision,
     /// `kind` and `detail` describe the host, so neither may reach a fingerprint; they are
     /// here because an Analysis Issue and a support log both want to say *why*.
     Unreadable {
@@ -239,6 +248,13 @@ impl SourceSnapshot {
     /// Per-key entries (a map of `OnceLock`s, or a two-phase insert) are the fix if that
     /// ever measures; one lock keeps the "exactly one observation" invariant obvious until
     /// then.
+    ///
+    /// Poisoning is recovered from rather than propagated, because the memo cannot be
+    /// observed half-updated: the guard is held only across `fs::read`, `ContentHash::of`,
+    /// and one `BTreeMap::insert`, none of which unwind. **Any edit inside this critical
+    /// section must preserve that** — code that can panic between `observe_asset` returning
+    /// and the `insert` would leave a path unmemoized and break the exactly-one-observation
+    /// invariant this method promises, which recovering from the poison would then hide.
     pub fn read_asset(&self, logical: &LogicalPath) -> AssetRead {
         let mut assets = self.assets.lock().unwrap_or_else(PoisonError::into_inner);
         if let Some(observed) = assets.get(logical) {
@@ -252,8 +268,11 @@ impl SourceSnapshot {
     /// Every asset this build froze, in canonical logical-path order — the revision
     /// manifest's referenced-source-asset input set, and what final verification re-reads.
     ///
-    /// Absences are deliberately not here. A file the mod never shipped is an Analysis
-    /// Issue, not an input whose bytes a later build could compare against.
+    /// Absences are not here, because an absence has no bytes and no Asset Store key: it is
+    /// an Analysis Issue, not a manifest input. It is still verified, through
+    /// [`SourceSnapshot::absent_assets`] — an absent path that has become readable no longer
+    /// matches the candidate's snapshot, and nothing else in the system could ever notice,
+    /// since assets are outside the fingerprint and an absence is outside this set.
     pub fn captured_assets(&self) -> Vec<CapturedAsset> {
         let assets = self.assets.lock().unwrap_or_else(PoisonError::into_inner);
         // A `BTreeMap` iterates in key order, so the canonical order is the collection's.
@@ -262,6 +281,24 @@ impl SourceSnapshot {
             .filter_map(|read| match read {
                 AssetRead::Captured(asset) => Some(asset.clone()),
                 AssetRead::Absent(_) => None,
+            })
+            .collect()
+    }
+
+    /// Every referenced asset this build looked for and did not get bytes for, in canonical
+    /// logical-path order, with the absence it froze.
+    ///
+    /// The counterpart of [`SourceSnapshot::captured_assets`] for verification only, which
+    /// is why it is not public: an absence is a fact about this build's observation, and
+    /// consumers learn it from the [`AssetRead`] they were handed, not by querying the
+    /// snapshot afterwards.
+    pub(super) fn absent_assets(&self) -> Vec<(LogicalPath, AssetAbsence)> {
+        let assets = self.assets.lock().unwrap_or_else(PoisonError::into_inner);
+        assets
+            .iter()
+            .filter_map(|(logical, read)| match read {
+                AssetRead::Absent(absence) => Some((logical.clone(), absence.clone())),
+                AssetRead::Captured(_) => None,
             })
             .collect()
     }
@@ -279,6 +316,18 @@ impl SourceSnapshot {
                 hash: captured.hash,
                 bytes: captured.bytes.clone(),
             });
+        }
+        // A collided path is deliberately absent from `content`, so without this it would
+        // fall through to the filesystem and be answered by whichever raw entry the NFC
+        // spelling happens to land on — the arbitrary winner `enumerate` refuses to pick.
+        // The refusal has to extend to asset reads or it is not a refusal.
+        if self
+            .gaps
+            .collisions
+            .iter()
+            .any(|collision| collision.logical == *logical)
+        {
+            return AssetRead::Absent(AssetAbsence::Collision);
         }
         let observed = match &self.backing {
             Backing::Live(root) => read_live_asset(root, &self.live_path(root, logical)),
@@ -301,9 +350,29 @@ impl SourceSnapshot {
     /// Where a logical path lives under a live root.
     ///
     /// Enumerated content is addressed through the raw names the walk observed, because
-    /// identity is NFC and a filesystem need not agree. An asset reference has no other
-    /// spelling — it arrives from script text, not from a directory listing — so it is
-    /// joined as written.
+    /// identity is NFC and a filesystem need not agree.
+    ///
+    /// **Known limitation — an asset is addressed through its NFC identity.** A
+    /// non-enumerated path has no observed raw spelling here, and the one it had in the
+    /// script text is already gone: `LogicalPath::parse` NFC-normalizes. So a mod shipping
+    /// an NFD-named texture — the shape a mod authored on HFS+ and re-zipped produces —
+    /// reads back as `NotFound` on a normalization-sensitive filesystem, and the generated
+    /// documentation becomes host-dependent: one machine renders the texture, another
+    /// renders an "evidence absent" placeholder. This is the one place the rule stated on
+    /// [`scan`](crate::source::scan) — read through raw names, never through the normalized
+    /// identity — is not upheld.
+    ///
+    /// Untested and unfixed rather than fixed blind. macOS cannot stage the failure: APFS
+    /// (case-sensitive included) and exFAT both normalize in the driver, so writing the NFC
+    /// spelling *overwrites* an NFD-named file rather than creating a second entry, leaving
+    /// one directory entry either way. A `read_dir`-and-match fallback on the miss path
+    /// would therefore ship unexercised. Deferred to the Windows and Linux test harness,
+    /// alongside the junction and reparse-point question `enumerate`'s module comment
+    /// records (Phase 12).
+    ///
+    /// `root` is a parameter rather than read from `self.backing` because a memory backing
+    /// has no root at all; only a caller that already holds a [`LiveRoot`] can ask this
+    /// question, which is the same reason `verify` is a capability of [`LiveSource`].
     pub(super) fn live_path(&self, root: &LiveRoot, logical: &LogicalPath) -> PathBuf {
         match self.content.get(logical) {
             Some(captured) => captured.file.absolute_under(&root.root),
@@ -326,6 +395,7 @@ impl SourceSnapshot {
         kind: SourceKind,
         files: BTreeMap<LogicalPath, (FileFamily, SourceBytes)>,
         assets: BTreeMap<LogicalPath, SourceBytes>,
+        gaps: ObservationGaps,
     ) -> Self {
         let content: BTreeMap<LogicalPath, CapturedFile> = files
             .into_iter()
@@ -341,7 +411,6 @@ impl SourceSnapshot {
                 (logical, CapturedFile { file, hash, bytes })
             })
             .collect();
-        let gaps = ObservationGaps::default();
         let fingerprint = SourceFingerprint::of(
             content
                 .iter()
@@ -420,6 +489,13 @@ pub fn establish(kind: SourceKind, root: &Path) -> Result<Established, Establish
     })?;
     let gaps = inventory.gaps();
 
+    // One entry per enumerated file, deliberately *not* deduplicated. `content` is keyed by
+    // logical path and would collapse a repeat into silent last-writer-wins before
+    // `SourceFingerprint::of` could see it — which is what made the duplicate refusal, and
+    // `EstablishError::Duplicate` with it, structurally dead. Feeding `of` the un-collapsed
+    // list is what checks `classify_entries`' one-file-per-logical-path invariant instead of
+    // assuming it, and it runs before any snapshot is built.
+    let mut hashed = Vec::with_capacity(inventory.files.len());
     let mut content = BTreeMap::new();
     for file in inventory.files {
         // Snapshot protocol step 2: one read into a bounded buffer, then hash and expose
@@ -432,16 +508,11 @@ pub fn establish(kind: SourceKind, root: &Path) -> Result<Established, Establish
         })?;
         let bytes = SourceBytes::from(bytes);
         let hash = ContentHash::of(&bytes);
+        hashed.push((file.logical.clone(), hash));
         content.insert(file.logical.clone(), CapturedFile { file, hash, bytes });
     }
 
-    let fingerprint = SourceFingerprint::of(
-        content
-            .iter()
-            .map(|(logical, captured)| (logical.clone(), captured.hash)),
-        &gaps,
-    )
-    .map_err(EstablishError::Duplicate)?;
+    let fingerprint = SourceFingerprint::of(hashed, &gaps).map_err(EstablishError::Duplicate)?;
 
     let complete = gaps.is_empty();
     let root = Arc::new(LiveRoot {

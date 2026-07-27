@@ -34,8 +34,8 @@ pub use snapshot::{
     SourceKind, SourceSnapshot, establish,
 };
 pub use verify::{
-    AssetChange, FingerprintMismatch, LiveVerification, ObservedAsset, ObservedFingerprint,
-    SourceChange, UnscannableSource,
+    AppearedAsset, AssetChange, FingerprintMismatch, LiveVerification, ObservedAsset,
+    ObservedFingerprint, SourceChange, UnscannableSource,
 };
 
 use crate::canonical::path::LogicalPath;
@@ -114,6 +114,13 @@ impl From<RootError> for ScanError {
 /// address the file.
 pub fn scan(root: &Path) -> Result<SourceScan, ScanError> {
     let inventory = enumerate::enumerate(root)?;
+    // One entry per enumerated file, deliberately *not* deduplicated. `contents` is keyed by
+    // logical path and would collapse a repeat into silent last-writer-wins before
+    // `SourceFingerprint::of` could see it — which is what made the duplicate refusal, and
+    // `ScanError::Duplicate` with it, structurally dead. Feeding `of` the un-collapsed list
+    // is what checks `classify_entries`' one-file-per-logical-path invariant instead of
+    // assuming it.
+    let mut hashed = Vec::with_capacity(inventory.files.len());
     let mut contents = BTreeMap::new();
     for file in &inventory.files {
         let content =
@@ -122,15 +129,11 @@ pub fn scan(root: &Path) -> Result<SourceScan, ScanError> {
                 kind: error.kind(),
                 detail: error.to_string(),
             })?;
+        hashed.push((file.logical.clone(), content));
         contents.insert(file.logical.clone(), content);
     }
-    let fingerprint = SourceFingerprint::of(
-        contents
-            .iter()
-            .map(|(logical, content)| (logical.clone(), *content)),
-        &inventory.gaps(),
-    )
-    .map_err(ScanError::Duplicate)?;
+    let fingerprint =
+        SourceFingerprint::of(hashed, &inventory.gaps()).map_err(ScanError::Duplicate)?;
     Ok(SourceScan {
         inventory,
         contents,
