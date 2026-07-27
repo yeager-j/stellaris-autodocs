@@ -76,9 +76,7 @@ Blocking relations encode the dependency DAG so parallelizable work is visible. 
 
 **Exit:** Skeleton compiles on macOS CI; canonicalization and numeric property tests pass; a negative control proves the CI gate can fail.
 
-## Phase 1 — Durable state and discovery
-
-Detailed plan: [plans/phase-1-state-and-discovery.md](./plans/phase-1-state-and-discovery.md)
+## Phase 1 — Durable state and discovery (implemented — [detailed plan](./plans/phase-1-state-and-discovery.md))
 
 **Deliverable:** The state module and Mod Library derivation, headless.
 
