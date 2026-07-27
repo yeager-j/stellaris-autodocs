@@ -193,6 +193,7 @@ The diagram's lower row groups deep modules but does not imply that they are mut
 
 - `analysis -> localization` for ingestion, resolution, and display-independent projections.
 - `analysis -> search` for deterministic index construction.
+- `analysis -> source` for the Source Snapshots it analyzes and for the enumeration-policy version its version vector quotes. Owner: `source`, which owns both the snapshot type and the policy whose change invalidates builds. Cycle check: `source` depends only on `canonical` and `error`, never on `analysis`, so the edge is acyclic. The version constant is homed in `source::policy` rather than duplicated as a literal in `analysis`, so a policy change cannot leave its version behind.
 - `assets -> source` for reads through the build's Source Snapshot capability.
 - `revisions -> state` through the narrow publication-reference capability.
 - `companion -> revisions` for authorized revision opening.

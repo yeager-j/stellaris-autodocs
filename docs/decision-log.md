@@ -868,6 +868,38 @@ The identity model (location id + normalized relative path) can only address con
 
 Two distinct raw directory entries normalizing to one logical path must be a visible collision, never an arbitrary winner. macOS APFS is case- and normalization-insensitive, so colliding fixtures cannot be created on the development filesystem to test this directly. `classify_entries` is a pure seam over `RawEntry` values precisely so the collision and rejection rules are testable without a real, colliding filesystem.
 
+### Source truth
+
+Recorded on completion of Phase 2 (2026-07-27).
+
+**D-112 — An incomplete source observation is publishable, and it is identity-bearing**
+
+A source with a normalization collision or a rejected entry still establishes a Source Snapshot. Its gaps become Analysis Issues downstream; "evidence absent" is a documented Incomplete Documentation condition, not a fatal one.
+
+But the gaps join the content set in the fingerprint (domain `/v3`), because content alone let a source stop being broken without changing identity: deleting a dangling symlink removes a rejection and touches no enumerated file, so a revision built while the link dangled would verify as unchanged and keep its stale "evidence absent" issue forever.
+
+Only source-determined fields enter. A gap contributes its logical or raw label and a stable `&'static str` reason code per `RejectionReason` discriminant. Three payloads are excluded by name: the escape target (a canonicalized absolute path, so it names the machine's layout), the OS message (host- and locale-dependent), and `io::ErrorKind` (permission state is a property of the machine; `NotFound` and `PermissionDenied` say the same thing to documentation, and folding the kind into durable identity would give one mod two revision identifiers on two machines). The report still carries all three — it is identity that must not.
+
+`Established::Complete | Incomplete` forces the caller to decide what incompleteness means before it can reach the snapshot. `ObservationGaps` remains the single authority on *what* was missed; the enum is only the decision point.
+
+**D-113 — Fixture snapshots are memory-backed, and live verification is a capability**
+
+Only a snapshot established from a live root becomes a `LiveSource`, and only a `LiveSource` can be asked to verify. A fixture snapshot is a bare `SourceSnapshot` and cannot express the question, so there is no "not applicable" arm for a caller to get wrong. The memory backing is compiled only under `test-support`, which makes that a fact about the shipped binary rather than a convention.
+
+`source::fixture::FixtureCorpus` is source-owned rather than a member of `testsupport`, because a fixture must be built by the same construction and fingerprint path a live snapshot is, and the enumeration policy that decides what one may contain is source-owned. `with_file` applies the real policy: a path the policy excludes is an error, not a silently ignored entry. There is deliberately no `from_directory` loader — it would reintroduce exactly the live traversal fixtures exist to avoid.
+
+**D-114 — Home the enumeration-policy version in `source::policy`**
+
+`ENUMERATION_POLICY_VERSION` lives beside the allowlists it versions, and `AnalysisVersionVector::current()` reads it instead of holding a literal. Phase 2A's `pinned_policy_surface` was a tripwire that could only ask for the bump in prose; now editing the policy without bumping the constant fails that test, and bumping it re-pins the version-vector digest, which is the review moment the vector exists to force.
+
+This makes `analysis -> source` a real dependency edge, added to the design's permitted-edge list with its cycle check: `source` depends only on `canonical` and `error` and never on `analysis`, so the edge is acyclic.
+
+**D-115 — Memoize one asset observation per logical path, successes and failures alike**
+
+`read_asset` freezes the result of the first read for the life of the build. The design already froze successes; failures are the same rule applied to the same question. Two reads that disagreed because the tree moved between them would let one build attach "evidence absent" to a path and then materialize an asset for it.
+
+An asset read for a path already in the snapshot's enumerated content is served from the frozen bytes without touching disk, so one file's bytes have one authority. Containment applies to asset paths exactly as it does to enumerated links: a resolved target outside the canonical root is `OutsideSourceRoot`, kept distinct from `NotFound` so a containment refusal can never be read as "the mod didn't ship it".
+
 ## Provisional decisions
 
 **P-004 — Adopt the extracted serializable Result package**
