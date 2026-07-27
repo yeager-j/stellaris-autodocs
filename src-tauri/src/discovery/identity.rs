@@ -18,6 +18,14 @@ pub struct DiscoveryLocationId([u8; 16]);
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct IdParseError;
 
+impl fmt::Display for IdParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("invalid identifier: expected a lowercase hex string of the exact length")
+    }
+}
+
+impl std::error::Error for IdParseError {}
+
 impl DiscoveryLocationId {
     pub fn generate() -> Self {
         Self(uuid::Uuid::new_v4().into_bytes())
@@ -94,7 +102,11 @@ macro_rules! hex_string_serde {
         impl<'de> serde::Deserialize<'de> for $ty {
             fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
                 let text = String::deserialize(d)?;
-                $ty::parse(&text).map_err(|_| serde::de::Error::custom($expected))
+                // Names the offending value (not just the shape it should have had), so a
+                // corrupted state file is diagnosable from the deserialize error alone.
+                $ty::parse(&text).map_err(|_| {
+                    serde::de::Error::invalid_value(serde::de::Unexpected::Str(&text), &$expected)
+                })
             }
         }
     };
@@ -169,6 +181,21 @@ mod tests {
     }
 
     #[test]
+    fn id_parse_error_displays_and_implements_std_error() {
+        // Task 5/9/10 call sites want to `?` or log a parse failure; both require
+        // Display, and std::error::Error is what makes `?` conversion available.
+        fn assert_error<E: std::error::Error>(_: &E) {}
+        assert_error(&IdParseError);
+        assert!(!IdParseError.to_string().is_empty());
+    }
+
+    #[test]
+    fn corrupted_state_deserialize_error_names_the_offending_value() {
+        let error = serde_json::from_str::<DiscoveryLocationId>("\"not-hex\"").unwrap_err();
+        assert!(error.to_string().contains("not-hex"));
+    }
+
+    #[test]
     fn ids_serialize_as_hex_strings_and_round_trip_as_map_keys() {
         let location = DiscoveryLocationId::generate();
         let installation = ModInstallationId::derive(location, &path("ugc_1"));
@@ -198,7 +225,11 @@ mod tests {
         );
     }
 
-    const COMPONENT_RE: &str = "[a-z0-9_\u{e9}]{1,10}(/[a-z0-9_\u{e9}]{1,10}){0,2}";
+    // Includes uppercase and combining marks (U+0301, U+0308) alongside the precomposed
+    // é, matching path.rs's PATH_RE precedent, so the injectivity property exercises
+    // case and NFC variants rather than only lowercase ASCII plus one precomposed form.
+    const COMPONENT_RE: &str =
+        "[a-zA-Z0-9_\u{e9}\u{301}\u{308}]{1,10}(/[a-zA-Z0-9_\u{e9}\u{301}\u{308}]{1,10}){0,2}";
 
     proptest! {
         #[test]
