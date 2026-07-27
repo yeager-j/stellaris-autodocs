@@ -848,6 +848,26 @@ Only encoding mechanics and error conventions are shared. Each identity's field 
 
 Test-only helpers live behind an off-by-default feature, enabled for this package's own tests through a self dev-dependency. A production build never enables it, so a test seam cannot reach a shipped binary. `testsupport::TempAppData` is the first member: an isolated, disposable application-data directory per test, satisfying the single-instance design's caller-precondition isolation.
 
+### State and discovery
+
+Recorded on completion of Phase 1 (2026-07-26). See [the Phase 1 plan](./plans/phase-1-state-and-discovery.md).
+
+**D-108 — Store publication references as `{ location, revision }` keyed by installation id**
+
+The location component of a publication reference is not recoverable from the digest-valued `ModInstallationId` — derivation is one-way. Removing a Discovery Location must cascade its references in a single mutation, so `state` needs the owning location in hand without a second lookup. Storing it is necessary, not redundant: it is the only representation that lets `remove_discovery_location` retain and cascade in one pass over `publication_references`.
+
+**D-109 — Persist the unresolved-quarantine notice in the state document**
+
+`unresolved_quarantine` lives in `AppState`, not only in process memory. A restart after quarantine would otherwise silently forget that publication-reference recovery is unresolved, re-enabling orphan-revision and Asset Store cleanup the design means to keep disabled until the user confirms discard or restores the file.
+
+**D-110 — Only immediate child directories of a Discovery Location are Mod Installations**
+
+The identity model (location id + normalized relative path) can only address content inside the location. A root-level `.mod` descriptor whose `path` field points outside the location is read as advisory display metadata, never as a second installation — `discovery` never follows it to scan elsewhere.
+
+**D-111 — Classify collisions as a pure function over raw names**
+
+Two distinct raw directory entries normalizing to one logical path must be a visible collision, never an arbitrary winner. macOS APFS is case- and normalization-insensitive, so colliding fixtures cannot be created on the development filesystem to test this directly. `classify_entries` is a pure seam over `RawEntry` values precisely so the collision and rejection rules are testable without a real, colliding filesystem.
+
 ## Provisional decisions
 
 **P-004 — Adopt the extracted serializable Result package**

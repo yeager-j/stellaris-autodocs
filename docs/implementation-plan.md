@@ -4,10 +4,12 @@ Status: Outline for review
 
 Last updated: 2026-07-26
 
-> **For agentic workers:** This is the master outline. Each phase will be expanded into a
-> detailed task-level plan (bite-sized TDD steps, exact files, code, commands) before that
-> phase is executed. Detailed phase plans use superpowers:subagent-driven-development or
-> superpowers:executing-plans at execution time.
+> **For agentic workers:** This is the master outline and the durable planning document.
+> Each phase gets a deep pass before execution that pins contracts, public surfaces, test
+> obligations, pinned vectors, and evidence-bearing decisions — not implementation bodies,
+> which are delegated to capable implementing agents. Phase plans are working artifacts:
+> once a phase is implemented and merged, the plan document is deleted (the code is the
+> authority; git history preserves the plan).
 
 **Goal:** Implement the MVP defined by the [product requirements](./product-requirements.md) and [technical design](./technical-design.md): a Tauri desktop app that builds deterministic, provenance-preserving technology documentation for one Target Mod against Vanilla Content, readable on the desktop and through read-only Companion Mode, accepted by the five golden cases.
 
@@ -49,9 +51,21 @@ Two ideas shape the order:
 
 The five golden cases are the acceptance backbone: fixture authoring starts early (Phase 4) and each later phase widens which golden assertions pass. The pinned "ordinary drawable vanilla technology" is selected in Phase 4 when resolver fixtures are authored.
 
+## Ticketing
+
+In a solo project where an agent implements, a ticket is a unit of the maintainer's judgment, not a unit of work: its boundary sits where a human review gate is genuinely valuable — where one could reject the work while accepting its neighbor. Tickets stay thin pointers to plan slices with a done-when; the detailed phase plans remain the spec, and plan content is never duplicated into tickets.
+
+Granularity follows decision density, not size:
+
+1. **Mechanical, fully specified** (Phase 0; localization tokenization; the pinned DDS recipe) — one ticket per phase or task cluster, one-shot, review at the end.
+2. **Contract-defining** (state replacement protocol, Source Snapshots, publication protocol) — one ticket per contract, reviewed before dependents build on it, because a defect cascades.
+3. **Judgment-heavy, evidence-decided** (Resolution Profile rows, generator route semantics, golden cases) — smaller tickets aligned to units of evidence (oracle records, policy rows, golden slices), each deserving the focused review a PR forces, even when small.
+
+Blocking relations encode the dependency DAG so parallelizable work is visible. The five golden cases are tracked as milestones, not tickets. First-pass reviews may be delegated to a subagent; the maintainer's attention is reserved for evidence-bearing decisions — oracle records, Resolution Profile rows, and anything that changes a pinned digest.
+
 ---
 
-## Phase 0 — Foundations (implemented — [detailed plan](./plans/phase-0-foundations.md))
+## Phase 0 — Foundations (implemented)
 
 **Deliverable:** A compiling module skeleton with shared primitives every later phase consumes, plus test and CI infrastructure.
 
@@ -64,7 +78,7 @@ The five golden cases are the acceptance backbone: fixture authoring starts earl
 
 **Exit:** Skeleton compiles on macOS CI; canonicalization and numeric property tests pass; a negative control proves the CI gate can fail.
 
-## Phase 1 — Durable state and discovery
+## Phase 1 — Durable state and discovery (implemented)
 
 **Deliverable:** The state module and Mod Library derivation, headless.
 
