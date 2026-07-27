@@ -80,10 +80,10 @@ impl StateStore {
         state_dir: &Path,
         io_seam: Box<dyn ReplacementIo + Send>,
     ) -> Result<OpenOutcome, OpenError> {
-        sweep_stale_temps(state_dir);
         let state_path = state_dir.join(STATE_FILE);
         match fs::read(&state_path) {
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                sweep_stale_temps(state_dir);
                 let store = Self::persist_fresh(state_path, AppState::first_launch(), io_seam)?;
                 Ok(OpenOutcome::Ready {
                     store,
@@ -102,13 +102,23 @@ impl StateStore {
         bytes: Vec<u8>,
         io_seam: Box<dyn ReplacementIo + Send>,
     ) -> Result<OpenOutcome, OpenError> {
-        if let Ok(probe) = serde_json::from_slice::<SchemaProbe>(&bytes) {
-            if probe.schema > CURRENT_SCHEMA {
-                return Ok(OpenOutcome::BlockedNewerSchema {
-                    found: probe.schema,
-                    supported: CURRENT_SCHEMA,
-                });
-            }
+        let probe = serde_json::from_slice::<SchemaProbe>(&bytes);
+        if let Ok(probe) = &probe
+            && probe.schema > CURRENT_SCHEMA
+        {
+            // A blocked open touches nothing: no writes, and no sweep — abandoned
+            // temporaries here may belong to the newer application version.
+            return Ok(OpenOutcome::BlockedNewerSchema {
+                found: probe.schema,
+                supported: CURRENT_SCHEMA,
+            });
+        }
+        // From here this application owns the directory; earlier runs' abandoned
+        // temporaries are safe to remove.
+        if let Some(dir) = state_path.parent() {
+            sweep_stale_temps(dir);
+        }
+        if let Ok(probe) = probe {
             // No supported older schemas exist yet; a future migration dispatches on
             // probe.schema here and re-persists through the normal replacement path.
             if probe.schema == CURRENT_SCHEMA
@@ -263,6 +273,10 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let newer = br#"{"schema":99,"future_field":true}"#;
         fs::write(dir.path().join(STATE_FILE), newer).unwrap();
+        // A blocked open touches nothing — not even another version's abandoned
+        // temporary, because a newer schema means this directory is not ours.
+        let foreign_temp = dir.path().join(".state-foreign.tmp");
+        fs::write(&foreign_temp, b"newer app's staging bytes").unwrap();
         match StateStore::open(dir.path()).unwrap() {
             OpenOutcome::BlockedNewerSchema { found, supported } => {
                 assert_eq!(found, 99);
@@ -270,9 +284,10 @@ mod tests {
             }
             OpenOutcome::Ready { .. } => panic!("newer schema must block"),
         }
-        // The file is byte-identical and nothing else appeared beside it.
+        // The file is byte-identical and nothing appeared or vanished beside it.
         assert_eq!(fs::read(dir.path().join(STATE_FILE)).unwrap(), newer);
-        assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
+        assert!(foreign_temp.exists());
+        assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 2);
     }
 
     #[test]
