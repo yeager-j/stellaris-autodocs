@@ -1,14 +1,20 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
+//! Application library. The executable target only calls [`run`]; everything else is
+//! constructed by the composition root (docs/technical-design.md, "Rust package and
+//! dependency direction"). Dependency direction: transports -> application -> deep
+//! modules -> filesystem, parser, image-decoder, and persistence adapters.
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
-}
+pub mod analysis;
+pub mod application;
+pub mod assets;
+pub mod canonical;
+pub mod companion;
+pub mod composition;
+pub mod discovery;
+pub mod localization;
+pub mod revisions;
+pub mod search;
+pub mod source;
+pub mod state;
+pub mod transport;
+
+pub use composition::run;
