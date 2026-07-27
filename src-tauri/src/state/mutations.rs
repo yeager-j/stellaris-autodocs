@@ -102,7 +102,8 @@ impl StateStore {
         })
     }
 
-    /// The narrow capability `revisions` consumes in Phase 3.
+    /// The publication compare-and-swap. [`PublicationCapability`] is how `revisions`
+    /// reaches it: this inherent method is the implementation, that handle is the grant.
     ///
     /// `installation` and `location` are trusted as a coherent pair: `ModInstallationId`
     /// derivation is one-way, so nothing here can verify that `installation` was
@@ -145,6 +146,56 @@ impl StateStore {
             state.unresolved_quarantine = None;
             Ok(())
         })
+    }
+}
+
+/// The whole of `state` that publication is given: one compare-and-swap on one Mod
+/// Installation's publication reference, and nothing else.
+///
+/// It delegates, so the decision it owns is what it *withholds*. A `&StateStore` handed to
+/// `revisions` would also hand it [`StateStore::add_discovery_location`],
+/// [`StateStore::rebind_discovery_location`], [`StateStore::remove_discovery_location`],
+/// [`StateStore::confirm_discard_unrecovered_references`], and `snapshot` — the mutable
+/// state document entire — leaving D-090's "`revisions` cannot modify unrelated settings
+/// or access the mutable state representation" true only by discipline. This type makes it
+/// true by construction: code holding one has no expressible path to the rest of the
+/// store. The argument is the one `source::snapshot::LiveSource` makes for liveness — a
+/// capability, not a flag.
+///
+/// It borrows rather than owns. The store's lifetime is the process and the composition
+/// root owns it, so no shared ownership is needed to hand this to a collaborator.
+pub struct PublicationCapability<'a> {
+    store: &'a StateStore,
+}
+
+impl<'a> PublicationCapability<'a> {
+    /// Constructed where a `&StateStore` is legitimately in hand: the composition root,
+    /// or a test. Granting the capability is that caller's decision, which is why it is
+    /// made explicitly here rather than derived inside `revisions`.
+    pub fn new(store: &'a StateStore) -> Self {
+        Self { store }
+    }
+
+    /// Atomically replaces `installation`'s publication reference, but only if the stored
+    /// revision is `expected_prior` — `None` meaning "no reference is stored yet". A
+    /// mismatch changes nothing and reports the actual stored revision.
+    ///
+    /// The caller owes one guarantee this layer cannot check: that `installation` and
+    /// `location` are a coherent pair. `ModInstallationId` derivation is one-way, so
+    /// nothing here can verify that `installation` came from `location`, and a mismatched
+    /// pair would survive [`StateStore::remove_discovery_location`]'s cascade as an
+    /// unreachable reference. That guarantee lives in the application layer, the only
+    /// place a scan result's installation and its owning location are simultaneously in
+    /// hand; passing this capability down does not move it.
+    pub fn set_publication_reference(
+        &self,
+        installation: ModInstallationId,
+        location: DiscoveryLocationId,
+        expected_prior: Option<&RevisionId>,
+        next: RevisionId,
+    ) -> Result<MutationCommit, PublicationError> {
+        self.store
+            .set_publication_reference(installation, location, expected_prior, next)
     }
 }
 
@@ -675,6 +726,118 @@ mod tests {
                 detail: "unreadable".to_owned(),
             })
             .is_empty()
+        );
+    }
+
+    #[test]
+    fn the_publication_capability_commits_and_refuses_exactly_as_the_store_does() {
+        // D-090 gives `revisions` this capability and nothing else, so it is the whole
+        // contract that module can observe. Every outcome the store mutation produces —
+        // both refusals and the swap itself — has to survive the narrowing, or the
+        // consumer would be programming against a different contract than the one the
+        // store tests above pin down.
+        let dir = TempDir::new().unwrap();
+        let store = open(dir.path());
+        let (location, _) = store
+            .add_discovery_location(PathBuf::from("/tmp/a"))
+            .unwrap();
+        let install = installation(&store, location);
+        let publication = PublicationCapability::new(&store);
+
+        // An unknown location is refused, so the capability cannot plant a reference
+        // that `remove_discovery_location`'s cascade could never reach.
+        let unknown = DiscoveryLocationId::generate();
+        assert!(matches!(
+            publication.set_publication_reference(
+                installation(&store, unknown),
+                unknown,
+                None,
+                RevisionId("r".into()),
+            ),
+            Err(PublicationError::Mutation(MutationError::UnknownLocation))
+        ));
+
+        // Expecting a prior on an empty slot is refused and reports the actual value.
+        assert!(matches!(
+            publication.set_publication_reference(
+                install,
+                location,
+                Some(&RevisionId("ghost".into())),
+                RevisionId("r1".into()),
+            ),
+            Err(PublicationError::ExpectedMismatch { actual: None })
+        ));
+
+        assert_eq!(
+            publication
+                .set_publication_reference(install, location, None, RevisionId("r1".into()))
+                .unwrap(),
+            MutationCommit::Committed
+        );
+
+        // A wrong expected prior is refused and reports what is actually stored.
+        match publication.set_publication_reference(
+            install,
+            location,
+            Some(&RevisionId("r0".into())),
+            RevisionId("r2".into()),
+        ) {
+            Err(PublicationError::ExpectedMismatch { actual }) => {
+                assert_eq!(actual, Some(RevisionId("r1".into())));
+            }
+            other => panic!("expected mismatch, got {other:?}"),
+        }
+
+        // A matching expected prior replaces, and the replacement is what the store holds.
+        publication
+            .set_publication_reference(
+                install,
+                location,
+                Some(&RevisionId("r1".into())),
+                RevisionId("r2".into()),
+            )
+            .unwrap();
+        assert_eq!(
+            store.snapshot().publication_references[&install].revision,
+            RevisionId("r2".into())
+        );
+    }
+
+    #[test]
+    fn the_publication_capability_passes_an_uncertain_commit_through() {
+        // `CommittedDurabilityUncertain` is how a caller learns the pointer is visible
+        // but its durability unconfirmed (docs/technical-design.md, "Mutable state
+        // storage"). A capability that flattened it into `Committed` would let
+        // `revisions` report a durability nothing observed.
+        let dir = TempDir::new().unwrap();
+        drop(open(dir.path()));
+        let script = Arc::new(Mutex::new(Script::default()));
+        let store = match StateStore::open_with_io(
+            dir.path(),
+            Box::new(Scripted {
+                script: Arc::clone(&script),
+                inner: RealIo,
+            }),
+        )
+        .unwrap()
+        {
+            OpenOutcome::Ready { store, .. } => store,
+            OpenOutcome::BlockedNewerSchema { .. } => panic!("blocked"),
+        };
+        let (location, _) = store
+            .add_discovery_location(PathBuf::from("/tmp/a"))
+            .unwrap();
+        let install = installation(&store, location);
+
+        script.lock().unwrap().fail_sync_dir = true;
+        let commit = PublicationCapability::new(&store)
+            .set_publication_reference(install, location, None, RevisionId("r1".into()))
+            .unwrap();
+        assert_eq!(commit, MutationCommit::CommittedDurabilityUncertain);
+        // Uncertain still means visible: the reference is the one the store now holds.
+        assert_eq!(
+            store.snapshot().publication_references[&install].revision,
+            RevisionId("r1".into())
         );
     }
 
