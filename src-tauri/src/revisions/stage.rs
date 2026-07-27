@@ -39,6 +39,11 @@
 //! rather than judging an in-memory value, because the publication protocol, STE-17's
 //! Revision Reader, and Phase 9's Validate Published Revision are all the same question
 //! asked of a directory, and one answer path is what keeps them from disagreeing.
+//!
+//! It proves the directory is *a* bundle, never that it is a particular one. A caller that
+//! reached a directory by identifier — the publication protocol, and STE-17's reader —
+//! asks [`validate_as`] instead, because "a directory under `bundles/` is named by its own
+//! manifest's identifier" is a property of this protocol's writes and not of the directory.
 
 use crate::canonical::path::LogicalPath;
 use crate::revisions::candidate::{DocumentIdentity, RevisionCandidate, RevisionDocument};
@@ -285,11 +290,26 @@ fn resolve(root: &Path, logical: &LogicalPath) -> PathBuf {
 /// Deliberately not `Clone`: a proof is about a directory as it was observed, and a copy
 /// kept past the move would outlive what it attests to.
 #[derive(Debug)]
-pub struct ValidatedBundle(PathBuf);
+pub struct ValidatedBundle {
+    path: PathBuf,
+    identity: RevisionIdentity,
+}
 
 impl ValidatedBundle {
     pub fn path(&self) -> &Path {
-        &self.0
+        &self.path
+    }
+
+    /// Which revision this directory holds, read from the manifest on disk rather than
+    /// taken from whoever named the directory.
+    ///
+    /// [`validate`] proves a directory is *a* bundle; this is what lets a caller ask
+    /// whether it is *this* revision's. The two questions are separate because the answer
+    /// to the second depends on an expectation the directory itself cannot carry — the
+    /// staging directory a publication validates is named by a UUID, and only a directory
+    /// under `bundles/` is named by its own manifest's identifier.
+    pub fn identity(&self) -> RevisionIdentity {
+        self.identity
     }
 }
 
@@ -299,6 +319,56 @@ impl ValidatedBundle {
 pub struct SchemaMismatch {
     pub found: u32,
     pub supported: u32,
+}
+
+/// A complete, self-consistent bundle of the wrong revision.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RevisionMismatch {
+    pub expected: RevisionIdentity,
+    pub found: RevisionIdentity,
+}
+
+/// Why a directory is not the bundle a caller named.
+///
+/// Two answers rather than one widened report, because they are answers to two different
+/// questions and they call for opposite actions. A [`NotABundle`] directory disagrees with
+/// its own manifest: it is damaged, and the response is to repair or rebuild it. An
+/// [`AnotherRevision`] directory disagrees with nothing — it is somebody's complete
+/// revision, sitting where this caller expected its own — and the only correct response is
+/// to leave it exactly as it is. Folding the second into [`ValidationReport`] would put a
+/// finding in it that only one of its two entry points can ever produce, and make
+/// [`ValidationReport::is_valid`] mean something different depending on who asked.
+///
+/// [`NotABundle`]: BundleRefusal::NotABundle
+/// [`AnotherRevision`]: BundleRefusal::AnotherRevision
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BundleRefusal {
+    NotABundle(ValidationReport),
+    AnotherRevision(RevisionMismatch),
+}
+
+impl fmt::Display for BundleRefusal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NotABundle(report) => report.fmt(f),
+            Self::AnotherRevision(mismatch) => write!(
+                f,
+                "this directory holds revision {}, not the revision {} expected here",
+                mismatch.found, mismatch.expected
+            ),
+        }
+    }
+}
+
+impl std::error::Error for BundleRefusal {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::NotABundle(report) => Some(report),
+            // Nothing wraps a cause here: the mismatch *is* the finding, and the values a
+            // reader needs are already in the message.
+            Self::AnotherRevision(_) => None,
+        }
+    }
 }
 
 /// Every way a directory can disagree with the bundle it claims to be. A report rather
@@ -446,10 +516,40 @@ pub fn validate(root: &Path) -> Result<ValidatedBundle, ValidationReport> {
     report.unexpected.sort();
 
     if report.is_valid() {
-        Ok(ValidatedBundle(root.to_path_buf()))
+        Ok(ValidatedBundle {
+            path: root.to_path_buf(),
+            identity: manifest.identifier(),
+        })
     } else {
         Err(report)
     }
+}
+
+/// Decides whether `root` is a Documentation Revision bundle **and** is `expected`'s.
+///
+/// [`validate`] cannot answer the second half. It proves a directory agrees with its own
+/// manifest, which a valid bundle of any revision does; that a directory under `bundles/`
+/// is named by the identifier its own manifest carries is a separate claim, established
+/// only by this protocol always deriving the name from the sealed manifest. "Only one
+/// writer exists right now" is not an invariant, and adoption of an already-present bundle
+/// is exactly where the assumption is load-bearing: without this, a valid bundle for
+/// revision B hand-copied to `bundles/<A>` would be adopted and published as A.
+///
+/// Every caller that opens a bundle it addressed by identifier wants this rather than
+/// [`validate`] — the publication protocol at both of its bundle-completion paths, and
+/// STE-17's Revision Reader when it opens a published bundle by identifier.
+pub fn validate_as(
+    root: &Path,
+    expected: RevisionIdentity,
+) -> Result<ValidatedBundle, BundleRefusal> {
+    let validated = validate(root).map_err(BundleRefusal::NotABundle)?;
+    if validated.identity() == expected {
+        return Ok(validated);
+    }
+    Err(BundleRefusal::AnotherRevision(RevisionMismatch {
+        expected,
+        found: validated.identity(),
+    }))
 }
 
 enum ManifestFinding {
@@ -807,6 +907,61 @@ mod tests {
         assert_eq!(file_set(empty.root()), [MANIFEST_FILE]);
         assert!(manifest_of(empty.root()).required_entries().is_empty());
         assert!(validate(empty.root()).is_ok());
+    }
+
+    #[test]
+    fn a_valid_bundle_of_another_revision_is_refused_when_a_revision_was_named() {
+        // The half `validate` cannot answer. A bundle that agrees with its own manifest is
+        // a valid bundle of *some* revision, and the publication protocol's adoption of an
+        // already-present bundle at a final path treats it as *this* revision's. That is
+        // sound only because the name under `bundles/` is always derived from the sealed
+        // manifest — and "this protocol is the only writer there" is not an invariant, so
+        // it is confirmed rather than assumed.
+        let (_root, staged) = stage_fixture(one_entry());
+        let (_other_root, other) = stage_fixture(vec![]);
+        assert_ne!(staged.identity(), other.identity());
+
+        let validated = validate_as(staged.root(), staged.identity()).unwrap();
+        assert_eq!(validated.identity(), staged.identity());
+        assert_eq!(validated.path(), staged.root());
+
+        let refusal = validate_as(staged.root(), other.identity()).unwrap_err();
+        assert_eq!(
+            refusal,
+            BundleRefusal::AnotherRevision(RevisionMismatch {
+                expected: other.identity(),
+                found: staged.identity(),
+            })
+        );
+        // Kept out of `ValidationReport` because nothing here is damaged: `validate`, which
+        // is never told what to expect, still accepts the same directory.
+        assert_eq!(
+            validate(staged.root()).unwrap().identity(),
+            staged.identity()
+        );
+    }
+
+    #[test]
+    fn a_refused_bundle_displays_its_reason_and_implements_std_error() {
+        // The publication protocol `?`s these and logs them, so both refusals need
+        // Display, and the damaged one must expose its report as a source rather than
+        // flatten every finding into one line (the same rationale as
+        // state/mutations.rs:638). The mismatch has no source: it wraps no cause, and both
+        // identifiers a reader needs are already in its message.
+        let (_root, staged) = stage_fixture(one_entry());
+        let (_other_root, other) = stage_fixture(vec![]);
+
+        let mismatch = validate_as(staged.root(), other.identity()).unwrap_err();
+        let rendered = mismatch.to_string();
+        assert!(rendered.contains(&staged.identity().to_hex()), "{rendered}");
+        assert!(rendered.contains(&other.identity().to_hex()), "{rendered}");
+        assert!(!rendered.contains("BundleRefusal"), "{rendered}");
+        assert!(std::error::Error::source(&mismatch).is_none());
+
+        fs::remove_file(staged.root().join(MANIFEST_FILE)).unwrap();
+        let damaged = validate_as(staged.root(), staged.identity()).unwrap_err();
+        assert!(damaged.to_string().contains("manifest"), "{damaged}");
+        assert!(std::error::Error::source(&damaged).is_some());
     }
 
     #[test]
