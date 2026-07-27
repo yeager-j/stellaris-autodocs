@@ -56,10 +56,18 @@ pub enum FixtureError {
     ///
     /// [`SourceFingerprint::of`]: crate::source::SourceFingerprint::of
     Duplicate { logical: LogicalPath },
-    /// A declared collision named fewer than two raw spellings. One raw entry that
-    /// normalizes to a logical path is a file, not a collision, and `classify_entries`
-    /// cannot produce this shape.
+    /// A declared collision named fewer than two *distinct* raw spellings. One raw entry
+    /// that normalizes to a logical path is a file, not a collision, and `classify_entries`
+    /// cannot produce this shape. The same spelling twice is one entry, not two: a walk
+    /// reads each directory entry once.
     NotACollision { logical: LogicalPath },
+    /// A declared collision named a raw spelling that does not normalize to the logical
+    /// path it collides at. A collision *is* two raw names meeting under NFC, so a label
+    /// that normalizes elsewhere describes an observation no walk could make.
+    CollisionLabelMismatch {
+        logical: LogicalPath,
+        raw_label: String,
+    },
 }
 
 impl fmt::Display for FixtureError {
@@ -81,6 +89,11 @@ impl fmt::Display for FixtureError {
             Self::Duplicate { logical } => {
                 write!(f, "the fixture corpus already contains {logical}")
             }
+            Self::CollisionLabelMismatch { logical, raw_label } => write!(
+                f,
+                "the raw spelling {raw_label:?} does not normalize to {logical}, so it \
+                 cannot be one of the entries colliding there"
+            ),
             Self::NotACollision { logical } => write!(
                 f,
                 "a collision at {logical} needs at least two raw spellings; one raw entry \
@@ -223,14 +236,41 @@ fn validate_collisions(
     let mut declared = BTreeSet::new();
     for collision in collisions {
         let logical = collision.logical.clone();
-        if collision.raw_labels.len() < 2 {
-            return Err(FixtureError::NotACollision { logical });
-        }
         // `classify_entries` only ever considers paths the policy selects, so a collision at
         // an excluded path is not an observation any walk could make — the same rule, and
-        // the same refusal, `with_file` applies.
+        // the same refusal, `with_file` applies. Checked first because it is the coarsest:
+        // the path is wrong wherever the labels point.
         if policy::family_for(&logical).is_none() {
             return Err(FixtureError::FileExcludedByPolicy { logical });
+        }
+        // Every raw spelling must actually meet the others at this logical path. A label
+        // that is not a logical path, or that normalizes elsewhere, describes a collision no
+        // walk could observe: `classify_entries` groups raw entries *by* the path they
+        // normalize to, so membership is not a claim a caller gets to make freely.
+        //
+        // Note what this rules out: a case-only pair. `LogicalPath` is case-preserving, so
+        // `a.txt` and `A.txt` are two logical paths and never collide — a case-insensitive
+        // filesystem holding only one of them is a different phenomenon, and the fingerprint
+        // is built to tell them apart.
+        let mut spellings = BTreeSet::new();
+        for raw_label in &collision.raw_labels {
+            let normalized =
+                LogicalPath::parse(raw_label).map_err(|error| FixtureError::InvalidPath {
+                    entry: raw_label.clone(),
+                    error,
+                })?;
+            if normalized != logical {
+                return Err(FixtureError::CollisionLabelMismatch {
+                    logical,
+                    raw_label: raw_label.clone(),
+                });
+            }
+            spellings.insert(raw_label.clone());
+        }
+        // Counted after deduplication: a walk reads each directory entry once, so the same
+        // spelling twice is one entry, not two colliding names.
+        if spellings.len() < 2 {
+            return Err(FixtureError::NotACollision { logical });
         }
         // Enumeration emits a surviving file or a collision for a path, never both: a
         // collided path has no winner, which is the whole point of the collision.
@@ -256,6 +296,16 @@ mod tests {
 
     /// Real corpus content, read at compile time. `include_bytes!` is what keeps "no runtime
     /// traversal" true while the bytes stay the ones a Stellaris mod actually ships.
+    /// A logical path two raw spellings can genuinely meet at, and those two spellings.
+    ///
+    /// A collision is a *normalization* collision, so the pair must differ only in NFC form.
+    /// A case-only pair cannot serve: `LogicalPath` is case-preserving, so `a.txt` and
+    /// `A.txt` are two logical paths that never meet, which is exactly what
+    /// `a_case_only_rename_changes_the_fingerprint` exists to guarantee.
+    const COLLIDED: &str = "common/technology/t\u{e9}ch.txt";
+    const NFC_LABEL: &str = "common/technology/t\u{e9}ch.txt";
+    const NFD_LABEL: &str = "common/technology/te\u{301}ch.txt";
+
     const DESCRIPTOR: &[u8] = include_bytes!("../../../fixtures/oracle/target/descriptor.mod");
     const TECHNOLOGY: &[u8] =
         include_bytes!("../../../fixtures/oracle/target/common/technology/zz_oracle_tech.txt");
@@ -381,18 +431,12 @@ mod tests {
         // The live half — which entry the fallthrough would have read — is the part macOS
         // cannot stage, since APFS cannot hold two names that normalize alike (D-111).
         let snapshot = oracle_target()
-            .with_collision(
-                "common/technology/t\u{e9}ch.txt",
-                &[
-                    "common/technology/te\u{301}ch.txt",
-                    "common/technology/t\u{e9}ch.txt",
-                ],
-            )
+            .with_collision(COLLIDED, &[NFD_LABEL, NFC_LABEL])
             .build()
             .unwrap();
 
         assert_eq!(
-            snapshot.read_asset(&path("common/technology/t\u{e9}ch.txt")),
+            snapshot.read_asset(&path(COLLIDED)),
             AssetRead::Absent(AssetAbsence::Collision)
         );
         assert!(snapshot.captured_assets().is_empty());
@@ -402,7 +446,7 @@ mod tests {
     fn a_declared_collision_makes_the_fixture_incomplete_and_moves_its_fingerprint() {
         let clean = oracle_target().build().unwrap();
         let collided = oracle_target()
-            .with_collision("common/technology/a.txt", &["common/technology/a.txt", "x"])
+            .with_collision(COLLIDED, &[NFD_LABEL, NFC_LABEL])
             .build()
             .unwrap();
 
@@ -417,11 +461,69 @@ mod tests {
     fn a_collision_needs_two_raw_spellings() {
         assert_eq!(
             oracle_target()
-                .with_collision("common/technology/a.txt", &["common/technology/a.txt"])
+                .with_collision(COLLIDED, &[NFC_LABEL])
                 .build()
                 .unwrap_err(),
             FixtureError::NotACollision {
-                logical: path("common/technology/a.txt")
+                logical: path(COLLIDED)
+            }
+        );
+        // The same spelling twice is one directory entry read twice, not two entries.
+        assert_eq!(
+            oracle_target()
+                .with_collision(COLLIDED, &[NFC_LABEL, NFC_LABEL])
+                .build()
+                .unwrap_err(),
+            FixtureError::NotACollision {
+                logical: path(COLLIDED)
+            }
+        );
+    }
+
+    #[test]
+    fn a_collision_label_must_normalize_to_the_path_it_collides_at() {
+        // A collision *is* two raw names meeting under NFC. A label that normalizes
+        // elsewhere claims a membership `classify_entries` decides, not the caller: it
+        // groups raw entries by the path they normalize to.
+        assert_eq!(
+            oracle_target()
+                .with_collision(COLLIDED, &[NFC_LABEL, "common/technology/other.txt"])
+                .build()
+                .unwrap_err(),
+            FixtureError::CollisionLabelMismatch {
+                logical: path(COLLIDED),
+                raw_label: "common/technology/other.txt".to_owned(),
+            }
+        );
+        // Case is the trap worth pinning: `LogicalPath` is case-preserving, so a case-only
+        // pair is two logical paths that never collide. Every collision fixture in this
+        // suite was originally written this way, and every one of them described an
+        // observation no walk could make.
+        assert_eq!(
+            oracle_target()
+                .with_collision(
+                    "common/technology/a.txt",
+                    &["common/technology/a.txt", "common/technology/A.txt"]
+                )
+                .build()
+                .unwrap_err(),
+            FixtureError::CollisionLabelMismatch {
+                logical: path("common/technology/a.txt"),
+                raw_label: "common/technology/A.txt".to_owned(),
+            }
+        );
+    }
+
+    #[test]
+    fn a_collision_label_that_is_not_a_logical_path_is_refused() {
+        assert_eq!(
+            oracle_target()
+                .with_collision(COLLIDED, &[NFC_LABEL, "common/../escape.txt"])
+                .build()
+                .unwrap_err(),
+            FixtureError::InvalidPath {
+                entry: "common/../escape.txt".to_owned(),
+                error: PathError::DotComponent,
             }
         );
     }
@@ -433,24 +535,25 @@ mod tests {
         // consulted `self.files` but `with_file` never consulted `self.gaps` — and the
         // corpus it produced answered `read_asset` with `Captured` where a live snapshot
         // answers `Absent(Collision)`.
-        let labels = ["descriptor.mod", "Descriptor.mod"];
+        let labels = [NFD_LABEL, NFC_LABEL];
         assert_eq!(
             oracle_target()
-                .with_collision("descriptor.mod", &labels)
+                .with_file(COLLIDED, TECHNOLOGY)
+                .with_collision(COLLIDED, &labels)
                 .build()
                 .unwrap_err(),
             FixtureError::Duplicate {
-                logical: path("descriptor.mod")
+                logical: path(COLLIDED)
             }
         );
         assert_eq!(
-            FixtureCorpus::new(SourceKind::TargetMod)
-                .with_collision("descriptor.mod", &labels)
-                .with_file("descriptor.mod", DESCRIPTOR)
+            oracle_target()
+                .with_collision(COLLIDED, &labels)
+                .with_file(COLLIDED, TECHNOLOGY)
                 .build()
                 .unwrap_err(),
             FixtureError::Duplicate {
-                logical: path("descriptor.mod")
+                logical: path(COLLIDED)
             }
         );
     }
@@ -459,15 +562,15 @@ mod tests {
     fn a_collision_cannot_be_declared_twice() {
         // `classify_entries` keys collisions by logical path, so one path collides at most
         // once; two declarations would also encode as two items in the digest.
-        let labels = ["common/technology/a.txt", "common/technology/A.txt"];
+        let labels = [NFD_LABEL, NFC_LABEL];
         assert_eq!(
             oracle_target()
-                .with_collision("common/technology/a.txt", &labels)
-                .with_collision("common/technology/a.txt", &labels)
+                .with_collision(COLLIDED, &labels)
+                .with_collision(COLLIDED, &labels)
                 .build()
                 .unwrap_err(),
             FixtureError::Duplicate {
-                logical: path("common/technology/a.txt")
+                logical: path(COLLIDED)
             }
         );
     }
@@ -479,13 +582,13 @@ mod tests {
         assert_eq!(
             oracle_target()
                 .with_collision(
-                    "sound/effects.txt",
-                    &["sound/effects.txt", "sound/Effects.txt"]
+                    "sound/t\u{e9}ch.txt",
+                    &["sound/te\u{301}ch.txt", "sound/t\u{e9}ch.txt"]
                 )
                 .build()
                 .unwrap_err(),
             FixtureError::FileExcludedByPolicy {
-                logical: path("sound/effects.txt")
+                logical: path("sound/t\u{e9}ch.txt")
             }
         );
     }
@@ -501,21 +604,17 @@ mod tests {
         // (D-111). What makes the two agree is that `observe_asset` is backing-agnostic —
         // the content shortcut, the collision refusal, and their order are one code path
         // that a fixture and a live snapshot both run.
-        let collided = "common/technology/zz_oracle_tech.txt";
         let snapshot = FixtureCorpus::new(SourceKind::TargetMod)
             .with_file("descriptor.mod", DESCRIPTOR)
-            .with_collision(
-                collided,
-                &[collided, "common/technology/ZZ_oracle_tech.txt"],
-            )
+            .with_collision(COLLIDED, &[NFD_LABEL, NFC_LABEL])
             .build()
             .unwrap();
 
         assert_eq!(
-            snapshot.read_asset(&path(collided)),
+            snapshot.read_asset(&path(COLLIDED)),
             AssetRead::Absent(AssetAbsence::Collision)
         );
-        assert_eq!(snapshot.read(&path(collided)), None);
+        assert_eq!(snapshot.read(&path(COLLIDED)), None);
         assert!(snapshot.captured_assets().is_empty());
     }
 

@@ -2,10 +2,19 @@
 //! (docs/technical-design.md, "Source module"; "Source snapshot consistency" steps 1-4).
 //!
 //! [`establish`] implements the optimistic protocol's first two steps: enumerate
-//! deterministically, then read each file **once** into a bounded buffer and hash and
-//! expose *those* bytes. Analysis parses exactly what was hashed, so a file that changes
-//! mid-build cannot make the parse and the fingerprint describe different content — the
-//! whole point of a snapshot over a sequence of live reads.
+//! deterministically, then read each file **once** and hash and expose *those* bytes.
+//! Analysis parses exactly what was hashed, so a file that changes mid-build cannot make
+//! the parse and the fingerprint describe different content — the whole point of a snapshot
+//! over a sequence of live reads.
+//!
+//! The design's phrase for step 2 is "read each file into a bounded buffer", and this
+//! implementation does not honour the bound: it reads whole files and retains them. Nothing
+//! caps a single file's size or the corpus total, so a mod shipping an implausibly large
+//! selected `.txt`, `.gui`, or `.yml` can exhaust memory and take the process down during
+//! establishment. Mod content is user-installed and only semi-trusted, so this is a real
+//! exposure and not a theoretical one. It is recorded rather than patched here because the
+//! limit is a product policy — what cap, and whether exceeding it is a typed refusal or an
+//! Analysis Issue — that no design section decides yet; see STE-15.
 //!
 //! Two decisions are worth stating here because the interface hides them:
 //!
@@ -522,9 +531,12 @@ pub fn establish(kind: SourceKind, root: &Path) -> Result<Established, Establish
     let mut hashed = Vec::with_capacity(inventory.files.len());
     let mut content = BTreeMap::new();
     for file in inventory.files {
-        // Snapshot protocol step 2: one read into a bounded buffer, then hash and expose
-        // *those* bytes. Hashing from a second read would be a second observation, which is
-        // the inconsistency the snapshot exists to remove.
+        // Snapshot protocol step 2: one read, then hash and expose *those* bytes. Hashing
+        // from a second read would be a second observation, which is the inconsistency the
+        // snapshot exists to remove.
+        //
+        // Whole-file and retained, so the read is not bounded and neither is the total. The
+        // module comment records why the cap is absent rather than chosen here (STE-15).
         let bytes = fs::read(file.absolute_under(root)).map_err(|error| EstablishError::Read {
             logical: file.logical.clone(),
             kind: error.kind(),

@@ -119,6 +119,22 @@ pub struct AppearedAsset {
 
 impl LiveSource {
     /// Compares the live tree with this snapshot, immediately before publication.
+    ///
+    /// **`Unchanged` means no change was observed, not that none happened.** The re-scan
+    /// walks and hashes sequentially, so a file edited after this pass hashed it — the
+    /// vanilla pass takes about half a second — is not seen, and the recomputed fingerprint
+    /// can equal the snapshot's while the live tree no longer does. The window does not
+    /// close at the last hash either: anything may change between the final comparison and
+    /// the publication that follows it.
+    ///
+    /// That residual window is the protocol, not an oversight in it. The design calls this
+    /// an *optimistic* snapshot protocol and specifies exactly one mechanism — recompute and
+    /// compare (docs/technical-design.md, "Source snapshot consistency" steps 6-7) — whose
+    /// stated guarantee runs one way: "A mismatch means the source changed during analysis."
+    /// It never claims the converse. Closing the window would take a filesystem change
+    /// generation or a watch held across the whole interval, which is a platform-specific
+    /// mechanism no design section calls for; the cost of the miss is a revision pinned to
+    /// bytes that were real when read, which the next Ensure re-checks and rebuilds.
     pub fn verify(&self) -> Result<LiveVerification, Unexpected> {
         let root = self.live_root();
         let snapshot = self.snapshot();
