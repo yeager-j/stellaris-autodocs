@@ -4,6 +4,7 @@
 //! changes the component's behavior.
 
 use crate::canonical::encode::{CanonicalDigest, DigestBytes, ENCODING_VERSION};
+use crate::source::policy::ENUMERATION_POLICY_VERSION;
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -27,13 +28,11 @@ pub struct AnalysisVersionVector {
 impl AnalysisVersionVector {
     pub fn current() -> Self {
         Self {
-            // 2: the source fingerprint moved to domain /v2, framing each entry as a
-            // nested two-item sequence. The scheme that names a build's inputs changed,
-            // so the component that invalidates builds changes with it — the protocol
-            // stated in source::fingerprint. No revision has been published yet, so the
-            // bump invalidates nothing today; following it now is what keeps the rule
-            // from being learned as optional.
-            source_enumeration: 2,
+            // Read from `source::policy`, which owns both the enumeration allowlists and
+            // the fingerprint domain built over them. A literal here could not be made to
+            // move when the policy moved; the constant can, and `pinned_policy_surface`
+            // asserts it beside the allowlists it versions.
+            source_enumeration: ENUMERATION_POLICY_VERSION,
             parsed_model: 1,
             resolution_profile: 1,
             documentation: 1,
@@ -80,14 +79,25 @@ mod tests {
     }
 
     #[test]
+    fn current_reads_the_enumeration_policy_version() {
+        // The Phase 2B fork resolution: `source::policy` owns the version of the policy,
+        // and this vector quotes it. Two literals could drift apart in the commit that
+        // changed the policy; one constant cannot.
+        assert_eq!(
+            AnalysisVersionVector::current().source_enumeration,
+            ENUMERATION_POLICY_VERSION
+        );
+    }
+
+    #[test]
     fn pinned_current_digest() {
         // Pinned regression value: any component bump changes this and must re-pin it,
         // which is exactly the review moment the version vector exists to force.
-        // Re-derived independently for source_enumeration = 2 (Phase 2A, fingerprint
-        // domain /v2).
+        // Re-derived independently for source_enumeration = 3 (Phase 2B, fingerprint
+        // domain /v3 — observation gaps join the content set).
         assert_eq!(
             AnalysisVersionVector::current().digest().to_hex(),
-            "aecc912e9f7874b5617b77260dc8189540a8db8a05e8c6b9b0238989acf5bbe6"
+            "71b5e798d3785eb350f403a531a8e00f6ed6c2d05d34dc240e00a8461ced830a"
         );
     }
 

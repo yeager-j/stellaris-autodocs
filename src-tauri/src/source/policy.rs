@@ -35,10 +35,24 @@
 //! - `dlc/`. DLC archives supply visual assets, not a script layer.
 //!
 //! Changing any of this changes which bytes every fingerprint covers, so the change
-//! protocol is: bump `analysis::AnalysisVersionVector::source_enumeration`, then re-pin
+//! protocol is: bump [`ENUMERATION_POLICY_VERSION`], then re-pin
 //! `tests::pinned_policy_surface`. Never the re-pin alone.
 
 use crate::canonical::path::LogicalPath;
+
+/// The version of everything in this module that decides what a fingerprint covers: the
+/// allowlists above and the source-fingerprint domain built over them.
+///
+/// Homed here rather than as a literal in `analysis::AnalysisVersionVector`, which reads
+/// it as its `source_enumeration` component. The design's rule is that a semantic change to
+/// a component changes its version, and a version that lived away from the policy it names
+/// could be forgotten in the commit that changed the policy. This is the coupling
+/// `pinned_policy_surface` could previously only ask for in prose.
+///
+/// - 1: initial policy (Phase 2A).
+/// - 2: fingerprint domain `/v2` — each file framed as a nested two-item sequence.
+/// - 3: fingerprint domain `/v3` — observation gaps join the content set.
+pub const ENUMERATION_POLICY_VERSION: u32 = 3;
 
 /// Which language a selected file is written in, decided once at enumeration so no
 /// downstream stage re-derives it from a path (Meyer's Single Choice).
@@ -323,17 +337,21 @@ mod tests {
 
     #[test]
     fn pinned_policy_surface() {
-        // This is a tripwire, not a coupling. It cannot make a version bump happen; it
-        // only guarantees that changing the policy fails a test whose comment states the
-        // protocol, so the change cannot pass review unnoticed. Any edit to the directory
-        // or extension allowlists must bump
-        // `analysis::AnalysisVersionVector::source_enumeration` (which re-pins its own
-        // digest and invalidates previously built revisions) and only then re-pin here.
-        // Re-pinning alone silently changes what every fingerprint covers.
+        // A two-sided tripwire, not a derivation. It pins the allowlists and the version
+        // side by side so an edit to either fails a test whose comment states the protocol;
+        // it cannot *make* the bump happen, and a developer who edits an allowlist can
+        // satisfy it by re-pinning the allowlist alone. A semantic policy change that
+        // touches no constant here — `family_for` starting to accept nested `.mod` files,
+        // say — does not fail this test at all.
         //
-        // The policy-to-version link is a human protocol until the version constant moves
-        // into this module in Phase 2B, when `analysis -> source` becomes a real edge and
-        // `AnalysisVersionVector` can read it directly. Only then is it mechanical.
+        // What Phase 2B did make mechanical is narrower and worth stating exactly: the
+        // version has one home, so `analysis` and `source` cannot drift apart (Meyer's
+        // Single Choice). Phase 2A kept a literal in `analysis` that nothing tied to this
+        // module.
+        //
+        // Bumping the version re-pins `AnalysisVersionVector`'s digest, which is the review
+        // moment the version vector exists to force. Re-pinning either side alone silently
+        // changes what every fingerprint covers.
         //
         // Grounding (tools/parser-spike/src/corpus.rs, verified against the local
         // install): an allowlist, not a denylist, because the install also contains
@@ -357,5 +375,6 @@ mod tests {
         assert_eq!(LOCALIZATION_DIRECTORY, "localisation");
         assert_eq!(LOCALIZATION_EXTENSIONS, &["yml"]);
         assert_eq!(DESCRIPTOR_EXTENSION, "mod");
+        assert_eq!(ENUMERATION_POLICY_VERSION, 3);
     }
 }

@@ -868,6 +868,50 @@ The identity model (location id + normalized relative path) can only address con
 
 Two distinct raw directory entries normalizing to one logical path must be a visible collision, never an arbitrary winner. macOS APFS is case- and normalization-insensitive, so colliding fixtures cannot be created on the development filesystem to test this directly. `classify_entries` is a pure seam over `RawEntry` values precisely so the collision and rejection rules are testable without a real, colliding filesystem.
 
+### Source truth
+
+Recorded on completion of Phase 2 (2026-07-27).
+
+**D-112 — An incomplete source observation is publishable, and it is identity-bearing**
+
+A source with a normalization collision or a rejected entry still establishes a Source Snapshot. Its gaps become Analysis Issues downstream; "evidence absent" is a documented Incomplete Documentation condition, not a fatal one.
+
+But the gaps join the content set in the fingerprint (domain `/v3`), because content alone let a source stop being broken without changing identity: deleting a dangling symlink removes a rejection and touches no enumerated file, so a revision built while the link dangled would verify as unchanged and keep its stale "evidence absent" issue forever.
+
+Only source-determined fields enter. A gap contributes its logical or raw label and a stable `&'static str` reason code per `RejectionReason` discriminant. Three payloads are excluded by name: the escape target (a canonicalized absolute path, so it names the machine's layout), the OS message (host- and locale-dependent), and `io::ErrorKind` (permission state is a property of the machine; `NotFound` and `PermissionDenied` say the same thing to documentation, and folding the kind into durable identity would give one mod two revision identifiers on two machines). The report still carries all three — it is identity that must not.
+
+`Established::Complete | Incomplete` forces the caller to decide what incompleteness means before it can reach the snapshot. `ObservationGaps` remains the single authority on *what* was missed; the enum is only the decision point.
+
+**D-113 — Fixture snapshots are memory-backed, and live verification is a capability**
+
+Only a snapshot established from a live root becomes a `LiveSource`, and only a `LiveSource` can be asked to verify. A fixture snapshot is a bare `SourceSnapshot` and cannot express the question, so there is no "not applicable" arm for a caller to get wrong. The memory backing is compiled only under `test-support`, which makes that a fact about the shipped binary rather than a convention.
+
+`source::fixture::FixtureCorpus` is source-owned rather than a member of `testsupport`, because a fixture must be built by the same construction and fingerprint path a live snapshot is, and the enumeration policy that decides what one may contain is source-owned. `with_file` applies the real policy: a path the policy excludes is an error, not a silently ignored entry. There is deliberately no `from_directory` loader — it would reintroduce exactly the live traversal fixtures exist to avoid.
+
+`with_collision` declares the one gap shape a filesystem here cannot stage (D-111), which is what makes the collision rules testable at all: the gap's effect on the fingerprint, and `read_asset`'s refusal to answer a collided path. It also lets later phases build an *incomplete* fixture observation, which Analysis Issue propagation tests will need.
+
+**D-114 — Home the enumeration-policy version in `source::policy`**
+
+`ENUMERATION_POLICY_VERSION` lives beside the allowlists it versions, and `AnalysisVersionVector::current()` reads it instead of holding a literal. What that makes mechanical is precise and worth not overstating: the version has one home, so `analysis` and `source` cannot drift apart (Meyer's Single Choice). Phase 2A kept a literal in `analysis` that nothing tied to the policy module.
+
+`pinned_policy_surface` remains a **tripwire, not a derivation** — now two-sided. It pins the allowlists and the version side by side so an edit to either fails a test whose comment states the protocol, but it cannot make the bump happen: a developer who edits an allowlist can satisfy it by re-pinning the allowlist alone, and a semantic policy change that touches no constant (`family_for` starting to accept nested `.mod` files, say) does not fail it at all.
+
+This makes `analysis -> source` a real dependency edge, added to the design's permitted-edge list with its cycle check: `source` depends only on `canonical` and `error` and never on `analysis`, so the edge is acyclic.
+
+**D-115 — Memoize one asset observation per logical path, successes and failures alike, and re-verify absences**
+
+`read_asset` freezes the result of the first read for the life of the build. The design already froze successes; failures are the same rule applied to the same question. Two reads that disagreed because the tree moved between them would let one build attach "evidence absent" to a path and then materialize an asset for it.
+
+An asset read for a path already in the snapshot's enumerated content is served from the frozen bytes without touching disk, so one file's bytes have one authority. A path that *collided* is refused as well: enumeration will not pick a winner between two raw entries that normalize alike, and an asset read that fell through to the filesystem would pick one, which is the same silent data loss under another name. Containment applies to asset paths exactly as it does to enumerated links: a resolved target outside the canonical root is `OutsideSourceRoot`, kept distinct from `NotFound` so a containment refusal can never be read as "the mod didn't ship it".
+
+**The freeze is a within-build rule; `verify()` re-observes absences.** A referenced asset the build recorded as absent, which now has readable bytes, is a `Changed` — reported as `SourceChange::appeared`, separate from `assets` because the two invalidate different things: an `AssetChange` invalidates a captured input the manifest quotes, an appearance invalidates an "evidence absent" issue and the placeholder rendered for it. The design's step 7 is "publish only when the current paths and contents still match the candidate's snapshot", and an absent path that now exists no longer matches. Nothing else could catch it — assets are outside the fingerprint by design, and an absence is outside the manifest's referenced-asset set too — so the placeholder would be permanent until some unrelated script edit happened to move the fingerprint. Only absent-to-present counts: one absence becoming another still yields no bytes, and treating it as a change would make publication depend on host permission state — a transient permission blip would abort an otherwise valid build. A collision absence is excluded, because it is already inside the fingerprint through the gap projection, and re-reading it would resolve the NFC spelling onto one of the two colliding entries and report a spurious change on every verify.
+
+That absent-to-absent rule carries a dependency on a module that does not exist yet, recorded so it is not silently inherited: it holds only while Analysis Issue text does not distinguish the absence kinds. `AssetAbsence`'s variants are deliberately not interchangeable — `OutsideSourceRoot` exists precisely so a containment refusal is never read as "the mod didn't ship it" — so if Phase 4 renders the kinds differently, a `NotFound -> Unreadable` transition freezes an issue claiming the mod did not ship a file it demonstrably ships. That is the point to revisit this rule.
+
+**Known limitation — an asset is addressed through its NFC identity.** Enumerated content is read through the raw names the walk observed, but a referenced asset has no observed raw spelling, and the one it had in the script text is destroyed by `LogicalPath::parse`'s NFC normalization one call earlier. So a mod shipping an NFD-named texture — the shape a mod authored on HFS+ and re-zipped produces — reads back as absent on a normalization-sensitive filesystem, which makes the *generated documentation* host-dependent: one machine renders the texture, another renders a placeholder. This is the one place the "never through the normalized identity" rule is not upheld.
+
+Left unfixed rather than fixed blind. macOS cannot stage the failure: APFS (case-sensitive included) and exFAT both normalize in the driver rather than the on-disk format, so writing the NFC spelling *overwrites* an NFD-named file instead of creating a second directory entry — verified on an exFAT disk image. A `read_dir`-and-match fallback on the miss path would therefore ship unexercised. Deferred to the Windows and Linux test harness, alongside the junction and reparse-point question `source::enumerate` records (Phase 12).
+
 ## Provisional decisions
 
 **P-004 — Adopt the extracted serializable Result package**
