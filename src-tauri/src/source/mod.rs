@@ -3,45 +3,40 @@
 //! build-lifetime Source Snapshots, and final live-source verification
 //! (docs/technical-design.md, "Source module"). Populated in Phase 2.
 //!
-//! [`scan`] is the module's whole Phase 2A surface: enumerate, hash, fingerprint. It
-//! reads the live filesystem twice over a build's life — once here and once for the
-//! pre-publication verification — which the design accepts as correctness-first
-//! (docs/technical-design.md, "Source snapshot consistency"). Build-lifetime Source
-//! Snapshots and that final verification arrive in later Phase 2 tickets on top of these
-//! primitives.
+//! [`scan`] is the hash-only half of the snapshot protocol: enumerate, hash, fingerprint,
+//! keeping no bytes. Build-lifetime Source Snapshots and the final live-source
+//! verification build on it in the next commit of this phase.
 
 pub mod enumerate;
 pub mod fingerprint;
 pub mod policy;
 
 pub use enumerate::{
-    FileCollision, RejectedFile, RejectionReason, RootError, SourceFile, SourceInventory,
+    FileCollision, ObservationGaps, RejectedFile, RejectionReason, RootError, SourceFile,
+    SourceInventory,
 };
 pub use fingerprint::{ContentHash, DuplicateLogicalPath, HashParseError, SourceFingerprint};
-pub use policy::FileFamily;
+pub use policy::{ENUMERATION_POLICY_VERSION, FileFamily};
 
 use crate::canonical::path::LogicalPath;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::path::Path;
 
-/// One observation of a Mod Source: what was enumerated, what it contained, and the one
-/// value that names both.
+/// One hash-only observation of a Mod Source: what was enumerated, what it contained,
+/// what it could not see, and the one value that names all of it.
 ///
-/// **The fingerprint covers `inventory.files` and nothing else.** A source with a
-/// normalization collision or a rejected entry still scans to `Ok`, because the report of
-/// what could not be enumerated is a result worth returning — but that fingerprint
-/// describes a strict subset of the source. Check
-/// [`SourceInventory::is_complete`](enumerate::SourceInventory::is_complete) before
-/// treating a fingerprint as revision identity: publishing an incomplete observation
-/// would pin a Documentation Revision to source the build never saw, and a later scan
-/// that resolves the collision would look like an unrelated content change.
+/// The fingerprint covers the enumerated content **and** `inventory.gaps()`, so an
+/// observation that hit a collision or a rejection has a different identity from the same
+/// content observed cleanly. A caller therefore does not have to remember to ask whether a
+/// fingerprint is trustworthy; it has to decide what an incomplete observation means for
+/// the product, which the Source Snapshot's construction outcome forces.
 #[derive(Debug)]
 pub struct SourceScan {
     pub inventory: SourceInventory,
     /// Keyed by the logical paths of `inventory.files`, one hash per enumerated file.
     pub contents: BTreeMap<LogicalPath, ContentHash>,
-    /// Derived from `contents`, hence from the surviving files only. See the type comment.
+    /// Derived from `contents` together with `inventory.gaps()`.
     pub fingerprint: SourceFingerprint,
 }
 
@@ -88,7 +83,10 @@ impl From<RootError> for ScanError {
 }
 
 /// Enumerates `root`, hashes the exact bytes of every enumerated file, and derives the
-/// source fingerprint from that content.
+/// source fingerprint from that content and the walk's gaps.
+///
+/// Keeps no bytes: this is the identity half of the snapshot protocol, used for the
+/// pre-publication re-read.
 ///
 /// Files are read through the raw names enumeration observed, never through the
 /// NFC-normalized identity: on a normalization-sensitive filesystem the identity does not
@@ -109,6 +107,7 @@ pub fn scan(root: &Path) -> Result<SourceScan, ScanError> {
         contents
             .iter()
             .map(|(logical, content)| (logical.clone(), *content)),
+        &inventory.gaps(),
     )
     .map_err(ScanError::Duplicate)?;
     Ok(SourceScan {
@@ -313,9 +312,31 @@ mod tests {
         });
 
         assert_eq!(
-            SourceFingerprint::of(parallel).unwrap(),
+            SourceFingerprint::of(parallel, &scanned.inventory.gaps()).unwrap(),
             scanned.fingerprint
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn removing_a_dangling_symlink_changes_the_fingerprint() {
+        // The regression /v3 exists for, at the `scan` level. No enumerated file changes:
+        // the link was never a file. Under a content-only fingerprint the two observations
+        // are identical, so a revision built while the link dangled would verify as
+        // unchanged and keep its stale "evidence absent" Analysis Issue forever.
+        let dir = TempDir::new().unwrap();
+        staged_source(dir.path());
+        std::os::unix::fs::symlink("nowhere.txt", dir.path().join("common/dangling.txt")).unwrap();
+
+        let broken = scan(dir.path()).unwrap();
+        assert_eq!(broken.inventory.rejected.len(), 1);
+
+        fs::remove_file(dir.path().join("common/dangling.txt")).unwrap();
+        let repaired = scan(dir.path()).unwrap();
+
+        assert_eq!(repaired.contents, broken.contents);
+        assert!(repaired.inventory.gaps().is_empty());
+        assert_ne!(repaired.fingerprint, broken.fingerprint);
     }
 
     #[test]

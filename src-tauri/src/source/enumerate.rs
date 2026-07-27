@@ -85,6 +85,44 @@ pub enum RejectionReason {
     },
 }
 
+impl RejectionReason {
+    /// The stable identity code for this reason, the only part of a rejection that enters
+    /// a [`SourceFingerprint`](crate::source::SourceFingerprint).
+    ///
+    /// Durable: a code is quoted by every revision whose source had this gap, so a code is
+    /// renamed only through the fingerprint change protocol, never in place. The match is
+    /// exhaustive over both enums so a new reason — or a new
+    /// [`PathError`] — cannot reach the digest without a deliberate code for it.
+    ///
+    /// The payloads are deliberately absent, each because it describes the host rather
+    /// than the source:
+    ///
+    /// - `TraversalEscape::target` is a canonicalized absolute path, so it names where the
+    ///   machine keeps things.
+    /// - `Unreadable::detail` is an OS message: host- and locale-dependent.
+    /// - `Unreadable::kind` is permission state, a property of the machine. `NotFound` and
+    ///   `PermissionDenied` say the same thing to documentation — evidence absent — and
+    ///   differ only in whether a retry could help. Folding the kind into durable identity
+    ///   would give one source two revision identifiers on two machines.
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidUnicode => "invalid-unicode",
+            Self::InvalidPath(error) => match error {
+                PathError::InvalidUnicode => "invalid-path:invalid-unicode",
+                PathError::Empty => "invalid-path:empty",
+                PathError::AbsolutePrefix => "invalid-path:absolute-prefix",
+                PathError::EmptyComponent => "invalid-path:empty-component",
+                PathError::DotComponent => "invalid-path:dot-component",
+                PathError::BackslashComponent => "invalid-path:backslash-component",
+                PathError::NulByte => "invalid-path:nul-byte",
+            },
+            Self::TraversalEscape { .. } => "traversal-escape",
+            Self::SymlinkCycle => "symlink-cycle",
+            Self::Unreadable { .. } => "unreadable",
+        }
+    }
+}
+
 impl fmt::Display for RejectionReason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -107,13 +145,39 @@ pub struct SourceInventory {
 }
 
 impl SourceInventory {
-    /// Whether this observation covers the whole source: nothing collided, nothing was
-    /// rejected.
+    /// What this walk could not observe, in the shape the fingerprint and the Source
+    /// Snapshot both consume.
     ///
-    /// An incomplete inventory is still a useful report — it names what could not be
-    /// enumerated — but it is not a description of the source, and the fingerprint derived
-    /// from it covers only the files that survived.
-    pub fn is_complete(&self) -> bool {
+    /// [`ObservationGaps::is_empty`] is the single authority on whether an observation
+    /// covers its whole source; this type deliberately offers no second predicate that
+    /// could drift from it.
+    pub fn gaps(&self) -> ObservationGaps {
+        ObservationGaps {
+            collisions: self.collisions.clone(),
+            rejected: self.rejected.clone(),
+        }
+    }
+}
+
+/// What a source observation could not see. Empty on both counts is the definition of
+/// complete.
+///
+/// Homed here, beside the two types it is made of, rather than in `source::snapshot`
+/// where the Source Snapshot consumes it: `fingerprint` and `enumerate` both need the
+/// type, and `snapshot` already depends on both, so owning it there would make the
+/// dependency mutual for no gain. `source::snapshot` re-exports the name.
+///
+/// Gaps are identity-bearing, not merely a report: they join the content set in a
+/// [`SourceFingerprint`](crate::source::SourceFingerprint), so a source that stops being
+/// broken is never mistaken for the source that was.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ObservationGaps {
+    pub collisions: Vec<FileCollision>,
+    pub rejected: Vec<RejectedFile>,
+}
+
+impl ObservationGaps {
+    pub fn is_empty(&self) -> bool {
         self.collisions.is_empty() && self.rejected.is_empty()
     }
 }
@@ -671,22 +735,120 @@ mod tests {
     }
 
     #[test]
-    fn an_inventory_with_collisions_or_rejections_is_not_complete() {
-        // The fingerprint covers surviving files only, so completeness is the question a
-        // consumer must ask before treating one as revision identity.
-        assert!(classify_entries(vec![raw_file("common/a.txt")]).is_complete());
+    fn an_inventory_with_collisions_or_rejections_has_gaps() {
+        // Gaps are what an observation missed, and they are identity-bearing: the
+        // fingerprint covers the surviving files *and* this set.
         assert!(
-            !classify_entries(vec![
-                raw_file("common/te\u{301}ch.txt"),
-                raw_file("common/t\u{e9}ch.txt"),
-            ])
-            .is_complete()
+            classify_entries(vec![raw_file("common/a.txt")])
+                .gaps()
+                .is_empty()
         );
-        assert!(
-            !classify_entries(vec![RawEntry::InvalidUnicode {
-                label: "common/bad\u{fffd}.txt".to_owned(),
-            }])
-            .is_complete()
+        let collided = classify_entries(vec![
+            raw_file("common/te\u{301}ch.txt"),
+            raw_file("common/t\u{e9}ch.txt"),
+        ])
+        .gaps();
+        assert!(!collided.is_empty());
+        assert_eq!(collided.collisions.len(), 1);
+        assert!(collided.rejected.is_empty());
+
+        let rejected = classify_entries(vec![RawEntry::InvalidUnicode {
+            label: "common/bad\u{fffd}.txt".to_owned(),
+        }])
+        .gaps();
+        assert!(!rejected.is_empty());
+        assert_eq!(rejected.rejected.len(), 1);
+    }
+
+    #[test]
+    fn pinned_rejection_reason_codes() {
+        // Pinned durable identity: every stored revision whose source had a gap quotes
+        // these strings through its fingerprint. Change protocol is the fingerprint's own
+        // (source::fingerprint's module comment): a new domain version plus a bump of
+        // `AnalysisVersionVector::source_enumeration`, never a re-spelling in place.
+        //
+        // A new `RejectionReason` or `PathError` variant fails to compile in `code`
+        // rather than silently landing here, which is why the match is exhaustive over
+        // both enums instead of using a wildcard.
+        let codes: Vec<(RejectionReason, &str)> = vec![
+            (RejectionReason::InvalidUnicode, "invalid-unicode"),
+            (
+                RejectionReason::InvalidPath(PathError::InvalidUnicode),
+                "invalid-path:invalid-unicode",
+            ),
+            (
+                RejectionReason::InvalidPath(PathError::Empty),
+                "invalid-path:empty",
+            ),
+            (
+                RejectionReason::InvalidPath(PathError::AbsolutePrefix),
+                "invalid-path:absolute-prefix",
+            ),
+            (
+                RejectionReason::InvalidPath(PathError::EmptyComponent),
+                "invalid-path:empty-component",
+            ),
+            (
+                RejectionReason::InvalidPath(PathError::DotComponent),
+                "invalid-path:dot-component",
+            ),
+            (
+                RejectionReason::InvalidPath(PathError::BackslashComponent),
+                "invalid-path:backslash-component",
+            ),
+            (
+                RejectionReason::InvalidPath(PathError::NulByte),
+                "invalid-path:nul-byte",
+            ),
+            (
+                RejectionReason::TraversalEscape {
+                    target: "/elsewhere/mod".to_owned(),
+                },
+                "traversal-escape",
+            ),
+            (RejectionReason::SymlinkCycle, "symlink-cycle"),
+            (
+                RejectionReason::Unreadable {
+                    kind: io::ErrorKind::NotFound,
+                    detail: "no such file or directory".to_owned(),
+                },
+                "unreadable",
+            ),
+        ];
+        for (reason, expected) in &codes {
+            assert_eq!(reason.code(), *expected);
+        }
+        let distinct: std::collections::BTreeSet<&str> =
+            codes.iter().map(|(reason, _)| reason.code()).collect();
+        assert_eq!(distinct.len(), codes.len(), "reason codes must be distinct");
+    }
+
+    #[test]
+    fn a_reason_code_ignores_the_host_dependent_payload() {
+        // The reason a fingerprint may quote a code but never a payload: two machines
+        // observing the same broken mod disagree about the absolute escape target, the OS
+        // message, and often the error kind, but agree about what went wrong.
+        assert_eq!(
+            RejectionReason::TraversalEscape {
+                target: "/Users/a/steam/foreign".to_owned(),
+            }
+            .code(),
+            RejectionReason::TraversalEscape {
+                target: "/home/b/.steam/elsewhere".to_owned(),
+            }
+            .code()
+        );
+        assert_eq!(
+            RejectionReason::Unreadable {
+                kind: io::ErrorKind::NotFound,
+                detail: "No such file or directory (os error 2)".to_owned(),
+            }
+            .code(),
+            RejectionReason::Unreadable {
+                kind: io::ErrorKind::PermissionDenied,
+                detail: "Permission denied (os error 13)".to_owned(),
+            }
+            .code()
         );
     }
 
@@ -862,7 +1024,7 @@ mod tests {
                 ..
             }
         ));
-        assert!(!inventory.is_complete());
+        assert!(!inventory.gaps().is_empty());
     }
 
     #[test]
