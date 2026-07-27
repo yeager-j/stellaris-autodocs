@@ -10,7 +10,9 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
+      # Pinned to a commit (master, 2026-07-16): the action repo publishes no version
+      # tags, and a floating ref would be the one unpinned input in the build.
+      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
         with:
           toolchain: "1.97.1"
           components: rustfmt, clippy

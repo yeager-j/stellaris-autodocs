@@ -85,10 +85,28 @@ mod tests {
 
     #[test]
     fn every_component_and_recipe_participates_in_the_digest() {
+        type Bump = fn(&mut AnalysisVersionVector);
         let base = AnalysisVersionVector::current();
-        let mut bumped = base.clone();
-        bumped.parsed_model += 1;
-        assert_ne!(base.digest(), bumped.digest());
+        let bumps: [(&str, Bump); 9] = [
+            ("source_enumeration", |v| v.source_enumeration += 1),
+            ("parsed_model", |v| v.parsed_model += 1),
+            ("resolution_profile", |v| v.resolution_profile += 1),
+            ("documentation", |v| v.documentation += 1),
+            ("localization_interpretation", |v| {
+                v.localization_interpretation += 1
+            }),
+            ("search", |v| v.search += 1),
+            ("canonical_encoding", |v| v.canonical_encoding += 1),
+            ("hidden_route_identity", |v| v.hidden_route_identity += 1),
+            ("analysis_issue_propagation", |v| {
+                v.analysis_issue_propagation += 1
+            }),
+        ];
+        for (component, bump) in bumps {
+            let mut bumped = base.clone();
+            bump(&mut bumped);
+            assert_ne!(base.digest(), bumped.digest(), "component {component}");
+        }
 
         let mut with_recipe = base.clone();
         with_recipe.asset_recipes.insert("dds-to-png".to_owned(), 1);

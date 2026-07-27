@@ -55,6 +55,13 @@ pub struct CanonicalDigest {
 impl CanonicalDigest {
     /// `domain` names the identity and its version, e.g. `stellaris-docs/asset-key/v1`.
     pub fn new(domain: &str) -> Self {
+        // The NUL separator is what keeps distinct (domain, body) pairs from sharing a
+        // byte stream, so the domain itself must not contain one. Domains are
+        // programmer-supplied constants, hence a debug assertion rather than a Result.
+        debug_assert!(
+            !domain.contains('\0'),
+            "canonical domain must not contain a NUL byte"
+        );
         let mut hasher = Sha256::new();
         hasher.update(domain.as_bytes());
         hasher.update([0]);

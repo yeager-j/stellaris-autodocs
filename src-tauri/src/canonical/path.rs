@@ -142,7 +142,9 @@ mod tests {
         assert_eq!(LogicalPath::parse("c:"), Err(PathError::AbsolutePrefix));
     }
 
-    const PATH_RE: &str = "[a-zA-Z0-9._-]{1,12}(/[a-zA-Z0-9._-]{1,12}){0,4}";
+    // Includes precomposed (é, ü) and combining (U+0301, U+0308) code points so the
+    // properties exercise NFC normalization, not just ASCII pass-through.
+    const PATH_RE: &str = "[a-zA-Z0-9._é\u{fc}\u{301}\u{308}-]{1,12}(/[a-zA-Z0-9._é\u{fc}\u{301}\u{308}-]{1,12}){0,4}";
 
     fn no_dot_components(raw: &str) -> bool {
         raw.split('/')
@@ -151,9 +153,10 @@ mod tests {
 
     proptest! {
         #[test]
-        fn parse_is_idempotent(raw in PATH_RE) {
+        fn parse_is_idempotent_and_nfc(raw in PATH_RE) {
             prop_assume!(no_dot_components(&raw));
             let first = LogicalPath::parse(&raw).unwrap();
+            prop_assert!(is_nfc(first.as_str()));
             let second = LogicalPath::parse(first.as_str()).unwrap();
             prop_assert_eq!(first, second);
         }
