@@ -51,9 +51,7 @@ The five golden cases are the acceptance backbone: fixture authoring starts earl
 
 ---
 
-## Phase 0 — Foundations
-
-Detailed plan: [plans/phase-0-foundations.md](./plans/phase-0-foundations.md)
+## Phase 0 — Foundations (implemented — [detailed plan](./plans/phase-0-foundations.md))
 
 **Deliverable:** A compiling module skeleton with shared primitives every later phase consumes, plus test and CI infrastructure.
 
@@ -100,7 +98,7 @@ Detailed plan: [plans/phase-0-foundations.md](./plans/phase-0-foundations.md)
 2. `revisions` publication protocol: staging on same filesystem, validation, atomic move, state pointer commit via the Phase 1 capability, crash-point injection.
 3. Minimal Revision Reader with handle pinning.
 4. Test-only candidate provider: the build coordinator accepts a Revision Candidate provider seam; the skeleton supplies hand-authored candidates from test support, exercising application coordination and publication without pretending to analyze Stellaris source. No false analysis behavior enters the production `analysis` module; deleting this provider is an explicit Phase 6 entry condition.
-5. One awaited Tauri build command + one read command using the Result envelope and vendored Result package boundary.
+5. One awaited Tauri build command + one read command using the Result envelope and vendored Result package boundary. Includes a negative test that a serialized failure cannot contain `Unexpected` message detail — `error::Unexpected` derives `Debug` including the message, so redaction must be enforced structurally at the transport seam, not by convention (Phase 0 review finding).
 6. Frontend bootstrap: Vite + TanStack Router + Tailwind + shadcn shell; documentation-client interface with the desktop (Tauri) adapter; one page listing entries.
 7. `tauri-plugin-single-instance` registered first in the composition root; development tools and tests use isolated application-data directories and identifiers per the design's caller precondition. (Packaged platform validation stays in Phase 12.)
 8. Baseline desktop CSP enabled with the React shell: same-origin defaults, no remote origins, no `unsafe-eval`. Later phases extend it (asset protocol in Phase 10, Companion policy in Phase 11); the production-artifact release gate stays in Phase 12.

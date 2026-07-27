@@ -830,6 +830,24 @@ Measured p95 complete builds are 1.8 to 2.3 seconds for every representative Tar
 
 The threshold was missed only while the build chunked 1.5 million localization keys per revision for a shared store that is no longer built. With that removed, the dominant cost is the correctness-first double fingerprint at 50–62% combined, followed by resolution. An explicit host-owned job remains the answer if a deeper generator approaches the threshold again; the single-build-lease rule is independent of either choice.
 
+### Implementation foundations
+
+Recorded on completion of Phase 0 (2026-07-26). See [the Phase 0 plan](./plans/phase-0-foundations.md).
+
+**D-105 — Place shared primitives in `canonical` and `error` leaf modules**
+
+The technical design's module map names the deep-module row and its adapters; it does not name a home for primitives every one of those modules consumes. `canonical` (domain-separated digest encoding, logical paths, exact numerics) and `error` (correlation identifiers, the expected/unexpected failure channel) are top-level leaf modules that sit *below* that row rather than beside it.
+
+Only encoding mechanics and error conventions are shared. Each identity's field order and schema stay owned by the module that defines that identity, so `canonical` cannot become a second authority over what any identity means.
+
+**D-106 — Pin the Rust toolchain at 1.97.1 and adopt edition 2024**
+
+`rust-toolchain.toml` pins the channel and the `rustfmt`/`clippy` components so the local gate and CI compile identically. The edition was bumped from the scaffold's 2021 to 2024 while the crate was still empty, which is the only moment the change costs nothing.
+
+**D-107 — Use the `test-support` cargo feature as the standing product test seam**
+
+Test-only helpers live behind an off-by-default feature, enabled for this package's own tests through a self dev-dependency. A production build never enables it, so a test seam cannot reach a shipped binary. `testsupport::TempAppData` is the first member: an isolated, disposable application-data directory per test, satisfying the single-instance design's caller-precondition isolation.
+
 ## Provisional decisions
 
 **P-004 — Adopt the extracted serializable Result package**

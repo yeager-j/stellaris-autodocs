@@ -1,16 +1,12 @@
 [package]
 name = "stellaris-docs"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
-edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "Generates accurate player documentation from installed Stellaris mods"
+authors = ["Jackson Yeager"]
+edition = "2024"
 
 [lib]
-# The `_lib` suffix may seem redundant but it is necessary
-# to make the lib name unique and wouldn't conflict with the bin name.
-# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+# The `_lib` suffix avoids a Windows bin-name conflict (cargo #8519).
 name = "stellaris_docs_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
@@ -22,9 +18,27 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
+unicode-normalization = "0.1"
+num-bigint = "0.4"
+num-rational = "0.4"
+num-traits = "0.2"
+uuid = { version = "1", features = ["v4"] }
+tempfile = { version = "3", optional = true }
 
+[features]
+# Test-only helpers (isolated app-data directories, later fixture-corpus support).
+# Enabled for this package's own tests through the self dev-dependency below;
+# never enabled by a production build.
+test-support = ["dep:tempfile"]
 
-# Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+[dev-dependencies]
+stellaris-docs = { path = ".", features = ["test-support"] }
+proptest = "1"
+
+[lints.rust]
+unsafe_code = "forbid"
+
 [profile.release]
 codegen-units = 1
 lto = true

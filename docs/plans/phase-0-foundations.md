@@ -37,7 +37,7 @@
 - Consumes: nothing (first task).
 - Produces: the module tree later tasks add files into; `stellaris_docs_lib::run()` re-exported from `composition`; all dependencies and the `test-support` feature declared once so no later task edits `Cargo.toml`.
 
-- [ ] **Step 1: Pin the toolchain**
+- [x] **Step 1: Pin the toolchain**
 
 `rust-toolchain.toml` at the repository root:
 
@@ -47,7 +47,7 @@ channel = "1.97.1"
 components = ["rustfmt", "clippy"]
 ```
 
-- [ ] **Step 2: Replace `src-tauri/Cargo.toml`**
+- [x] **Step 2: Replace `src-tauri/Cargo.toml`**
 
 ```toml
 [package]
@@ -99,7 +99,7 @@ panic = "abort"
 strip = true
 ```
 
-- [ ] **Step 3: Replace `src-tauri/src/lib.rs`**
+- [x] **Step 3: Replace `src-tauri/src/lib.rs`**
 
 ```rust
 //! Application library. The executable target only calls [`run`]; everything else is
@@ -124,7 +124,7 @@ pub mod transport;
 pub use composition::run;
 ```
 
-- [ ] **Step 4: Create the composition root**
+- [x] **Step 4: Create the composition root**
 
 `src-tauri/src/composition/mod.rs`:
 
@@ -152,7 +152,7 @@ pub fn run() {
 
 `src-tauri/src/main.rs` already only calls `stellaris_docs_lib::run()`; leave it unchanged.
 
-- [ ] **Step 5: Create the skeleton modules**
+- [x] **Step 5: Create the skeleton modules**
 
 Each file contains only its ownership doc comment. These encode the accepted module map so every later phase has its slot; they are not speculative interfaces.
 
@@ -275,12 +275,12 @@ pub mod tauri;
 //! module that defines that identity; only the encoding mechanics are shared.
 ```
 
-- [ ] **Step 6: Verify the skeleton compiles clean**
+- [x] **Step 6: Verify the skeleton compiles clean**
 
 Run (from `src-tauri/`): `cargo fmt && cargo clippy --all-targets --features test-support -- -D warnings && cargo test --features test-support`
 Expected: clippy clean; `running 0 tests` … `test result: ok`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add rust-toolchain.toml src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/src
@@ -299,7 +299,7 @@ git commit -m "Phase 0: pin the toolchain and land the module skeleton"
 - Consumes: `uuid` (v4).
 - Produces: `CorrelationId` (`generate() -> Self`, `Display` as 32 hex chars), `Unexpected` (`new(impl Into<String>) -> Self`, `correlation() -> CorrelationId`, `log_detail() -> String`, redacted `Display`), `Failure<E>` (`Expected(E) | Unexpected(Unexpected)`, `From<Unexpected>`), `OpResult<T, E> = Result<T, Failure<E>>`. Phase 1's state module is the first real consumer.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `src-tauri/src/error.rs` containing only the module doc comment and the test module (implementation comes in Step 3), and add `pub mod error;` to `lib.rs`:
 
@@ -337,12 +337,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 Run: `cargo test --features test-support error::`
 Expected: compile error — `CorrelationId` not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Prepend to `src-tauri/src/error.rs` above the test module:
 
@@ -432,12 +432,12 @@ impl<E> From<Unexpected> for Failure<E> {
 pub type OpResult<T, E> = Result<T, Failure<E>>;
 ```
 
-- [ ] **Step 4: Run and watch it pass**
+- [x] **Step 4: Run and watch it pass**
 
 Run: `cargo test --features test-support error::`
 Expected: 3 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src-tauri/src/error.rs src-tauri/src/lib.rs
@@ -456,7 +456,7 @@ git commit -m "Phase 0: error conventions with correlation identifiers"
 - Consumes: `sha2`.
 - Produces: `ENCODING_VERSION: u32`; `CanonicalDigest` (`new(domain: &str)`, chainable `&mut Self` methods `bytes(&[u8])`, `text(&str)`, `u64(u64)`, `bool(bool)`, `begin_seq(usize)`, `begin_map(usize)`, `none()`, `some()`, and `finish(self) -> DigestBytes`); `DigestBytes([u8; 32])` with `to_hex() -> String` and `Display`. Tasks 5–6 and every later identity encode through this.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `src-tauri/src/canonical/encode.rs` with only this test module, and register the submodule in `canonical/mod.rs`:
 
@@ -541,12 +541,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 Run: `cargo test --features test-support canonical::encode::`
 Expected: compile error — `CanonicalDigest` not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Prepend above the test module:
 
@@ -671,12 +671,12 @@ impl CanonicalDigest {
 }
 ```
 
-- [ ] **Step 4: Run and watch it pass**
+- [x] **Step 4: Run and watch it pass**
 
 Run: `cargo test --features test-support canonical::encode::`
 Expected: 5 passed, including the pinned digest.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src-tauri/src/canonical
@@ -695,7 +695,7 @@ git commit -m "Phase 0: canonical domain-separated digest encoder"
 - Consumes: `unicode-normalization`.
 - Produces: `LogicalPath` (`parse(&str) -> Result<Self, PathError>`, `from_raw_bytes(&[u8]) -> Result<Self, PathError>`, `as_str() -> &str`, `components()`, derived `Ord` by normalized UTF-8 bytes) and `PathError` (`InvalidUnicode | Empty | AbsolutePrefix | EmptyComponent | DotComponent | BackslashComponent | NulByte`). Phases 1–2 build installation identity and enumeration on this.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `src-tauri/src/canonical/path.rs` with only this test module and register it:
 
@@ -771,12 +771,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 Run: `cargo test --features test-support canonical::path::`
 Expected: compile error — `LogicalPath` not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Prepend above the test module:
 
@@ -867,12 +867,12 @@ fn has_drive_prefix(raw: &str) -> bool {
 }
 ```
 
-- [ ] **Step 4: Run and watch it pass**
+- [x] **Step 4: Run and watch it pass**
 
 Run: `cargo test --features test-support canonical::path::`
 Expected: 4 unit tests + 2 property tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src-tauri/src/canonical
@@ -891,7 +891,7 @@ git commit -m "Phase 0: logical path normalization and ordering"
 - Consumes: `CanonicalDigest` from Task 3; `num-bigint`, `num-rational`, `num-traits`.
 - Produces: `SourceNumber` (`parse(&str) -> Self`, `lexeme() -> &str`, `value() -> Option<&ExactValue>`) and `ExactValue` (`add/sub/mul(&Self) -> Self`, `div(&Self) -> Option<Self>`, `encode(&mut CanonicalDigest)`, `to_decimal_string() -> Option<String>`, `Eq + Ord + Hash`). Phase 4's parsed model wraps numeric scalars in `SourceNumber`; Phase 6's Resolved Base Values use `ExactValue` arithmetic.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `src-tauri/src/canonical/numeric.rs` with only this test module and register it:
 
@@ -991,12 +991,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 Run: `cargo test --features test-support canonical::numeric::`
 Expected: compile error — `SourceNumber` not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Prepend above the test module:
 
@@ -1144,12 +1144,12 @@ impl ExactValue {
 }
 ```
 
-- [ ] **Step 4: Run and watch it pass**
+- [x] **Step 4: Run and watch it pass**
 
 Run: `cargo test --features test-support canonical::numeric::`
 Expected: 6 unit tests + 3 property tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src-tauri/src/canonical
@@ -1168,7 +1168,7 @@ git commit -m "Phase 0: exact numeric representation"
 - Consumes: `CanonicalDigest`, `DigestBytes`, `ENCODING_VERSION` from Task 3.
 - Produces: `AnalysisVersionVector` with public `u32` fields `source_enumeration`, `parsed_model`, `resolution_profile`, `documentation`, `localization_interpretation`, `search`, `canonical_encoding`, `hidden_route_identity`, `analysis_issue_propagation`, plus `asset_recipes: BTreeMap<String, u32>`; `current() -> Self`; `digest(&self) -> DigestBytes`. Phase 3's manifest embeds it; later phases bump their component when semantics change.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `src-tauri/src/analysis/version.rs` with only this test module and register it:
 
@@ -1207,12 +1207,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 Run: `cargo test --features test-support analysis::version::`
 Expected: compile error — `AnalysisVersionVector` not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Prepend above the test module:
 
@@ -1280,12 +1280,12 @@ impl AnalysisVersionVector {
 }
 ```
 
-- [ ] **Step 4: Run and watch it pass**
+- [x] **Step 4: Run and watch it pass**
 
 Run: `cargo test --features test-support analysis::version::`
 Expected: 3 passed, including the pinned digest.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src-tauri/src/analysis
@@ -1305,7 +1305,7 @@ git commit -m "Phase 0: analysis version vector"
 - Consumes: `tempfile` (optional dependency wired in Task 1).
 - Produces: `testsupport::TempAppData` (`new() -> Self`, `path() -> &Path`), compiled only under the `test-support` feature. Phase 1 state tests and the Phase 3 acceptance harness construct isolated application-data directories through this.
 
-- [ ] **Step 1: Write the failing integration test**
+- [x] **Step 1: Write the failing integration test**
 
 `src-tauri/tests/test_support.rs`:
 
@@ -1333,12 +1333,12 @@ fn the_directory_is_removed_on_drop() {
 }
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 Run: `cargo test --features test-support --test test_support`
 Expected: compile error — no `testsupport` module.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Add to `src-tauri/src/lib.rs` after the `pub mod transport;` line:
 
@@ -1385,12 +1385,12 @@ impl Default for TempAppData {
 }
 ```
 
-- [ ] **Step 4: Run and watch it pass**
+- [x] **Step 4: Run and watch it pass**
 
 Run: `cargo test --features test-support --test test_support`
 Expected: 2 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src-tauri/src/testsupport src-tauri/src/lib.rs src-tauri/tests/test_support.rs
@@ -1409,7 +1409,7 @@ git commit -m "Phase 0: test-support feature and isolated app-data helper"
 - Consumes: the existing Vite + TypeScript scaffold.
 - Produces: `npm test` running Vitest. Phase 3's documentation-client and Result-decoding tests replace the placeholder.
 
-- [ ] **Step 1: Install Vitest and add the script**
+- [x] **Step 1: Install Vitest and add the script**
 
 Run: `npm install --save-dev vitest`
 Then add to `package.json` `scripts`:
@@ -1418,7 +1418,7 @@ Then add to `package.json` `scripts`:
 "test": "vitest run"
 ```
 
-- [ ] **Step 2: Write a failing harness test**
+- [x] **Step 2: Write a failing harness test**
 
 `src/harness.test.ts`:
 
@@ -1437,19 +1437,19 @@ describe("frontend test harness", () => {
 Run: `npm test`
 Expected: 1 failed — the harness detects failure.
 
-- [ ] **Step 3: Make it pass**
+- [x] **Step 3: Make it pass**
 
 Change the assertion to `expect(true).toBe(true);`.
 
 Run: `npm test`
 Expected: 1 passed.
 
-- [ ] **Step 4: Verify the type-check build still passes**
+- [x] **Step 4: Verify the type-check build still passes**
 
 Run: `npm run build`
 Expected: `tsc` and `vite build` succeed (Vitest types resolve through the package import).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add package.json package-lock.json src/harness.test.ts
@@ -1468,7 +1468,7 @@ git commit -m "Phase 0: frontend test harness"
 - Consumes: every gate from Tasks 1–8.
 - Produces: one local command (`tools/ci/check.sh`) and one workflow running the identical gates. Every later phase's definition of done includes this script exiting 0.
 
-- [ ] **Step 1: Write the local gate script**
+- [x] **Step 1: Write the local gate script**
 
 `tools/ci/check.sh`:
 
@@ -1489,28 +1489,40 @@ npm test
 Run: `chmod +x tools/ci/check.sh && tools/ci/check.sh`
 Expected: exits 0 with all gates green.
 
-- [ ] **Step 2: Negative control — Rust gate can fail**
+- [x] **Step 2: Negative control — Rust gate can fail**
 
 Create a scratch file `src-tauri/tests/negative_control.rs`:
 
 ```rust
 #[test]
 fn negative_control() {
-    assert!(false, "deliberate failure proving the gate detects red");
+    let observed: Vec<u8> = Vec::new();
+    assert_eq!(
+        observed.len(),
+        1,
+        "deliberate failure proving the gate detects red"
+    );
 }
 ```
 
 Run: `tools/ci/check.sh`
 Expected: nonzero exit at the `cargo test` step, naming `negative_control`.
 
+As executed, this snippet replaces the plan's original `assert!(false, ...)`. That form is
+constant-folded by `clippy::assertions_on_constants`, so the gate went red at the clippy
+step and never reached `cargo test` — proving the lint gate rather than the test gate. The
+runtime comparison above reaches the test runner, which is what this step exists to prove.
+Observed: exit 101 at `cargo test`, `test negative_control ... FAILED`; exit 0 after
+removal.
+
 Then: `rm src-tauri/tests/negative_control.rs` and rerun `tools/ci/check.sh`.
 Expected: exits 0.
 
-- [ ] **Step 3: Negative control — frontend gate can fail**
+- [x] **Step 3: Negative control — frontend gate can fail**
 
 Temporarily change `src/harness.test.ts` back to `expect(true).toBe(false)`, run `tools/ci/check.sh`, confirm nonzero exit at `npm test`, revert, rerun, confirm green.
 
-- [ ] **Step 4: Write the workflow**
+- [x] **Step 4: Write the workflow**
 
 `.github/workflows/ci.yml`:
 
@@ -1557,7 +1569,7 @@ jobs:
       - run: npm test
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tools/ci/check.sh .github/workflows/ci.yml
@@ -1578,7 +1590,7 @@ The workflow itself is verified on the next push to `origin` — pushing is left
 - Consumes: the completed tasks above.
 - Produces: a durable record of the three deviations flagged in the header.
 
-- [ ] **Step 1: Append a decision-log entry**
+- [x] **Step 1: Append a decision-log entry**
 
 Record, in the log's existing format, dated the day of completion:
 
@@ -1586,16 +1598,16 @@ Record, in the log's existing format, dated the day of completion:
 - Rust edition bumped to 2024 while the crate was empty; toolchain pinned to 1.97.1 via `rust-toolchain.toml` for reproducible builds and CI.
 - The `test-support` cargo feature (self dev-dependency pattern) is the standing mechanism for product test seams; production builds never enable it.
 
-- [ ] **Step 2: Update the outline**
+- [x] **Step 2: Update the outline**
 
 In `docs/implementation-plan.md`, change the Phase 0 heading to note completion and link this plan: `## Phase 0 — Foundations (implemented — [detailed plan](./plans/phase-0-foundations.md))`.
 
-- [ ] **Step 3: Run the full gate one final time**
+- [x] **Step 3: Run the full gate one final time**
 
 Run: `tools/ci/check.sh`
 Expected: exits 0.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/decision-log.md docs/implementation-plan.md
