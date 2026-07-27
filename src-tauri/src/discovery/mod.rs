@@ -4,6 +4,7 @@
 
 mod descriptor;
 pub mod identity;
+pub mod proposals;
 
 pub use descriptor::DescriptorMetadata;
 
