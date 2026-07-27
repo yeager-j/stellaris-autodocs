@@ -76,10 +76,19 @@ pub(crate) fn staging_root(revisions_root: &Path) -> PathBuf {
     revisions_root.join(STAGING_DIR)
 }
 
+/// Where every published bundle lives.
+///
+/// Stated once for the same reason as [`staging_root`]: the publication protocol creates
+/// this directory at open and flushes it after the move, and a second literal would be a
+/// second authority over the layout.
+pub(crate) fn bundles_root(revisions_root: &Path) -> PathBuf {
+    revisions_root.join(BUNDLES_DIR)
+}
+
 /// The canonical immutable path of one published revision. The host generates it from
 /// the identifier, never from a mod name (docs/technical-design.md, "Revision bundles").
 pub fn bundle_path(revisions_root: &Path, identity: RevisionIdentity) -> PathBuf {
-    revisions_root.join(BUNDLES_DIR).join(identity.to_hex())
+    bundles_root(revisions_root).join(identity.to_hex())
 }
 
 /// Whether a directory name under [`staging_root`] is one this application wrote.
