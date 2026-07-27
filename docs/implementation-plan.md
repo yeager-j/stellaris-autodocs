@@ -49,6 +49,18 @@ Two ideas shape the order:
 
 The five golden cases are the acceptance backbone: fixture authoring starts early (Phase 4) and each later phase widens which golden assertions pass. The pinned "ordinary drawable vanilla technology" is selected in Phase 4 when resolver fixtures are authored.
 
+## Ticketing
+
+In a solo project where an agent implements, a ticket is a unit of the maintainer's judgment, not a unit of work: its boundary sits where a human review gate is genuinely valuable — where one could reject the work while accepting its neighbor. Tickets stay thin pointers to plan slices with a done-when; the detailed phase plans remain the spec, and plan content is never duplicated into tickets.
+
+Granularity follows decision density, not size:
+
+1. **Mechanical, fully specified** (Phase 0; localization tokenization; the pinned DDS recipe) — one ticket per phase or task cluster, one-shot, review at the end.
+2. **Contract-defining** (state replacement protocol, Source Snapshots, publication protocol) — one ticket per contract, reviewed before dependents build on it, because a defect cascades.
+3. **Judgment-heavy, evidence-decided** (Resolution Profile rows, generator route semantics, golden cases) — smaller tickets aligned to units of evidence (oracle records, policy rows, golden slices), each deserving the focused review a PR forces, even when small.
+
+Blocking relations encode the dependency DAG so parallelizable work is visible. The five golden cases are tracked as milestones, not tickets. First-pass reviews may be delegated to a subagent; the maintainer's attention is reserved for evidence-bearing decisions — oracle records, Resolution Profile rows, and anything that changes a pinned digest.
+
 ---
 
 ## Phase 0 — Foundations (implemented — [detailed plan](./plans/phase-0-foundations.md))
@@ -65,6 +77,8 @@ The five golden cases are the acceptance backbone: fixture authoring starts earl
 **Exit:** Skeleton compiles on macOS CI; canonicalization and numeric property tests pass; a negative control proves the CI gate can fail.
 
 ## Phase 1 — Durable state and discovery
+
+Detailed plan: [plans/phase-1-state-and-discovery.md](./plans/phase-1-state-and-discovery.md)
 
 **Deliverable:** The state module and Mod Library derivation, headless.
 
