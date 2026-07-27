@@ -7,4 +7,5 @@
 //! module that defines that identity; only the encoding mechanics are shared.
 
 pub mod encode;
+pub mod numeric;
 pub mod path;
