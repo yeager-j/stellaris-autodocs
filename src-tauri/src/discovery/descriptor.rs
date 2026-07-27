@@ -5,13 +5,16 @@
 //! proportionate here and a shared parser dependency is not.
 
 /// Observed `.mod` fields (AGENTS.md, "Mod activation"). Everything optional; absence
-/// and malformation are advisory facts, never scan failures.
+/// and malformation are advisory facts, never scan failures. Declared Dependencies are
+/// advisory metadata the Mod Library must display (PRD user story 10); they never
+/// compose a Playset.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DescriptorMetadata {
     pub name: Option<String>,
     pub version: Option<String>,
     pub supported_version: Option<String>,
     pub tags: Vec<String>,
+    pub dependencies: Vec<String>,
     pub remote_file_id: Option<String>,
 }
 
@@ -25,7 +28,11 @@ pub fn parse_descriptor(text: &str) -> DescriptorMetadata {
         let key = key.trim();
         let value = value.trim();
         if key == "tags" {
-            metadata.tags = parse_tags(value, &mut lines);
+            metadata.tags = parse_string_list(value, &mut lines);
+            continue;
+        }
+        if key == "dependencies" {
+            metadata.dependencies = parse_string_list(value, &mut lines);
             continue;
         }
         let Some(unquoted) = unquote(value) else {
@@ -42,9 +49,9 @@ pub fn parse_descriptor(text: &str) -> DescriptorMetadata {
     metadata
 }
 
-/// `tags={ "a" "b" }` on one line, or `tags={` followed by one quoted tag per line
-/// until `}` — both observed layouts.
-fn parse_tags<'a>(value: &str, lines: &mut impl Iterator<Item = &'a str>) -> Vec<String> {
+/// `key={ "a" "b" }` on one line, or `key={` followed by one quoted entry per line
+/// until `}` — both observed layouts (`tags`, `dependencies`).
+fn parse_string_list<'a>(value: &str, lines: &mut impl Iterator<Item = &'a str>) -> Vec<String> {
     let Some(open) = value.strip_prefix('{') else {
         return Vec::new();
     };
@@ -115,6 +122,16 @@ path="/some/absolute/path"
         // Malformed `name=unquoted junk` is skipped; the later valid line wins.
         assert_eq!(metadata.name.as_deref(), Some("Real"));
         assert_eq!(metadata.tags, vec!["AI"]);
+    }
+
+    #[test]
+    fn reads_declared_dependencies() {
+        let text = "name=\"Submod\"\ndependencies={\n\t\"Gigastructural Engineering & More\"\n\t\"UI Overhaul Dynamic\"\n}\n";
+        let metadata = parse_descriptor(text);
+        assert_eq!(
+            metadata.dependencies,
+            vec!["Gigastructural Engineering & More", "UI Overhaul Dynamic"]
+        );
     }
 
     #[test]

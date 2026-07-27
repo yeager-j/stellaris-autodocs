@@ -84,11 +84,21 @@ impl StateStore {
         match fs::read(&state_path) {
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
                 sweep_stale_temps(state_dir);
-                let store = Self::persist_fresh(state_path, AppState::first_launch(), io_seam)?;
-                Ok(OpenOutcome::Ready {
-                    store,
-                    report: OpenReport::FirstLaunch,
-                })
+                let mut defaults = AppState::first_launch();
+                let mut report = OpenReport::FirstLaunch;
+                // An absent state file beside a leftover quarantine is an interrupted
+                // recovery — the quarantine rename committed but persisting defaults
+                // did not — never a clean first launch. The unresolved notice must
+                // survive, or cleanup could discard artifacts whose publication
+                // references are still recoverable from the quarantined bytes.
+                if let Some(name) = newest_quarantine(state_dir) {
+                    report = OpenReport::Quarantined {
+                        quarantined_to: state_dir.join(&name),
+                    };
+                    defaults.unresolved_quarantine = Some(name);
+                }
+                let store = Self::persist_fresh(state_path, defaults, io_seam)?;
+                Ok(OpenOutcome::Ready { store, report })
             }
             Err(error) => Err(OpenError {
                 detail: format!("reading state: {error}"),
@@ -233,6 +243,18 @@ pub(super) fn encode(state: &AppState) -> Vec<u8> {
     bytes
 }
 
+/// The lexically greatest quarantine file name, which is the newest while the
+/// timestamp prefix keeps its digit count (until the year 33658).
+fn newest_quarantine(dir: &Path) -> Option<String> {
+    let entries = fs::read_dir(dir).ok()?;
+    let prefix = format!("{STATE_FILE}.quarantine-");
+    entries
+        .flatten()
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .filter(|name| name.starts_with(&prefix))
+        .max()
+}
+
 impl fmt::Display for OpenError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "state could not be opened: {}", self.detail)
@@ -253,6 +275,31 @@ mod tests {
             OpenOutcome::Ready { store, report } => (store, report),
             OpenOutcome::BlockedNewerSchema { .. } => panic!("unexpectedly blocked"),
         }
+    }
+
+    #[test]
+    fn absent_state_beside_a_leftover_quarantine_resumes_recovery() {
+        // The quarantine rename can commit while persisting defaults fails (ENOSPC);
+        // the next startup must not present a clean first launch, or cleanup could
+        // discard artifacts whose references are still recoverable.
+        let dir = TempDir::new().unwrap();
+        let name = "state.json.quarantine-1753000000-deadbeef";
+        fs::write(dir.path().join(name), b"{unrecovered garbage").unwrap();
+
+        let (store, report) = ready(StateStore::open(dir.path()).unwrap());
+        assert!(matches!(report, OpenReport::Quarantined { .. }));
+        assert_eq!(
+            store.publication_recovery_unresolved().as_deref(),
+            Some(name)
+        );
+        // The quarantined bytes are untouched and the notice survives reopen.
+        assert!(dir.path().join(name).exists());
+        drop(store);
+        let (reopened, _) = ready(StateStore::open(dir.path()).unwrap());
+        assert_eq!(
+            reopened.publication_recovery_unresolved().as_deref(),
+            Some(name)
+        );
     }
 
     #[test]

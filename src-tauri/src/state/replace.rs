@@ -88,6 +88,13 @@ impl ReplacementIo for RealIo {
     }
 
     fn rename(&mut self, from: &Path, to: &Path) -> io::Result<()> {
+        // `std::fs::rename` replaces an existing destination on every supported
+        // platform: POSIX rename on Unix; on Windows, SetFileInformationByHandle
+        // with FileRenameInfoEx (POSIX semantics, Windows 10 1607+) falling back to
+        // MoveFileExW with replace semantics. The fallback's atomicity is weaker
+        // than POSIX rename; the Phase 12 Windows packaged smoke test exercises
+        // real-machine replacement semantics before that platform inherits the
+        // release claim (docs/technical-design.md, "Verification architecture").
         fs::rename(from, to)
     }
 
