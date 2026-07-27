@@ -13,10 +13,20 @@
 //! stage — the same reasoning as `discovery::classify_entries`.
 //!
 //! Nothing is dropped in silence. A name that cannot become a logical path, an entry
-//! that cannot be resolved, a link leaving the root, and a link folding back into its own
-//! containing path all become [`RejectedFile`]s; two raw entries normalizing to one
-//! logical path become a [`FileCollision`] and neither wins. Files the policy simply does
-//! not cover are not rejections: excluding a `.dds` is the policy working.
+//! that cannot be resolved, a link leaving the root, and a link revisiting a directory
+//! already on the current descent all become [`RejectedFile`]s; two raw entries
+//! normalizing to one logical path become a [`FileCollision`] and neither wins. Files the
+//! policy simply does not cover are not rejections: excluding a `.dds` is the policy
+//! working.
+//!
+//! Traversal depth is bounded by the source tree, not by the operating system's link
+//! limit: cycle detection consults the whole descent chain, so every link is followed at
+//! most once per descent and the walk terminates on its own. That is what keeps the
+//! enumerated file set a function of the source rather than of the host's `SYMLOOP_MAX`.
+//!
+//! Link resolution is exercised on Unix only. Windows junctions and other reparse points
+//! are expected to behave the same way through `fs::canonicalize`, but that is untested
+//! here and wants verification before a Windows release (Phase 12).
 
 use crate::canonical::path::{LogicalPath, PathError};
 use crate::source::policy::{self, FileFamily};
@@ -57,11 +67,22 @@ pub struct RejectedFile {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RejectionReason {
+    /// The name the filesystem returned is not valid Unicode. Distinct from
+    /// `InvalidPath(PathError::InvalidUnicode)`, which this walk cannot produce: bytes are
+    /// decoded per entry, so an undecodable name never reaches `LogicalPath` parsing.
     InvalidUnicode,
     InvalidPath(PathError),
-    TraversalEscape { target: String },
+    TraversalEscape {
+        target: String,
+    },
     SymlinkCycle,
-    Unreadable { detail: String },
+    /// `kind` is carried because callers act on the distinction: an entry that disappeared
+    /// mid-scan means the source changed, while a permission failure will not succeed on
+    /// retry, and the Mod Library must tell "gone" from "unreadable".
+    Unreadable {
+        kind: io::ErrorKind,
+        detail: String,
+    },
 }
 
 impl fmt::Display for RejectionReason {
@@ -72,39 +93,66 @@ impl fmt::Display for RejectionReason {
             Self::TraversalEscape { target } => {
                 write!(f, "resolves outside the source root, to {target}")
             }
-            Self::SymlinkCycle => f.write_str("link resolves into its own containing path"),
-            Self::Unreadable { detail } => write!(f, "could not be inspected: {detail}"),
+            Self::SymlinkCycle => f.write_str("link revisits a directory already being walked"),
+            Self::Unreadable { detail, .. } => write!(f, "could not be inspected: {detail}"),
         }
     }
 }
 
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SourceInventory {
     pub files: Vec<SourceFile>,
     pub collisions: Vec<FileCollision>,
     pub rejected: Vec<RejectedFile>,
 }
 
+impl SourceInventory {
+    /// Whether this observation covers the whole source: nothing collided, nothing was
+    /// rejected.
+    ///
+    /// An incomplete inventory is still a useful report — it names what could not be
+    /// enumerated — but it is not a description of the source, and the fingerprint derived
+    /// from it covers only the files that survived.
+    pub fn is_complete(&self) -> bool {
+        self.collisions.is_empty() && self.rejected.is_empty()
+    }
+}
+
 #[derive(Debug)]
 pub enum RawEntry {
-    File { components: Vec<String> },
-    InvalidUnicode { label: String },
-    Escape { label: String, target: String },
-    Cycle { label: String },
-    Unreadable { label: String, detail: String },
+    File {
+        components: Vec<String>,
+    },
+    InvalidUnicode {
+        label: String,
+    },
+    Escape {
+        label: String,
+        target: String,
+    },
+    Cycle {
+        label: String,
+    },
+    Unreadable {
+        label: String,
+        kind: io::ErrorKind,
+        detail: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RootError {
     NotADirectory,
-    Unreadable { detail: String },
+    Unreadable { kind: io::ErrorKind, detail: String },
 }
 
 impl fmt::Display for RootError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::NotADirectory => f.write_str("source root is not a directory"),
-            Self::Unreadable { detail } => write!(f, "source root could not be read: {detail}"),
+            Self::Unreadable { detail, .. } => {
+                write!(f, "source root could not be read: {detail}")
+            }
         }
     }
 }
@@ -115,6 +163,7 @@ impl std::error::Error for RootError {}
 /// collisions and rejections the walk observed.
 pub fn enumerate(root: &Path) -> Result<SourceInventory, RootError> {
     let canonical_root = fs::canonicalize(root).map_err(|error| RootError::Unreadable {
+        kind: error.kind(),
         detail: error.to_string(),
     })?;
     if !canonical_root.is_dir() {
@@ -122,10 +171,12 @@ pub fn enumerate(root: &Path) -> Result<SourceInventory, RootError> {
     }
     let mut walk = Walk {
         canonical_root: canonical_root.clone(),
+        descent_chain: vec![canonical_root],
         raw: Vec::new(),
     };
-    walk.visit(root, &canonical_root, &[], Descent::Root)
+    walk.visit(root, &[], Descent::Root)
         .map_err(|error| RootError::Unreadable {
+            kind: error.kind(),
             detail: error.to_string(),
         })?;
     Ok(classify_entries(walk.raw))
@@ -167,9 +218,13 @@ pub fn classify_entries(raw: Vec<RawEntry>) -> SourceInventory {
                 raw_label: label,
                 reason: RejectionReason::SymlinkCycle,
             }),
-            RawEntry::Unreadable { label, detail } => rejected.push(RejectedFile {
+            RawEntry::Unreadable {
+                label,
+                kind,
+                detail,
+            } => rejected.push(RejectedFile {
                 raw_label: label,
-                reason: RejectionReason::Unreadable { detail },
+                reason: RejectionReason::Unreadable { kind, detail },
             }),
         }
     }
@@ -220,50 +275,50 @@ enum Descent {
 
 struct Walk {
     canonical_root: PathBuf,
+    /// The canonical directories of the current descent, root first. Following a link
+    /// makes this chain non-nested, which is exactly why cycle detection consults all of
+    /// it rather than only the directory it is standing in.
+    descent_chain: Vec<PathBuf>,
     raw: Vec<RawEntry>,
 }
 
 impl Walk {
-    /// `real` addresses the directory through the names on disk; `canonical` is its
-    /// resolved location, carried for containment and cycle checks; `chain` is the raw
-    /// root-relative component list that becomes logical identity.
-    fn visit(
-        &mut self,
-        real: &Path,
-        canonical: &Path,
-        chain: &[String],
-        descent: Descent,
-    ) -> io::Result<()> {
+    /// `real` addresses the directory through the names on disk; `chain` is the raw
+    /// root-relative component list that becomes logical identity. The canonical location
+    /// of this directory is the last entry of [`Walk::descent_chain`].
+    fn visit(&mut self, real: &Path, chain: &[String], descent: Descent) -> io::Result<()> {
         for entry in fs::read_dir(real)? {
             let entry = match entry {
                 Ok(entry) => entry,
                 Err(error) => {
                     self.raw.push(RawEntry::Unreadable {
                         label: label_of(chain, "(unreadable directory entry)"),
+                        kind: error.kind(),
                         detail: error.to_string(),
                     });
                     continue;
                 }
             };
             let name = entry.file_name();
-            let label = label_of(chain, &name.to_string_lossy());
             // No-follow: a link is resolved deliberately below, not incidentally.
             let file_type = match entry.file_type() {
                 Ok(file_type) => file_type,
                 Err(error) => {
                     self.raw.push(RawEntry::Unreadable {
-                        label,
+                        label: label_of(chain, &name.to_string_lossy()),
+                        kind: error.kind(),
                         detail: error.to_string(),
                     });
                     continue;
                 }
             };
             if file_type.is_symlink() {
-                self.visit_link(&entry.path(), &name, canonical, chain, descent, label);
+                self.visit_link(&entry.path(), &name, chain, descent);
             } else if file_type.is_dir() {
-                self.descend(&entry.path(), &canonical.join(&name), &name, chain, descent);
+                let canonical = self.current_canonical().join(&name);
+                self.descend(&entry.path(), canonical, &name, chain, descent);
             } else if file_type.is_file() {
-                self.record_file(&name, chain, label);
+                self.record_file(&name, chain);
             }
             // Anything else (sockets, FIFOs, devices) is not source content.
         }
@@ -274,10 +329,8 @@ impl Walk {
         &mut self,
         real: &Path,
         name: &std::ffi::OsString,
-        canonical: &Path,
         chain: &[String],
         descent: Descent,
-        label: String,
     ) {
         // Resolution is what makes containment and cycles decidable; the lexical
         // root-relative path stays the identity either way
@@ -286,7 +339,8 @@ impl Walk {
             Ok(target) => target,
             Err(error) => {
                 self.raw.push(RawEntry::Unreadable {
-                    label,
+                    label: label_of(chain, &name.to_string_lossy()),
+                    kind: error.kind(),
                     detail: error.to_string(),
                 });
                 return;
@@ -294,29 +348,42 @@ impl Walk {
         };
         if !target.starts_with(&self.canonical_root) {
             self.raw.push(RawEntry::Escape {
-                label,
+                label: label_of(chain, &name.to_string_lossy()),
                 target: target.display().to_string(),
             });
             return;
         }
         if target.is_dir() {
-            // A target that contains the directory we are standing in would repeat this
-            // chain forever. A target elsewhere inside the root is legitimate: the same
-            // physical file may appear under several logical paths.
-            if canonical.starts_with(&target) {
-                self.raw.push(RawEntry::Cycle { label });
+            // A cycle is a revisit of a directory already on this descent: the walk would
+            // reach it again through itself. Self-ancestor loops (`a/link -> a`) and
+            // mutual ones (`a/to_b -> b` with `b/to_a -> a`) are the same condition;
+            // checking only the current directory catches the first and lets the second
+            // run until the operating system's link limit, which differs per platform and
+            // would make the file set depend on the host.
+            //
+            // The check is per-descent, not global, so a sibling branch may still expose
+            // the same physical directory under a second logical path — those paths remain
+            // separate inputs because Stellaris addresses logical locations.
+            if self
+                .descent_chain
+                .iter()
+                .any(|ancestor| ancestor.starts_with(&target))
+            {
+                self.raw.push(RawEntry::Cycle {
+                    label: label_of(chain, &name.to_string_lossy()),
+                });
                 return;
             }
-            self.descend(real, &target, name, chain, descent);
+            self.descend(real, target, name, chain, descent);
         } else if target.is_file() {
-            self.record_file(name, chain, label);
+            self.record_file(name, chain);
         }
     }
 
     fn descend(
         &mut self,
         real: &Path,
-        canonical: &Path,
+        canonical: PathBuf,
         name: &std::ffi::OsString,
         chain: &[String],
         descent: Descent,
@@ -329,20 +396,27 @@ impl Walk {
             });
             return;
         };
-        if descent == Descent::Root && !policy::enumerated_root_directories().contains(&text) {
+        if descent == Descent::Root && !policy::is_enumerated_root(text) {
             return;
         }
         let mut child_chain = chain.to_vec();
         child_chain.push(text.to_owned());
-        if let Err(error) = self.visit(real, canonical, &child_chain, Descent::Below) {
+        self.descent_chain.push(canonical);
+        let outcome = self.visit(real, &child_chain, Descent::Below);
+        self.descent_chain.pop();
+        if let Err(error) = outcome {
             self.raw.push(RawEntry::Unreadable {
                 label: child_chain.join("/"),
+                kind: error.kind(),
                 detail: error.to_string(),
             });
         }
     }
 
-    fn record_file(&mut self, name: &std::ffi::OsStr, chain: &[String], label: String) {
+    fn record_file(&mut self, name: &std::ffi::OsStr, chain: &[String]) {
+        // Raw bytes are enough, and the label is built only for the few entries that need
+        // one: NFC normalization never rewrites an ASCII extension, so a name the policy
+        // could select cannot be normalized out of this prefilter.
         if !policy::extension_may_be_enumerated(name.as_encoded_bytes()) {
             return;
         }
@@ -352,8 +426,14 @@ impl Walk {
                 components.push(text.to_owned());
                 self.raw.push(RawEntry::File { components });
             }
-            None => self.raw.push(RawEntry::InvalidUnicode { label }),
+            None => self.raw.push(RawEntry::InvalidUnicode {
+                label: label_of(chain, &name.to_string_lossy()),
+            }),
         }
+    }
+
+    fn current_canonical(&self) -> &Path {
+        self.descent_chain.last().unwrap_or(&self.canonical_root)
     }
 }
 
@@ -478,14 +558,27 @@ mod tests {
 
     #[test]
     fn ordering_is_by_normalized_bytes_not_locale_or_case() {
+        // Chosen so byte order and case-insensitive collation disagree: `Z` is 0x5a and
+        // `a` is 0x61, so bytes put `Zeta` first while any case-folding or locale-aware
+        // comparison puts `alpha` first. The `\u{c9}clair`/`eclair` pair pins the
+        // non-ASCII half: NFC UTF-8 bytes place it after every ASCII name, where a locale
+        // collation would file the two together. The previous fixture
+        // ({Alpha, midway, zeta}) sorted identically under both rules and so could not
+        // fail for the reason it was named after.
         let inventory = classify_entries(vec![
-            raw_file("common/zeta.txt"),
-            raw_file("common/Alpha.txt"),
-            raw_file("common/midway.txt"),
+            raw_file("common/alpha.txt"),
+            raw_file("common/\u{c9}clair.txt"),
+            raw_file("common/Zeta.txt"),
+            raw_file("common/eclair.txt"),
         ]);
         assert_eq!(
             logical_paths(&inventory),
-            vec!["common/Alpha.txt", "common/midway.txt", "common/zeta.txt"]
+            vec![
+                "common/Zeta.txt",
+                "common/alpha.txt",
+                "common/eclair.txt",
+                "common/\u{c9}clair.txt",
+            ]
         );
     }
 
@@ -560,6 +653,7 @@ mod tests {
             },
             RejectionReason::SymlinkCycle,
             RejectionReason::Unreadable {
+                kind: io::ErrorKind::PermissionDenied,
                 detail: "permission denied".to_owned(),
             },
         ];
@@ -571,11 +665,37 @@ mod tests {
     }
 
     #[test]
+    fn an_inventory_with_collisions_or_rejections_is_not_complete() {
+        // The fingerprint covers surviving files only, so completeness is the question a
+        // consumer must ask before treating one as revision identity.
+        assert!(classify_entries(vec![raw_file("common/a.txt")]).is_complete());
+        assert!(
+            !classify_entries(vec![
+                raw_file("common/te\u{301}ch.txt"),
+                raw_file("common/t\u{e9}ch.txt"),
+            ])
+            .is_complete()
+        );
+        assert!(
+            !classify_entries(vec![RawEntry::InvalidUnicode {
+                label: "common/bad\u{fffd}.txt".to_owned(),
+            }])
+            .is_complete()
+        );
+    }
+
+    #[test]
     fn an_unreadable_root_is_an_error_not_an_empty_inventory() {
         let dir = TempDir::new().unwrap();
+        // The kind is carried, not only the message: a root that is gone is a Discovery
+        // Location that went away, which callers treat differently from one they may not
+        // read.
         assert!(matches!(
             enumerate(&dir.path().join("never-created")),
-            Err(RootError::Unreadable { .. })
+            Err(RootError::Unreadable {
+                kind: io::ErrorKind::NotFound,
+                ..
+            })
         ));
 
         let file_root = dir.path().join("descriptor.mod");
@@ -649,6 +769,51 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    fn mutually_linked_sibling_directories_are_a_cycle() {
+        // Neither link points at its own ancestor, so a self-ancestor check misses this
+        // shape entirely: the walk descends a -> b -> a -> b until the operating system
+        // refuses at SYMLOOP_MAX. That limit differs per platform (32 here, 40 on Linux),
+        // which would make the enumerated file set — and so the fingerprint — depend on
+        // the host rather than on the source.
+        let dir = TempDir::new().unwrap();
+        write(dir.path(), "common/a/in_a.txt", "a\n");
+        write(dir.path(), "common/b/in_b.txt", "b\n");
+        std::os::unix::fs::symlink(
+            dir.path().join("common/b"),
+            dir.path().join("common/a/to_b"),
+        )
+        .unwrap();
+        std::os::unix::fs::symlink(
+            dir.path().join("common/a"),
+            dir.path().join("common/b/to_a"),
+        )
+        .unwrap();
+
+        let inventory = enumerate(dir.path()).unwrap();
+
+        // Each link is followed once; the second hop would revisit a directory already on
+        // that descent, which is the cycle.
+        assert_eq!(
+            logical_paths(&inventory),
+            vec![
+                "common/a/in_a.txt",
+                "common/a/to_b/in_b.txt",
+                "common/b/in_b.txt",
+                "common/b/to_a/in_a.txt",
+            ]
+        );
+        let cycles: Vec<&str> = inventory
+            .rejected
+            .iter()
+            .filter(|entry| entry.reason == RejectionReason::SymlinkCycle)
+            .map(|entry| entry.raw_label.as_str())
+            .collect();
+        assert_eq!(cycles, vec!["common/a/to_b/to_a", "common/b/to_a/to_b"]);
+        assert_eq!(inventory.rejected.len(), 2);
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn a_link_inside_the_root_is_followed_and_keeps_its_lexical_path() {
         // "Following a directory indirection may expose the same physical file under
         // multiple valid logical paths; those paths remain separate inputs because
@@ -682,10 +847,16 @@ mod tests {
         assert_eq!(logical_paths(&inventory), vec!["common/real.txt"]);
         assert_eq!(inventory.rejected.len(), 1);
         assert_eq!(inventory.rejected[0].raw_label, "common/dangling.txt");
+        // A link to a name that does not exist is NotFound, not a permission problem: the
+        // source changed, and a retry may well succeed.
         assert!(matches!(
             inventory.rejected[0].reason,
-            RejectionReason::Unreadable { .. }
+            RejectionReason::Unreadable {
+                kind: io::ErrorKind::NotFound,
+                ..
+            }
         ));
+        assert!(!inventory.is_complete());
     }
 
     #[test]

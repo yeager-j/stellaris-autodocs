@@ -128,6 +128,12 @@ pub fn enumerated_root_directories() -> Vec<&'static str> {
     roots
 }
 
+/// Membership test for [`enumerated_root_directories`], allocation-free because the walk
+/// asks it for every entry at the root.
+pub fn is_enumerated_root(name: &str) -> bool {
+    SCRIPT_DIRECTORIES.contains(&name) || name == LOCALIZATION_DIRECTORY
+}
+
 /// The text after the final `.`, or `None` when the name has no dot or ends in one.
 /// Dotfiles such as `.gitignore` have no extension, matching `Path::extension`.
 fn extension_of(name: &str) -> Option<&str> {
@@ -224,6 +230,12 @@ mod tests {
         assert!(roots.contains(&"common"));
         assert!(roots.contains(&"localisation"));
         assert!(!roots.contains(&"sound"));
+        // The allocation-free membership test the walk uses must agree with the list.
+        for root in &roots {
+            assert!(is_enumerated_root(root), "{root}");
+        }
+        assert!(!is_enumerated_root("sound"));
+        assert!(!is_enumerated_root("dlc"));
     }
 
     #[test]
@@ -253,11 +265,17 @@ mod tests {
 
     #[test]
     fn pinned_policy_surface() {
-        // Change protocol: this vector is the enumeration policy itself. Any edit to the
-        // directory or extension allowlists must bump
+        // This is a tripwire, not a coupling. It cannot make a version bump happen; it
+        // only guarantees that changing the policy fails a test whose comment states the
+        // protocol, so the change cannot pass review unnoticed. Any edit to the directory
+        // or extension allowlists must bump
         // `analysis::AnalysisVersionVector::source_enumeration` (which re-pins its own
         // digest and invalidates previously built revisions) and only then re-pin here.
         // Re-pinning alone silently changes what every fingerprint covers.
+        //
+        // The policy-to-version link is a human protocol until the version constant moves
+        // into this module in Phase 2B, when `analysis -> source` becomes a real edge and
+        // `AnalysisVersionVector` can read it directly. Only then is it mechanical.
         //
         // Grounding (tools/parser-spike/src/corpus.rs, verified against the local
         // install): an allowlist, not a denylist, because the install also contains

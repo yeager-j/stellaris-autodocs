@@ -52,6 +52,12 @@ impl ContentHash {
         Self(Sha256::digest(bytes).into())
     }
 
+    /// Reads back a rendered hash. Strict: exactly 64 lowercase hex characters, so one
+    /// stored form has one parse (`discovery::identity`'s rule).
+    pub fn parse(text: &str) -> Result<Self, HashParseError> {
+        decode_hex(text).map(Self).ok_or(HashParseError)
+    }
+
     /// Hashes the file's bytes as they are, with no encoding, newline, or BOM handling:
     /// analysis parses the same bytes this hashed.
     pub fn of_file(path: &Path) -> io::Result<Self> {
@@ -124,9 +130,51 @@ impl SourceFingerprint {
         Ok(Self(digest.finish()))
     }
 
+    /// Reads back a rendered fingerprint, so a stored revision input can be compared with
+    /// a freshly computed one.
+    pub fn parse(text: &str) -> Result<Self, HashParseError> {
+        decode_hex(text)
+            .map(|bytes| Self(DigestBytes(bytes)))
+            .ok_or(HashParseError)
+    }
+
     pub fn to_hex(&self) -> String {
         self.0.to_hex()
     }
+}
+
+/// A rendered hash that is not exactly 64 lowercase hex characters.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HashParseError;
+
+impl fmt::Display for HashParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("invalid hash: expected 64 lowercase hex characters")
+    }
+}
+
+impl std::error::Error for HashParseError {}
+
+/// Uppercase is refused rather than accepted-and-normalized: two spellings of one hash
+/// would make stored manifest text ambiguous. Mirrors `discovery::identity::decode_hex`;
+/// a shared codec is worth extracting once a third module needs one.
+fn decode_hex(text: &str) -> Option<[u8; 32]> {
+    let bytes = text.as_bytes();
+    if bytes.len() != 64 {
+        return None;
+    }
+    fn nibble(byte: u8) -> Option<u8> {
+        match byte {
+            b'0'..=b'9' => Some(byte - b'0'),
+            b'a'..=b'f' => Some(byte - b'a' + 10),
+            _ => None,
+        }
+    }
+    let mut out = [0u8; 32];
+    for (slot, pair) in out.iter_mut().zip(bytes.chunks_exact(2)) {
+        *slot = (nibble(pair[0])? << 4) | nibble(pair[1])?;
+    }
+    Some(out)
 }
 
 impl fmt::Display for SourceFingerprint {
@@ -232,6 +280,39 @@ mod tests {
             SourceFingerprint::of([]).unwrap().to_hex(),
             "a1f9564b4df9fdcda24c541ea103c8cfff3b37f24506d5a8693991fc2a1dce2d"
         );
+    }
+
+    #[test]
+    fn hashes_and_fingerprints_round_trip_through_their_rendered_form() {
+        // A revision manifest stores these as text and must read them back to re-check a
+        // prior build's inputs; a write-only identity cannot be compared with a stored
+        // one. Strict lowercase hex of the exact length, mirroring discovery::identity.
+        let content = ContentHash::of(b"tech_a = {}\n");
+        assert_eq!(ContentHash::parse(&content.to_hex()), Ok(content));
+        let fingerprint = SourceFingerprint::of(hashed(pinned_entries())).unwrap();
+        assert_eq!(
+            SourceFingerprint::parse(&fingerprint.to_hex()),
+            Ok(fingerprint)
+        );
+
+        assert_eq!(ContentHash::parse(""), Err(HashParseError));
+        assert_eq!(ContentHash::parse("abc"), Err(HashParseError));
+        assert_eq!(
+            ContentHash::parse(&content.to_hex().to_uppercase()),
+            Err(HashParseError)
+        );
+        assert_eq!(
+            ContentHash::parse(&format!("{}zz", &content.to_hex()[..62])),
+            Err(HashParseError)
+        );
+        assert_eq!(
+            SourceFingerprint::parse(&fingerprint.to_hex()[..63]),
+            Err(HashParseError)
+        );
+
+        fn assert_error<E: std::error::Error>(_: &E) {}
+        assert_error(&HashParseError);
+        assert!(!HashParseError.to_string().is_empty());
     }
 
     #[test]

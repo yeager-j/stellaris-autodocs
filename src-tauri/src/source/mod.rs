@@ -17,7 +17,7 @@ pub mod policy;
 pub use enumerate::{
     FileCollision, RejectedFile, RejectionReason, RootError, SourceFile, SourceInventory,
 };
-pub use fingerprint::{ContentHash, DuplicateLogicalPath, SourceFingerprint};
+pub use fingerprint::{ContentHash, DuplicateLogicalPath, HashParseError, SourceFingerprint};
 pub use policy::FileFamily;
 
 use crate::canonical::path::LogicalPath;
@@ -25,13 +25,23 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::path::Path;
 
-/// One complete observation of a Mod Source: what was enumerated, what it contained, and
-/// the one value that names both.
+/// One observation of a Mod Source: what was enumerated, what it contained, and the one
+/// value that names both.
+///
+/// **The fingerprint covers `inventory.files` and nothing else.** A source with a
+/// normalization collision or a rejected entry still scans to `Ok`, because the report of
+/// what could not be enumerated is a result worth returning — but that fingerprint
+/// describes a strict subset of the source. Check
+/// [`SourceInventory::is_complete`](enumerate::SourceInventory::is_complete) before
+/// treating a fingerprint as revision identity: publishing an incomplete observation
+/// would pin a Documentation Revision to source the build never saw, and a later scan
+/// that resolves the collision would look like an unrelated content change.
 #[derive(Debug)]
 pub struct SourceScan {
     pub inventory: SourceInventory,
     /// Keyed by the logical paths of `inventory.files`, one hash per enumerated file.
     pub contents: BTreeMap<LogicalPath, ContentHash>,
+    /// Derived from `contents`, hence from the surviving files only. See the type comment.
     pub fingerprint: SourceFingerprint,
 }
 
@@ -40,8 +50,13 @@ pub enum ScanError {
     Root(RootError),
     /// An enumerated file could not be read. The whole scan fails: a fingerprint computed
     /// over a subset of the source would silently claim to describe the source.
+    ///
+    /// `kind` is carried because the caller's next move depends on it: `NotFound` means
+    /// the source changed under the scan, which is an expected build outcome worth
+    /// retrying, while `PermissionDenied` will not resolve itself.
     Read {
         logical: LogicalPath,
+        kind: std::io::ErrorKind,
         detail: String,
     },
     /// Unreachable through [`scan`], whose inventory reports collisions instead of
@@ -54,7 +69,9 @@ impl fmt::Display for ScanError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Root(error) => write!(f, "{error}"),
-            Self::Read { logical, detail } => {
+            Self::Read {
+                logical, detail, ..
+            } => {
                 write!(f, "source file {logical} could not be read: {detail}")
             }
             Self::Duplicate(error) => write!(f, "{error}"),
@@ -83,6 +100,7 @@ pub fn scan(root: &Path) -> Result<SourceScan, ScanError> {
         let content =
             ContentHash::of_file(&file.absolute_under(root)).map_err(|error| ScanError::Read {
                 logical: file.logical.clone(),
+                kind: error.kind(),
                 detail: error.to_string(),
             })?;
         contents.insert(file.logical.clone(), content);
@@ -324,7 +342,15 @@ mod tests {
             return;
         }
 
-        assert!(matches!(scan(dir.path()), Err(ScanError::Read { .. })));
+        // The kind distinguishes this from a file that vanished mid-scan: one is worth
+        // retrying, the other is not.
+        assert!(matches!(
+            scan(dir.path()),
+            Err(ScanError::Read {
+                kind: std::io::ErrorKind::PermissionDenied,
+                ..
+            })
+        ));
         fs::set_permissions(&secret, fs::Permissions::from_mode(0o644)).unwrap();
     }
 
@@ -334,6 +360,7 @@ mod tests {
             ScanError::Root(RootError::NotADirectory),
             ScanError::Read {
                 logical: LogicalPath::parse("common/a.txt").unwrap(),
+                kind: std::io::ErrorKind::PermissionDenied,
                 detail: "permission denied".to_owned(),
             },
             ScanError::Duplicate(DuplicateLogicalPath {
