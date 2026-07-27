@@ -62,6 +62,10 @@ mod tests {
         assert_ne!(id, DiscoveryLocationId::generate());
         assert_eq!(DiscoveryLocationId::parse(&rendered), Ok(id));
         assert_eq!(DiscoveryLocationId::parse("zz"), Err(IdParseError));
+        assert_eq!(
+            DiscoveryLocationId::parse("000102030405060708090A0B0C0D0E0F"),
+            Err(IdParseError)
+        );
     }
 
     #[test]
@@ -186,11 +190,18 @@ fn decode_hex<const N: usize>(text: &str) -> Option<[u8; N]> {
     if bytes.len() != N * 2 {
         return None;
     }
+    fn nibble(byte: u8) -> Option<u8> {
+        match byte {
+            b'0'..=b'9' => Some(byte - b'0'),
+            b'a'..=b'f' => Some(byte - b'a' + 10),
+            _ => None,
+        }
+    }
     let mut out = [0u8; N];
     for (slot, pair) in out.iter_mut().zip(bytes.chunks_exact(2)) {
-        let hi = (pair[0] as char).to_digit(16)?;
-        let lo = (pair[1] as char).to_digit(16)?;
-        *slot = ((hi << 4) | lo) as u8;
+        let hi = nibble(pair[0])?;
+        let lo = nibble(pair[1])?;
+        *slot = (hi << 4) | lo;
     }
     Some(out)
 }
@@ -239,6 +250,20 @@ Append to the test module in `identity.rs`:
         assert!(serde_json::from_str::<DiscoveryLocationId>("\"not-hex\"").is_err());
     }
 
+    #[test]
+    fn pinned_derivation_vector() {
+        // Pinned golden vector: these values are durable state keys from Ticket B on.
+        // If this test ever fails, the identity scheme changed. The protocol is a new
+        // domain version (/v2) plus a state-schema migration for publication
+        // references — never a re-pin in place.
+        let location = DiscoveryLocationId::parse("000102030405060708090a0b0c0d0e0f").unwrap();
+        assert_eq!(location.to_string(), "000102030405060708090a0b0c0d0e0f");
+        assert_eq!(
+            ModInstallationId::derive(location, &path("ugc_1")).to_string(),
+            "1627894b569dc98eb4e88d015d25cd88772bee08e1da54baddc2e5fe4ec9f104"
+        );
+    }
+
     const COMPONENT_RE: &str = "[a-z0-9_\u{e9}]{1,10}(/[a-z0-9_\u{e9}]{1,10}){0,2}";
 
     proptest! {
@@ -258,11 +283,11 @@ Append to the test module in `identity.rs`:
         }
 
         #[test]
-        fn display_parse_round_trips(seed in any::<[u8; 16]>()) {
-            let rendered = DiscoveryLocationId::parse(
-                &seed.iter().map(|b| format!("{b:02x}")).collect::<String>(),
-            ).unwrap();
-            prop_assert_eq!(DiscoveryLocationId::parse(&rendered.to_string()), Ok(rendered));
+        fn parse_display_round_trips(seed in any::<[u8; 16]>()) {
+            let original_hex = seed.iter().map(|b| format!("{b:02x}")).collect::<String>();
+            let parsed = DiscoveryLocationId::parse(&original_hex).unwrap();
+            prop_assert_eq!(parsed.to_string(), original_hex);
+            prop_assert_eq!(DiscoveryLocationId::parse(&parsed.to_string()), Ok(parsed));
         }
     }
 ```
@@ -1396,7 +1421,16 @@ impl StateStore {
             CommitError::Mutation(mutation) => PublicationError::Mutation(mutation),
         })
     }
+```
 
+> **Ticket B note from the Ticket A final review:** `set_publication_reference` accepts a
+> `(ModInstallationId, DiscoveryLocationId)` pair whose coherence nothing can check, because
+> the derivation is one-way. A mismatched pair survives `remove_discovery_location`'s cascade
+> as an unreachable reference. When implementing, decide the guarantee at the mutation
+> boundary — prefer deriving the pair together from scan results at the caller, and document
+> that the state module trusts its caller here.
+
+```rust
     pub fn confirm_discard_unrecovered_references(
         &self,
     ) -> Result<MutationCommit, MutationError> {
@@ -2197,4 +2231,4 @@ git commit -m "Phase 1: record state and discovery decisions"
 - **Outline coverage:** outline item 1 (state module, replacement, `CommittedDurabilityUncertain`, serialized mutations) → Tasks 3–5; item 2 (quarantine, recovery states, newer-schema block) → Task 5 + the poisoning/discard tests in Task 6; item 3 (publication-reference capability) → Task 6; item 4 (location identity, rebind vs. remove) → Tasks 1, 6; item 5 (installation identity, collision visibility) → Tasks 1–2, 9; item 6 (scanning, descriptor metadata, unavailable behavior) → Tasks 8–10. Exit criteria: crash-injection per replacement step (Task 4, plus mutation-level injection in Task 6); identity property tests (Tasks 1–2); discovery behavioral tests over fixture trees (Tasks 9–10).
 - **Placeholders:** none; every step carries complete code or exact commands. The one sanctioned flexibility (Task 6's `CommitChannel` machinery) names its concrete simpler alternative and pins the public surface via tests.
 - **Type consistency:** `DiscoveryLocationId`/`ModInstallationId` signatures match across Tasks 1–2, 3, 6, 9; `RevisionId`/`PublicationReference` match between Tasks 3 and 6; `ReplaceOutcome` variants match between Tasks 4 and 6; `encode`/`state_path`/`lock` visibility (`pub(super)`) serves `mutations.rs` from `store.rs`.
-- **Known risks, accepted:** `Cow<str>` deserialize in Task 2 may need plain `String` depending on serde's map-key deserializer — behavior, not representation, is the contract; Task 6's generic commit plumbing is the most likely place implementer judgment improves on the plan (explicitly sanctioned); quarantine timestamps use wall-clock seconds, which is fine because quarantine names are diagnostic, not identity.
+- **Known risks, accepted:** `Cow<str>` deserialize in Task 2 may need plain `String` depending on serde's map-key deserializer — behavior, not representation, is the contract; Task 6's generic commit plumbing is the most likely place implementer judgment improves on the plan (explicitly sanctioned); quarantine timestamps use wall-clock seconds, which is fine because quarantine names are diagnostic, not identity; the identity scheme is pinned by an independently computed golden vector; changing it requires a new domain version plus a state migration, never a re-pin.

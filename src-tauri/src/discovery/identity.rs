@@ -68,11 +68,18 @@ fn decode_hex<const N: usize>(text: &str) -> Option<[u8; N]> {
     if bytes.len() != N * 2 {
         return None;
     }
+    fn nibble(byte: u8) -> Option<u8> {
+        match byte {
+            b'0'..=b'9' => Some(byte - b'0'),
+            b'a'..=b'f' => Some(byte - b'a' + 10),
+            _ => None,
+        }
+    }
     let mut out = [0u8; N];
     for (slot, pair) in out.iter_mut().zip(bytes.chunks_exact(2)) {
-        let hi = (pair[0] as char).to_digit(16)?;
-        let lo = (pair[1] as char).to_digit(16)?;
-        *slot = ((hi << 4) | lo) as u8;
+        let hi = nibble(pair[0])?;
+        let lo = nibble(pair[1])?;
+        *slot = (hi << 4) | lo;
     }
     Some(out)
 }
@@ -115,6 +122,10 @@ mod tests {
         assert_ne!(id, DiscoveryLocationId::generate());
         assert_eq!(DiscoveryLocationId::parse(&rendered), Ok(id));
         assert_eq!(DiscoveryLocationId::parse("zz"), Err(IdParseError));
+        assert_eq!(
+            DiscoveryLocationId::parse("000102030405060708090A0B0C0D0E0F"),
+            Err(IdParseError)
+        );
     }
 
     #[test]
@@ -173,6 +184,20 @@ mod tests {
         assert!(serde_json::from_str::<DiscoveryLocationId>("\"not-hex\"").is_err());
     }
 
+    #[test]
+    fn pinned_derivation_vector() {
+        // Pinned golden vector: these values are durable state keys from Ticket B on.
+        // If this test ever fails, the identity scheme changed. The protocol is a new
+        // domain version (/v2) plus a state-schema migration for publication
+        // references — never a re-pin in place.
+        let location = DiscoveryLocationId::parse("000102030405060708090a0b0c0d0e0f").unwrap();
+        assert_eq!(location.to_string(), "000102030405060708090a0b0c0d0e0f");
+        assert_eq!(
+            ModInstallationId::derive(location, &path("ugc_1")).to_string(),
+            "1627894b569dc98eb4e88d015d25cd88772bee08e1da54baddc2e5fe4ec9f104"
+        );
+    }
+
     const COMPONENT_RE: &str = "[a-z0-9_\u{e9}]{1,10}(/[a-z0-9_\u{e9}]{1,10}){0,2}";
 
     proptest! {
@@ -192,11 +217,11 @@ mod tests {
         }
 
         #[test]
-        fn display_parse_round_trips(seed in any::<[u8; 16]>()) {
-            let rendered = DiscoveryLocationId::parse(
-                &seed.iter().map(|b| format!("{b:02x}")).collect::<String>(),
-            ).unwrap();
-            prop_assert_eq!(DiscoveryLocationId::parse(&rendered.to_string()), Ok(rendered));
+        fn parse_display_round_trips(seed in any::<[u8; 16]>()) {
+            let original_hex = seed.iter().map(|b| format!("{b:02x}")).collect::<String>();
+            let parsed = DiscoveryLocationId::parse(&original_hex).unwrap();
+            prop_assert_eq!(parsed.to_string(), original_hex);
+            prop_assert_eq!(DiscoveryLocationId::parse(&parsed.to_string()), Ok(parsed));
         }
     }
 }
