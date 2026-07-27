@@ -221,8 +221,7 @@ composition
 ├── revisions
 ├── assets
 ├── state
-├── companion
-└── durability
+└── companion
 ```
 
 `composition` constructs the concrete modules, process-lifetime shared state, background execution resources, and Tauri application. `transport` adapts Tauri commands and Companion HTTP requests into shared application DTOs and failure semantics.
@@ -231,7 +230,7 @@ composition
 
 `companion` owns pairing secrets, Companion Sessions, listener lifecycle and advertised addresses, current Companion-Ready access policy, and construction of trusted companion revision handles. Desktop access constructs its distinct revision handle through application-owned policy.
 
-`durability` owns one platform decision and nothing else: whether this operating system provides a durable flush of a directory's entries, and what an absent flush costs the commit points that rest on it. It is a leaf primitive below the deep-module row, the way `canonical` and `error` are, so depending on it is not a peer edge and it appears in no edge above; it is named here because both `state` and `revisions` commit against it and the decision has exactly one home.
+**The map names the deep-module row and its adapters; it is deliberately not exhaustive over top-level modules.** Three more exist as leaf primitives *below* that row rather than beside it, and are excluded for that reason rather than by oversight (D-105): `canonical` (domain-separated digest encoding, logical paths, exact numerics), `error` (correlation identifiers and the expected/unexpected failure channel), and `durability`. `durability` owns one platform decision and nothing else: whether this operating system provides a durable flush of a directory's entries, and what an absent flush costs the commit points that rest on it — both `state` and `revisions` commit against that fact, and it has exactly one home. Depending on a leaf is not a peer edge, so none of the three appears in the edge list above either.
 
 `discovery`, `source`, `analysis`, `localization`, `search`, `revisions`, `assets`, and `state` retain the responsibilities defined in their respective sections. Within `analysis`, parser adaptation, content-type-specific resolution, documentation generation, and Source Excerpt capture remain internal submodules rather than top-level application services.
 

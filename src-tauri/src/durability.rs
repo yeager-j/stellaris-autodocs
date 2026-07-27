@@ -1,12 +1,13 @@
 //! Making a directory entry durable, and what it means when the platform does not
 //! provide that operation (docs/decision-log.md, D-123).
 //!
-//! Not part of the technical design's deep-module row: like [`canonical`](crate::canonical),
-//! this is a leaf primitive below it, and depending on it is not a peer edge. It is named in
-//! the design's top-level module map. It exists because two protocols —
-//! `state::replace`'s state-document replacement and `revisions`'s bundle publication —
-//! both reach a commit point whose durability rests on the same platform fact, and a fact
-//! with two implementations is a fact with two answers.
+//! Not part of the technical design's named module map: like [`canonical`](crate::canonical),
+//! this is a leaf primitive module below the deep-module row, so depending on it is not a
+//! peer edge and it appears in no edge list (D-105, D-122). The design names it in the prose
+//! beside that map. It exists because two protocols — `state::replace`'s state-document
+//! replacement and `revisions`'s bundle publication — both reach a commit point whose
+//! durability rests on the same platform fact, and a fact with two implementations is a fact
+//! with two answers.
 //!
 //! # The rule
 //!
