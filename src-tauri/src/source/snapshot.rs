@@ -195,6 +195,26 @@ pub enum AssetAbsence {
     },
 }
 
+impl AssetAbsence {
+    /// Whether final verification should re-read this path to see whether evidence arrived.
+    ///
+    /// A pure function of the absence, so the rule can be checked without a filesystem — the
+    /// wiring left in `verify` is then a `continue`. Exhaustive, so a new variant has to
+    /// state its own answer rather than inherit one.
+    ///
+    /// `Collision` is the only `false`, and re-reading it would be actively wrong rather
+    /// than merely wasteful: a collision already lives in the fingerprint through the gap
+    /// projection, so resolving it is caught there, while a fresh read would resolve the NFC
+    /// spelling onto one of the two colliding raw entries and report an appearance on every
+    /// verify of an unchanged tree.
+    pub(super) fn is_re_observable(&self) -> bool {
+        match self {
+            Self::Collision => false,
+            Self::NotFound | Self::OutsideSourceRoot | Self::Unreadable { .. } => true,
+        }
+    }
+}
+
 impl SourceSnapshot {
     pub fn kind(&self) -> SourceKind {
         self.kind
@@ -250,11 +270,15 @@ impl SourceSnapshot {
     /// then.
     ///
     /// Poisoning is recovered from rather than propagated, because the memo cannot be
-    /// observed half-updated: the guard is held only across `fs::read`, `ContentHash::of`,
-    /// and one `BTreeMap::insert`, none of which unwind. **Any edit inside this critical
-    /// section must preserve that** — code that can panic between `observe_asset` returning
-    /// and the `insert` would leave a path unmemoized and break the exactly-one-observation
-    /// invariant this method promises, which recovering from the poison would then hide.
+    /// observed torn: the map is mutated exactly once, by the single terminal `insert`, so
+    /// no unwind from anywhere in this section can leave it half-updated. That is a
+    /// structural property of the shape rather than a claim about which calls can panic, and
+    /// **an edit that adds a second mutation would end it.**
+    ///
+    /// What a panic can do is leave a path unmemoized — including a panic inside
+    /// `observe_asset` itself, not only one between it returning and the `insert`. A later
+    /// read would then observe the path a second time, breaking the exactly-one-observation
+    /// invariant above, and recovering from the poison is what would hide that.
     pub fn read_asset(&self, logical: &LogicalPath) -> AssetRead {
         let mut assets = self.assets.lock().unwrap_or_else(PoisonError::into_inner);
         if let Some(observed) = assets.get(logical) {
@@ -910,6 +934,24 @@ mod tests {
             ),
             Err(EstablishError::Root(_))
         ));
+    }
+
+    #[test]
+    fn only_a_collision_is_excluded_from_re_observation() {
+        // The rule `verify` applies to frozen absences, checked without a filesystem.
+        // Exhaustive over every variant on purpose: the interesting failure is a future
+        // absence silently inheriting `true` and producing a permanent spurious `Changed`,
+        // which is exactly what re-observing a collision does.
+        assert!(!AssetAbsence::Collision.is_re_observable());
+        assert!(AssetAbsence::NotFound.is_re_observable());
+        assert!(AssetAbsence::OutsideSourceRoot.is_re_observable());
+        assert!(
+            AssetAbsence::Unreadable {
+                kind: std::io::ErrorKind::PermissionDenied,
+                detail: "permission denied".to_owned(),
+            }
+            .is_re_observable()
+        );
     }
 
     #[test]

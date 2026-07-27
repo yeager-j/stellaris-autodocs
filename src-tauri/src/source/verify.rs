@@ -179,22 +179,21 @@ impl LiveSource {
         // to move the fingerprint.
         //
         // Only absent-to-present counts. One absence turning into another — `NotFound` to
-        // `Unreadable`, a containment refusal to a missing file — still yields no bytes and
-        // still means "evidence absent" to documentation, and treating it as a change would
-        // make publication depend on host permission state.
+        // `Unreadable`, a containment refusal to a missing file — still yields no bytes, and
+        // treating it as a change would make publication depend on host permission state: a
+        // transient permission blip would abort an otherwise valid build.
+        //
+        // Dependency worth naming, because it is an assumption about a module that does not
+        // exist yet: this holds only while Analysis Issue text does not distinguish the
+        // absence kinds. `AssetAbsence`'s variants are deliberately *not* interchangeable —
+        // `OutsideSourceRoot` exists precisely so a containment refusal is never read as
+        // "the mod didn't ship it" — so if Phase 4 renders the kinds differently, a
+        // `NotFound -> Unreadable` transition freezes an issue saying the mod did not ship a
+        // file it demonstrably ships. That is the day to revisit this rule, not to inherit
+        // it.
         let mut appeared = Vec::new();
         for (logical, expected) in snapshot.absent_assets() {
-            let re_observe = match expected {
-                // Already covered, and re-reading it would be actively wrong: a collision
-                // lives in the gap projection, so resolving it moves the fingerprint, while
-                // a fresh read would resolve the NFC spelling onto one of the two colliding
-                // raw entries and report an appearance on every verify of an unchanged tree.
-                AssetAbsence::Collision => false,
-                AssetAbsence::NotFound
-                | AssetAbsence::OutsideSourceRoot
-                | AssetAbsence::Unreadable { .. } => true,
-            };
-            if !re_observe {
+            if !expected.is_re_observable() {
                 continue;
             }
             let live_path = snapshot.live_path(root, &logical);
