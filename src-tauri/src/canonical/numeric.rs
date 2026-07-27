@@ -198,7 +198,10 @@ mod tests {
             value.encode(&mut digest);
             digest.finish()
         };
-        assert_ne!(digest_for(&value_of("0.1")), digest_for(&value_of("0.10001")));
+        assert_ne!(
+            digest_for(&value_of("0.1")),
+            digest_for(&value_of("0.10001"))
+        );
         assert_eq!(digest_for(&value_of("0.10")), digest_for(&value_of("0.1")));
     }
 

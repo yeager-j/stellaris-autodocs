@@ -115,10 +115,16 @@ mod tests {
             LogicalPath::parse("C:/mods/a.txt"),
             Err(PathError::AbsolutePrefix)
         );
-        assert_eq!(LogicalPath::parse("a//b.txt"), Err(PathError::EmptyComponent));
+        assert_eq!(
+            LogicalPath::parse("a//b.txt"),
+            Err(PathError::EmptyComponent)
+        );
         assert_eq!(LogicalPath::parse("a/b/"), Err(PathError::EmptyComponent));
         assert_eq!(LogicalPath::parse("./a.txt"), Err(PathError::DotComponent));
-        assert_eq!(LogicalPath::parse("a/../b.txt"), Err(PathError::DotComponent));
+        assert_eq!(
+            LogicalPath::parse("a/../b.txt"),
+            Err(PathError::DotComponent)
+        );
         assert_eq!(
             LogicalPath::parse("a\\b.txt"),
             Err(PathError::BackslashComponent)
