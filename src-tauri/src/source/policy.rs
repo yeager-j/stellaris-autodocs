@@ -100,6 +100,26 @@ pub fn family_for(path: &LogicalPath) -> Option<FileFamily> {
     None
 }
 
+/// A necessary condition on a raw file name, so the walk can skip the tens of thousands
+/// of `.dds` and `.mesh` files under `gfx/` without decoding or normalizing their names.
+///
+/// Derived from the same allowlists as [`family_for`], which remains the only selector:
+/// a name accepted here is still subject to the full policy once it has a logical path.
+pub fn extension_may_be_enumerated(raw_name: &[u8]) -> bool {
+    let Some(dot) = raw_name.iter().rposition(|byte| *byte == b'.') else {
+        return false;
+    };
+    if dot == 0 || dot + 1 == raw_name.len() {
+        return false;
+    }
+    let extension = &raw_name[dot + 1..];
+    SCRIPT_EXTENSIONS
+        .iter()
+        .chain(LOCALIZATION_EXTENSIONS)
+        .chain(std::iter::once(&DESCRIPTOR_EXTENSION))
+        .any(|candidate| candidate.as_bytes() == extension)
+}
+
 /// The top-level directories a source walk descends. Everything else under the root is
 /// skipped without being read.
 pub fn enumerated_root_directories() -> Vec<&'static str> {
@@ -204,6 +224,31 @@ mod tests {
         assert!(roots.contains(&"common"));
         assert!(roots.contains(&"localisation"));
         assert!(!roots.contains(&"sound"));
+    }
+
+    #[test]
+    fn the_walk_prefilter_admits_every_selectable_extension() {
+        // A necessary condition only: everything `family_for` can select must survive it,
+        // or the walk would hide files from the authority.
+        for extension in SCRIPT_EXTENSIONS
+            .iter()
+            .chain(LOCALIZATION_EXTENSIONS)
+            .chain(std::iter::once(&DESCRIPTOR_EXTENSION))
+        {
+            let name = format!("name.{extension}");
+            assert!(
+                extension_may_be_enumerated(name.as_bytes()),
+                "prefilter rejected {name}"
+            );
+        }
+        assert!(!extension_may_be_enumerated(b"ship.dds"));
+        assert!(!extension_may_be_enumerated(b"ship.mesh"));
+        assert!(!extension_may_be_enumerated(b"LICENSE"));
+        assert!(!extension_may_be_enumerated(b".DS_Store"));
+        assert!(!extension_may_be_enumerated(b"trailing."));
+        // Invalid UTF-8 with a selectable extension still passes: the name is decoded
+        // (and rejected) later, visibly, rather than being dropped here.
+        assert!(extension_may_be_enumerated(b"bad\xffname.txt"));
     }
 
     #[test]
