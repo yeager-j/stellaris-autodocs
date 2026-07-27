@@ -1,12 +1,15 @@
 //! Typed mutations on the state store. The public surface is per-owner and narrow:
 //! Discovery Location configuration for setup workflows, and the publication-reference
 //! compare-and-swap that is the only mutation `revisions` receives
-//! (docs/technical-design.md, "Mutable state storage"). No caller gets the document.
+//! (docs/technical-design.md, "Mutable state storage"). Callers read immutable snapshots
+//! and write through these typed mutations; the mutable document itself, and edits that
+//! reach across concerns, are never exposed.
 
 use super::model::{AppState, DiscoveryLocation, PublicationReference, RevisionId};
 use super::replace::{ReplaceOutcome, replace_state};
 use super::store::{Inner, StateStore, encode};
 use crate::discovery::identity::{DiscoveryLocationId, ModInstallationId};
+use std::fmt;
 use std::path::PathBuf;
 use std::sync::MutexGuard;
 
@@ -20,6 +23,12 @@ pub enum MutationCommit {
 #[derive(Debug)]
 pub enum MutationError {
     UnknownLocation,
+    /// A Discovery Location path that is not valid UTF-8. The state document is JSON, so
+    /// such a path has no representation in it; `discovery` rejects non-Unicode names on
+    /// the same grounds rather than converting them lossily.
+    PathNotUtf8 {
+        path: PathBuf,
+    },
     /// The store observed an unresolvable replacement outcome; mutation is stopped
     /// until state recovery resolves it.
     RecoveryRequired,
@@ -43,6 +52,7 @@ impl StateStore {
         &self,
         path: PathBuf,
     ) -> Result<(DiscoveryLocationId, MutationCommit), MutationError> {
+        let path = storable_location_path(path)?;
         let id = DiscoveryLocationId::generate();
         let commit = self.commit_mutation(|state| {
             state
@@ -60,6 +70,7 @@ impl StateStore {
         id: DiscoveryLocationId,
         new_path: PathBuf,
     ) -> Result<MutationCommit, MutationError> {
+        let new_path = storable_location_path(new_path)?;
         self.commit_mutation(|state| {
             let location = state
                 .discovery_locations
@@ -134,6 +145,65 @@ impl StateStore {
             state.unresolved_quarantine = None;
             Ok(())
         })
+    }
+}
+
+/// The single point where a caller-supplied path becomes one the state document can
+/// hold. Every mutation that writes a Discovery Location path passes through here, so
+/// encoding stays total and no unrepresentable value can reach the encoder — which runs
+/// while the store lock is held, where a panic would leave the store unusable.
+fn storable_location_path(path: PathBuf) -> Result<PathBuf, MutationError> {
+    match path.to_str() {
+        Some(_) => Ok(path),
+        None => Err(MutationError::PathNotUtf8 { path }),
+    }
+}
+
+impl fmt::Display for MutationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnknownLocation => f.write_str("no such Discovery Location"),
+            Self::PathNotUtf8 { path } => write!(
+                f,
+                "Discovery Location path is not valid UTF-8: {}",
+                path.display()
+            ),
+            Self::RecoveryRequired => {
+                f.write_str("state recovery is required before further mutation")
+            }
+            Self::StorageFailed { detail } => {
+                write!(f, "state was not written and remains unchanged: {detail}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for MutationError {}
+
+impl fmt::Display for PublicationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ExpectedMismatch {
+                actual: Some(actual),
+            } => write!(
+                f,
+                "publication reference did not match the expected prior; stored revision is {}",
+                actual.0
+            ),
+            Self::ExpectedMismatch { actual: None } => f.write_str(
+                "publication reference did not match the expected prior; no revision is stored",
+            ),
+            Self::Mutation(error) => error.fmt(f),
+        }
+    }
+}
+
+impl std::error::Error for PublicationError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::ExpectedMismatch { .. } => None,
+            Self::Mutation(error) => Some(error),
+        }
     }
 }
 
@@ -239,6 +309,7 @@ mod tests {
     use std::fs;
     use std::io;
     use std::path::{Path, PathBuf};
+    use std::sync::{Arc, Mutex};
     use tempfile::TempDir;
 
     fn open(dir: &Path) -> StateStore {
@@ -428,6 +499,183 @@ mod tests {
             store.confirm_discard_unrecovered_references(),
             Err(MutationError::RecoveryRequired)
         ));
+    }
+
+    /// Fails the protocol steps the test switches on, so one store can be driven
+    /// through an uncertain commit and then a pre-commit failure.
+    #[derive(Clone, Copy, Default)]
+    struct Script {
+        fail_sync_dir: bool,
+        fail_rename: bool,
+    }
+
+    struct Scripted {
+        script: Arc<Mutex<Script>>,
+        inner: RealIo,
+    }
+
+    impl ReplacementIo for Scripted {
+        fn write_temp(&mut self, dir: &Path, bytes: &[u8]) -> io::Result<PathBuf> {
+            self.inner.write_temp(dir, bytes)
+        }
+        fn rename(&mut self, from: &Path, to: &Path) -> io::Result<()> {
+            if self.script.lock().unwrap().fail_rename {
+                return Err(io::Error::other("injected rename failure"));
+            }
+            self.inner.rename(from, to)
+        }
+        fn sync_dir(&mut self, dir: &Path) -> io::Result<()> {
+            if self.script.lock().unwrap().fail_sync_dir {
+                return Err(io::Error::other("injected sync_dir failure"));
+            }
+            self.inner.sync_dir(dir)
+        }
+    }
+
+    #[test]
+    fn an_uncertain_commit_advances_memory_and_becomes_the_tracked_prior() {
+        let dir = TempDir::new().unwrap();
+        drop(open(dir.path()));
+        let script = Arc::new(Mutex::new(Script::default()));
+        let store = match StateStore::open_with_io(
+            dir.path(),
+            Box::new(Scripted {
+                script: Arc::clone(&script),
+                inner: RealIo,
+            }),
+        )
+        .unwrap()
+        {
+            OpenOutcome::Ready { store, .. } => store,
+            OpenOutcome::BlockedNewerSchema { .. } => panic!("blocked"),
+        };
+
+        script.lock().unwrap().fail_sync_dir = true;
+        let uncertain = store.add_discovery_location(PathBuf::from("/tmp/uncertain"));
+        assert!(matches!(
+            uncertain,
+            Ok((_, MutationCommit::CommittedDurabilityUncertain))
+        ));
+        // The replacement was visible, so memory advances with it.
+        let locations = store.snapshot().discovery_locations;
+        assert_eq!(locations.len(), 1);
+        assert_eq!(locations[0].path, PathBuf::from("/tmp/uncertain"));
+
+        // `encoded` tracked the uncertain commit: a reported rename failure classifies
+        // the untouched file as the prior the store holds. Had the uncertain arm left
+        // `encoded` on the pre-mutation bytes, the file would match neither prior nor
+        // next and this would be RecoveryRequired.
+        {
+            let mut script = script.lock().unwrap();
+            script.fail_sync_dir = false;
+            script.fail_rename = true;
+        }
+        assert!(matches!(
+            store.add_discovery_location(PathBuf::from("/tmp/never")),
+            Err(MutationError::StorageFailed { .. })
+        ));
+
+        // And the store is still usable: the uncertain outcome poisoned nothing.
+        script.lock().unwrap().fail_rename = false;
+        assert_eq!(
+            store
+                .add_discovery_location(PathBuf::from("/tmp/certain"))
+                .unwrap()
+                .1,
+            MutationCommit::Committed
+        );
+        assert_eq!(store.snapshot().discovery_locations.len(), 2);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_non_utf8_location_path_is_a_typed_error_and_leaves_the_store_usable() {
+        use std::ffi::OsString;
+        use std::os::unix::ffi::OsStringExt;
+
+        let dir = TempDir::new().unwrap();
+        let store = open(dir.path());
+        let invalid = PathBuf::from(OsString::from_vec(vec![b'/', b't', b'm', b'p', b'/', 0xff]));
+
+        assert!(matches!(
+            store.add_discovery_location(invalid.clone()),
+            Err(MutationError::PathNotUtf8 { .. })
+        ));
+        // Nothing was written and the lock was never poisoned by a panic inside it.
+        assert!(store.snapshot().discovery_locations.is_empty());
+        let (id, _) = store
+            .add_discovery_location(PathBuf::from("/tmp/fine"))
+            .unwrap();
+        assert!(matches!(
+            store.rebind_discovery_location(id, invalid),
+            Err(MutationError::PathNotUtf8 { .. })
+        ));
+        assert_eq!(
+            store.snapshot().discovery_locations[0].path,
+            PathBuf::from("/tmp/fine")
+        );
+    }
+
+    #[test]
+    fn a_panic_while_holding_the_lock_does_not_disable_the_store() {
+        let dir = TempDir::new().unwrap();
+        let store = Arc::new(open(dir.path()));
+        let poisoner = Arc::clone(&store);
+        let panicked = std::thread::spawn(move || {
+            let _guard = poisoner.lock();
+            panic!("deliberate panic while holding the state lock");
+        })
+        .join();
+        assert!(panicked.is_err());
+
+        // Poisoning is recovered from deliberately: `Inner` cannot be observed torn.
+        store
+            .add_discovery_location(PathBuf::from("/tmp/after-poison"))
+            .unwrap();
+        assert_eq!(store.snapshot().discovery_locations.len(), 1);
+    }
+
+    #[test]
+    fn state_errors_display_and_implement_std_error() {
+        // Application and transport call sites `?` and log these; both need Display,
+        // and std::error::Error is what makes `?` conversion available (the same
+        // rationale as IdParseError).
+        fn assert_error<E: std::error::Error>(error: &E) -> String {
+            error.to_string()
+        }
+        assert!(!assert_error(&MutationError::UnknownLocation).is_empty());
+        assert!(
+            assert_error(&MutationError::PathNotUtf8 {
+                path: PathBuf::from("/tmp/x"),
+            })
+            .contains("/tmp/x")
+        );
+        assert!(assert_error(&MutationError::RecoveryRequired).contains("recovery"));
+        assert!(
+            assert_error(&MutationError::StorageFailed {
+                detail: "disk on fire".to_owned(),
+            })
+            .contains("disk on fire")
+        );
+        assert!(
+            assert_error(&PublicationError::ExpectedMismatch {
+                actual: Some(RevisionId("r1".into())),
+            })
+            .contains("r1")
+        );
+        // A wrapped mutation failure keeps its own message and is reachable as a source.
+        let wrapped = PublicationError::Mutation(MutationError::UnknownLocation);
+        assert_eq!(
+            assert_error(&wrapped),
+            MutationError::UnknownLocation.to_string()
+        );
+        assert!(std::error::Error::source(&wrapped).is_some());
+        assert!(
+            !assert_error(&crate::state::store::OpenError {
+                detail: "unreadable".to_owned(),
+            })
+            .is_empty()
+        );
     }
 
     #[test]

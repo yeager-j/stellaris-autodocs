@@ -3,9 +3,10 @@
 //! "Mutable state storage" and "State evolution and recovery").
 
 use super::model::{AppState, CURRENT_SCHEMA};
-use super::replace::{RealIo, ReplaceOutcome, ReplacementIo, replace_state};
+use super::replace::{RealIo, ReplaceOutcome, ReplacementIo, replace_state, sweep_stale_temps};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
+use std::fmt;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -62,13 +63,24 @@ struct SchemaProbe {
 
 impl StateStore {
     pub fn open(state_dir: &Path) -> Result<OpenOutcome, OpenError> {
-        Self::open_with_io(state_dir, Box::new(RealIo))
+        Self::open_seamed(state_dir, Box::new(RealIo))
     }
 
+    /// Replacement-I/O seam for tests only. Behind the `test-support` feature so it
+    /// cannot reach a shipped binary (docs/decision-log.md, D-107).
+    #[cfg(any(test, feature = "test-support"))]
     pub fn open_with_io(
         state_dir: &Path,
         io_seam: Box<dyn ReplacementIo + Send>,
     ) -> Result<OpenOutcome, OpenError> {
+        Self::open_seamed(state_dir, io_seam)
+    }
+
+    fn open_seamed(
+        state_dir: &Path,
+        io_seam: Box<dyn ReplacementIo + Send>,
+    ) -> Result<OpenOutcome, OpenError> {
+        sweep_stale_temps(state_dir);
         let state_path = state_dir.join(STATE_FILE);
         match fs::read(&state_path) {
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
@@ -175,37 +187,49 @@ impl StateStore {
     }
 
     pub fn snapshot(&self) -> AppState {
-        self.inner
-            .lock()
-            .expect("state lock poisoned")
-            .state
-            .clone()
+        self.lock().state.clone()
     }
 
     pub fn publication_recovery_unresolved(&self) -> Option<String> {
-        self.inner
-            .lock()
-            .expect("state lock poisoned")
-            .state
-            .unresolved_quarantine
-            .clone()
+        self.lock().state.unresolved_quarantine.clone()
     }
 
     pub(super) fn state_path(&self) -> &Path {
         &self.state_path
     }
 
+    /// Recovers from poisoning rather than propagating it, deliberately: `Inner` cannot
+    /// be observed torn. `replace_locked` assigns `state` and `encoded` adjacently with
+    /// no fallible step between them, and `recovery_required` is set alone; every other
+    /// holder of this guard only reads. A panic elsewhere in the process therefore
+    /// leaves a consistent value here, and refusing the lock for the process lifetime
+    /// would turn an unrelated panic into permanent, unrecoverable loss of state
+    /// mutation.
     pub(super) fn lock(&self) -> std::sync::MutexGuard<'_, Inner> {
-        self.inner.lock().expect("state lock poisoned")
+        self.inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 }
 
 /// Human-readable: the state file is small, user-adjacent, and read during recovery.
+///
+/// Serialization is total for `AppState`: its only non-string-shaped field is a
+/// `DiscoveryLocation` path, and non-UTF-8 paths are rejected at the mutation boundary
+/// (`mutations::storable_location_path`), which is what keeps this `expect` unreachable.
 pub(super) fn encode(state: &AppState) -> Vec<u8> {
     let mut bytes = serde_json::to_vec_pretty(state).expect("state encodes to JSON");
     bytes.push(b'\n');
     bytes
 }
+
+impl fmt::Display for OpenError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "state could not be opened: {}", self.detail)
+    }
+}
+
+impl std::error::Error for OpenError {}
 
 #[cfg(test)]
 mod tests {
@@ -275,6 +299,24 @@ mod tests {
         let (reopened, report) = ready(StateStore::open(dir.path()).unwrap());
         assert_eq!(report, OpenReport::Loaded);
         assert!(reopened.publication_recovery_unresolved().is_some());
+    }
+
+    #[test]
+    fn opening_sweeps_temporaries_abandoned_by_an_earlier_run() {
+        // A crash or a failed write between create and rename leaves a `.state-*.tmp`
+        // no later replacement will ever name again; open is the one moment no
+        // replacement of this store is in flight, so it is where they are collected.
+        let dir = TempDir::new().unwrap();
+        drop(ready(StateStore::open(dir.path()).unwrap()).0);
+        let stale = dir.path().join(".state-abandoned.tmp");
+        fs::write(&stale, b"partial").unwrap();
+
+        let (store, report) = ready(StateStore::open(dir.path()).unwrap());
+        assert_eq!(report, OpenReport::Loaded);
+        assert!(!stale.exists());
+        // The sweep is selective, not a directory wipe.
+        assert_eq!(store.snapshot(), AppState::first_launch());
+        assert!(dir.path().join(STATE_FILE).exists());
     }
 
     #[test]
