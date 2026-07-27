@@ -3,12 +3,19 @@
 //!
 //! Only a [`LiveSource`] can be asked. The check recomputes the authoritative live
 //! fingerprint by re-scanning the root — hash-only, buffering nothing, which is the second
-//! read the design accepts as correctness-first — and re-reads every frozen asset capture.
+//! read the design accepts as correctness-first — re-reads every frozen asset capture, and
+//! re-observes every referenced asset the build recorded as absent.
 //!
-//! **Both halves are always computed.** A verification that returned at the first
+//! **All three parts are always computed.** A verification that returned at the first
 //! difference would report the edited script and stay silent about the asset that also
 //! moved, and a partial answer to "did anything change" is the silent success this check
 //! exists to prevent.
+//!
+//! The absence check is the one part that catches something nothing else can. Referenced
+//! assets are outside the fingerprint by design, and an *absent* one is outside the
+//! revision manifest's referenced-asset set as well, so a placeholder rendered for evidence
+//! that arrived mid-build would otherwise survive every later freshness check until some
+//! unrelated script edit happened to move the fingerprint.
 //!
 //! A source that moved is a result, not a failure: a vanished root, a file that became
 //! unreadable, a changed byte, a rename, a deletion are all [`LiveVerification::Changed`].
@@ -30,17 +37,33 @@ pub enum LiveVerification {
 }
 
 /// Everything that stopped matching, never only the first thing.
+///
+/// Three orthogonal facts, each named for what happened, rather than one list a consumer
+/// would have to re-classify: enumerated content moved, a frozen capture moved, or evidence
+/// the build recorded as missing turned up.
 #[derive(Debug)]
 pub struct SourceChange {
     /// `None` when the enumerated content and the observation gaps still fingerprint the
     /// same. Referenced assets are absent from a fingerprint by design, so an asset-only
-    /// change leaves this `None` and populates `assets`.
+    /// change leaves this `None` and populates `assets` or `appeared`.
     pub fingerprint: Option<FingerprintMismatch>,
     /// One entry per frozen capture that no longer reads back as it was, in canonical
     /// logical-path order.
     pub assets: Vec<AssetChange>,
+    /// One entry per referenced asset the build recorded as absent that now has readable
+    /// bytes, in canonical logical-path order.
+    ///
+    /// Kept separate from `assets` because the two invalidate different things: an
+    /// `AssetChange` invalidates a captured input the manifest quotes, while an appearance
+    /// invalidates an "evidence absent" Analysis Issue and the placeholder rendered for it.
+    pub appeared: Vec<AppearedAsset>,
 }
 
+/// The fingerprint half of the comparison.
+///
+/// Named for the usual case, but `observed` also carries "the source could not be scanned at
+/// all", where nothing mismatched because nothing could be read. See [`ObservedFingerprint`];
+/// the enclosing `Option` on [`SourceChange::fingerprint`] is what carries "these agree".
 #[derive(Debug)]
 pub struct FingerprintMismatch {
     pub expected: SourceFingerprint,
@@ -82,6 +105,16 @@ pub struct AssetChange {
 pub enum ObservedAsset {
     Hash(ContentHash),
     Absent(AssetAbsence),
+}
+
+/// A referenced asset the build looked for, did not find, and which now exists.
+#[derive(Debug)]
+pub struct AppearedAsset {
+    pub logical: LogicalPath,
+    /// The absence this build froze, and attached "evidence absent" to.
+    pub expected: AssetAbsence,
+    /// The bytes that are there now.
+    pub observed: ContentHash,
 }
 
 impl LiveSource {
@@ -138,12 +171,49 @@ impl LiveSource {
             });
         }
 
-        if fingerprint.is_none() && assets.is_empty() {
+        // Design step 7 is "publish only when the current paths and contents still match the
+        // candidate's snapshot", and an absent path that now has bytes no longer matches.
+        // Nothing else can catch it: assets are outside the fingerprint by design, and an
+        // absence is outside the manifest's referenced-asset set too, so the "evidence
+        // absent" placeholder would be permanent until some unrelated script edit happened
+        // to move the fingerprint.
+        //
+        // Only absent-to-present counts. One absence turning into another — `NotFound` to
+        // `Unreadable`, a containment refusal to a missing file — still yields no bytes and
+        // still means "evidence absent" to documentation, and treating it as a change would
+        // make publication depend on host permission state.
+        let mut appeared = Vec::new();
+        for (logical, expected) in snapshot.absent_assets() {
+            let re_observe = match expected {
+                // Already covered, and re-reading it would be actively wrong: a collision
+                // lives in the gap projection, so resolving it moves the fingerprint, while
+                // a fresh read would resolve the NFC spelling onto one of the two colliding
+                // raw entries and report an appearance on every verify of an unchanged tree.
+                AssetAbsence::Collision => false,
+                AssetAbsence::NotFound
+                | AssetAbsence::OutsideSourceRoot
+                | AssetAbsence::Unreadable { .. } => true,
+            };
+            if !re_observe {
+                continue;
+            }
+            let live_path = snapshot.live_path(root, &logical);
+            if let Ok(bytes) = read_live_asset(root, &live_path) {
+                appeared.push(AppearedAsset {
+                    logical,
+                    expected,
+                    observed: ContentHash::of(&bytes),
+                });
+            }
+        }
+
+        if fingerprint.is_none() && assets.is_empty() && appeared.is_empty() {
             return Ok(LiveVerification::Unchanged);
         }
         Ok(LiveVerification::Changed(SourceChange {
             fingerprint,
             assets,
+            appeared,
         }))
     }
 }
@@ -361,9 +431,11 @@ mod tests {
     }
 
     #[test]
-    fn a_memoized_absence_is_not_an_asset_input() {
-        // Absences are not part of `captured_assets`, so the file arriving late is not a
-        // change to verify — it is an Analysis Issue the build already recorded.
+    fn an_absence_that_became_present_is_a_change() {
+        // Nothing else in the system could catch this: assets are outside the fingerprint by
+        // design, and an absence is outside the manifest's referenced-asset set too, so the
+        // "evidence absent" placeholder would be permanent. Design step 7: publish only when
+        // the current paths still match the candidate's snapshot.
         let dir = TempDir::new().unwrap();
         staged_source(dir.path());
         let source = established(dir.path());
@@ -374,10 +446,68 @@ mod tests {
 
         write(dir.path(), "gfx/models/late.dds", b"arrived late");
 
+        let change = changed(&source);
+        assert!(change.fingerprint.is_none());
+        assert!(change.assets.is_empty());
+        assert_eq!(change.appeared.len(), 1);
+        assert_eq!(change.appeared[0].logical, path("gfx/models/late.dds"));
+        assert_eq!(change.appeared[0].expected, AssetAbsence::NotFound);
+        assert_eq!(
+            change.appeared[0].observed,
+            ContentHash::of(b"arrived late")
+        );
+
+        // The freeze rule is unchanged inside the build: only `verify` re-observes, so the
+        // stage that already attached "evidence absent" still sees an absence.
+        assert!(matches!(
+            source.snapshot().read_asset(&path("gfx/models/late.dds")),
+            AssetRead::Absent(AssetAbsence::NotFound)
+        ));
+    }
+
+    #[test]
+    fn an_absence_that_is_still_absent_is_not_a_change() {
+        // The other half of the rule, and what keeps it from being a permanent `Changed`:
+        // a path that was missing and is still missing matches the snapshot.
+        let dir = TempDir::new().unwrap();
+        staged_source(dir.path());
+        let source = established_with_captured_asset(dir.path());
+        assert!(matches!(
+            source.snapshot().read_asset(&path("gfx/models/late.dds")),
+            AssetRead::Absent(AssetAbsence::NotFound)
+        ));
+
         assert!(matches!(
             source.verify().unwrap(),
             LiveVerification::Unchanged
         ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_containment_refusal_that_became_readable_is_an_appearance() {
+        // An escape is not "the mod didn't ship it", but repointing the link inside the root
+        // does turn a refusal into evidence, and the placeholder must not survive it.
+        let outside = TempDir::new().unwrap();
+        fs::write(outside.path().join("foreign.dds"), b"foreign").unwrap();
+        let dir = TempDir::new().unwrap();
+        staged_source(dir.path());
+        let link = dir.path().join("gfx/models/escaped.dds");
+        std::os::unix::fs::symlink(outside.path().join("foreign.dds"), &link).unwrap();
+        let source = established(dir.path());
+        assert!(matches!(
+            source
+                .snapshot()
+                .read_asset(&path("gfx/models/escaped.dds")),
+            AssetRead::Absent(AssetAbsence::OutsideSourceRoot)
+        ));
+
+        fs::remove_file(&link).unwrap();
+        write(dir.path(), "gfx/models/escaped.dds", b"now shipped");
+
+        let change = changed(&source);
+        assert_eq!(change.appeared.len(), 1);
+        assert_eq!(change.appeared[0].expected, AssetAbsence::OutsideSourceRoot);
     }
 
     #[cfg(unix)]
