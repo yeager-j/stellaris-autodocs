@@ -18,4 +18,7 @@ pub mod source;
 pub mod state;
 pub mod transport;
 
+#[cfg(feature = "test-support")]
+pub mod testsupport;
+
 pub use composition::run;
