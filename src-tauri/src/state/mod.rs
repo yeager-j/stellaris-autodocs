@@ -8,5 +8,5 @@ pub mod replace;
 pub mod store;
 
 pub use model::{AppState, CURRENT_SCHEMA, DiscoveryLocation, PublicationReference, RevisionId};
-pub use mutations::{MutationCommit, MutationError, PublicationError};
+pub use mutations::{MutationCommit, MutationError, PublicationCapability, PublicationError};
 pub use store::{OpenOutcome, OpenReport, STATE_FILE, StateStore};

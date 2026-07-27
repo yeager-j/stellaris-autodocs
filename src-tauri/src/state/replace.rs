@@ -11,6 +11,7 @@
 //! comparing the authoritative path against the known prior and next bytes, never
 //! inferred from the error alone.
 
+use crate::durability::DirectoryFlush;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -22,8 +23,14 @@ pub trait ReplacementIo {
     fn write_temp(&mut self, dir: &Path, bytes: &[u8]) -> io::Result<PathBuf>;
     /// Atomically rename `from` onto `to`. The commit point.
     fn rename(&mut self, from: &Path, to: &Path) -> io::Result<()>;
-    /// Durably flush the directory entry change where the platform provides it.
-    fn sync_dir(&mut self, dir: &Path) -> io::Result<()>;
+    /// Durably flush the directory entry change, reporting which of
+    /// [`DirectoryFlush`]'s two performed-or-not answers occurred; an error means the flush
+    /// was attempted and refused. The platform question is
+    /// [`durability::sync_dir`](crate::durability::sync_dir)'s and this seam never has to
+    /// know which platform it is on — but it must not flatten the answer, because
+    /// [`replace_state`] reads it to decide between [`ReplaceOutcome::Committed`] and
+    /// [`ReplaceOutcome::CommittedDurabilityUncertain`].
+    fn sync_dir(&mut self, dir: &Path) -> io::Result<DirectoryFlush>;
 }
 
 /// The temporary-file naming scheme. Named once here because two operations depend on
@@ -98,8 +105,12 @@ impl ReplacementIo for RealIo {
         fs::rename(from, to)
     }
 
-    fn sync_dir(&mut self, dir: &Path) -> io::Result<()> {
-        fs::File::open(dir)?.sync_all()
+    /// Delegated rather than spelled here: whether a platform provides a directory flush
+    /// at all is one fact, and this module and `revisions::publish` both reach a commit
+    /// point that rests on it (docs/decision-log.md, D-123). Two spellings would be two
+    /// answers, and the one that mattered would be the one nobody read.
+    fn sync_dir(&mut self, dir: &Path) -> io::Result<DirectoryFlush> {
+        crate::durability::sync_dir(dir)
     }
 }
 
@@ -149,12 +160,19 @@ pub fn replace_state(
         );
     }
     match io_seam.sync_dir(dir) {
-        Ok(()) => ReplaceOutcome::Committed,
+        Ok(DirectoryFlush::Flushed) => ReplaceOutcome::Committed,
         // Past the commit point. A re-read could only ever confirm this outcome, so it
         // is not performed: it can find the file already replaced by another writer or
         // fail with EIO, and either reading would misreport a committed replacement as
         // a retained prior or as corruption.
-        Err(_) => ReplaceOutcome::CommittedDurabilityUncertain,
+        //
+        // Both arms floor here, and `NotProvided` belongs in this one rather than beside
+        // `Flushed`: a flush the platform never performed confirmed nothing, so claiming
+        // `Committed` would assert a durability nothing observed. It needs no arm of its
+        // own — "visible, durability unconfirmed" is exactly what this outcome already
+        // means, and the protocol's consumers (`state::mutations`, and through it
+        // retention) already read it that way (docs/decision-log.md, D-123).
+        Ok(DirectoryFlush::NotProvided) | Err(_) => ReplaceOutcome::CommittedDurabilityUncertain,
     }
 }
 
@@ -219,7 +237,7 @@ mod tests {
             }
             self.inner.rename(from, to)
         }
-        fn sync_dir(&mut self, dir: &Path) -> io::Result<()> {
+        fn sync_dir(&mut self, dir: &Path) -> io::Result<DirectoryFlush> {
             if self.step == "sync_dir" {
                 return Err(io::Error::other("injected sync_dir failure"));
             }
@@ -272,8 +290,8 @@ mod tests {
                 fs::rename(from, to)?;
                 Err(io::Error::other("injected post-rename failure report"))
             }
-            fn sync_dir(&mut self, _dir: &Path) -> io::Result<()> {
-                Ok(())
+            fn sync_dir(&mut self, _dir: &Path) -> io::Result<DirectoryFlush> {
+                Ok(DirectoryFlush::Flushed)
             }
         }
         let (_dir, state_path) = seeded_dir();
@@ -295,6 +313,37 @@ mod tests {
     }
 
     #[test]
+    fn a_flush_this_platform_does_not_provide_is_not_a_committed_durability() {
+        // The distinction `DirectoryFlush` exists to keep, asserted where the policy lives.
+        // On an exFAT, FAT32, or SMB volume the directory flush is never performed at all,
+        // and while that was reported as `Ok(())` this outcome was `Committed` — a claim
+        // that a rename a crash can still erase had reached disk. It is
+        // `CommittedDurabilityUncertain`, which is literally accurate and is an outcome the
+        // protocol already carries (docs/decision-log.md, D-123).
+        //
+        // Platform-independent by construction: the seam returns the outcome the Windows
+        // tolerance produces, so the arm no macOS filesystem can reach through
+        // `durability::sync_dir` is still exercised here.
+        struct UnavailableFlush;
+        impl ReplacementIo for UnavailableFlush {
+            fn write_temp(&mut self, dir: &Path, bytes: &[u8]) -> io::Result<PathBuf> {
+                RealIo.write_temp(dir, bytes)
+            }
+            fn rename(&mut self, from: &Path, to: &Path) -> io::Result<()> {
+                RealIo.rename(from, to)
+            }
+            fn sync_dir(&mut self, _dir: &Path) -> io::Result<DirectoryFlush> {
+                Ok(DirectoryFlush::NotProvided)
+            }
+        }
+        let (_dir, state_path) = seeded_dir();
+        let outcome = replace_state(&mut UnavailableFlush, &state_path, NEXT, Some(PRIOR));
+        assert_eq!(outcome, ReplaceOutcome::CommittedDurabilityUncertain);
+        // Visible either way: the replacement happened, and only the guarantee is withheld.
+        assert_eq!(fs::read(&state_path).unwrap(), NEXT);
+    }
+
+    #[test]
     fn post_rename_failure_floors_at_uncertain_even_if_the_file_was_disturbed() {
         // The commit point is structural: once `rename` returns Ok the new state was
         // visible, so no later observation may downgrade the outcome to a claim about
@@ -308,7 +357,7 @@ mod tests {
             fn rename(&mut self, from: &Path, to: &Path) -> io::Result<()> {
                 fs::rename(from, to)
             }
-            fn sync_dir(&mut self, dir: &Path) -> io::Result<()> {
+            fn sync_dir(&mut self, dir: &Path) -> io::Result<DirectoryFlush> {
                 fs::write(dir.join("state.json"), b"disturbed by another writer").unwrap();
                 Err(io::Error::other("injected sync_dir failure"))
             }
@@ -330,7 +379,7 @@ mod tests {
             fn rename(&mut self, from: &Path, to: &Path) -> io::Result<()> {
                 fs::rename(from, to)
             }
-            fn sync_dir(&mut self, dir: &Path) -> io::Result<()> {
+            fn sync_dir(&mut self, dir: &Path) -> io::Result<DirectoryFlush> {
                 fs::remove_file(dir.join("state.json")).unwrap();
                 Err(io::Error::other("injected sync_dir failure"))
             }
@@ -382,8 +431,8 @@ mod tests {
                 fs::write(to, b"neither prior nor next").unwrap();
                 Err(io::Error::other("injected rename failure"))
             }
-            fn sync_dir(&mut self, _dir: &Path) -> io::Result<()> {
-                Ok(())
+            fn sync_dir(&mut self, _dir: &Path) -> io::Result<DirectoryFlush> {
+                Ok(DirectoryFlush::Flushed)
             }
         }
         let (_dir, state_path) = seeded_dir();

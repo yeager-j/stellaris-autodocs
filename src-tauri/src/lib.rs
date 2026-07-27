@@ -10,6 +10,7 @@ pub mod canonical;
 pub mod companion;
 pub mod composition;
 pub mod discovery;
+pub mod durability;
 pub mod error;
 pub mod localization;
 pub mod revisions;

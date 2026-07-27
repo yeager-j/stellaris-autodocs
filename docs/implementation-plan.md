@@ -108,8 +108,8 @@ Blocking relations encode the dependency DAG so parallelizable work is visible. 
 
 **Deliverable:** The smallest honest end-to-end thread: hand-authored Revision Candidate → real bundle → real atomic publication → real Tauri read → minimal React page.
 
-1. Minimal revision bundle: manifest with real canonical Revision identifier, one trivial "entry list" document, schema validation, required-entry hashes.
-2. `revisions` publication protocol: staging on same filesystem, validation, atomic move, state pointer commit via the Phase 1 capability, crash-point injection.
+1. Minimal revision bundle: manifest with real canonical Revision identifier, one trivial "entry list" document, schema validation, required-entry hashes. (implemented)
+2. `revisions` publication protocol: staging on same filesystem, validation, atomic move, state pointer commit via the Phase 1 capability, crash-point injection. (implemented)
 3. Minimal Revision Reader with handle pinning.
 4. Test-only candidate provider: the build coordinator accepts a Revision Candidate provider seam; the skeleton supplies hand-authored candidates from test support, exercising application coordination and publication without pretending to analyze Stellaris source. No false analysis behavior enters the production `analysis` module; deleting this provider is an explicit Phase 6 entry condition.
 5. One awaited Tauri build command + one read command using the Result envelope and vendored Result package boundary. Includes a negative test that a serialized failure cannot contain `Unexpected` message detail — `error::Unexpected` derives `Debug` including the message, so redaction must be enforced structurally at the transport seam, not by convention (Phase 0 review finding).

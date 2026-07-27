@@ -5,9 +5,17 @@
 
 use crate::canonical::encode::{CanonicalDigest, DigestBytes, ENCODING_VERSION};
 use crate::source::policy::ENUMERATION_POLICY_VERSION;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Serde here is presentation only: a revision manifest records the vector it was built
+/// under so a reader can see which component changed. **Identity is [`digest()`], never
+/// this JSON form** — field order, key spelling, and map ordering are the serializer's
+/// business, and hashing them would make the identity depend on a library's choices
+/// rather than on `canonical::encode`.
+///
+/// [`digest()`]: AnalysisVersionVector::digest
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AnalysisVersionVector {
     pub source_enumeration: u32,
     pub parsed_model: u32,
@@ -22,6 +30,7 @@ pub struct AnalysisVersionVector {
     pub analysis_issue_propagation: u32,
     /// One entry per asset conversion recipe, keyed by recipe identifier.
     /// Empty until Phase 8 registers the DDS-to-PNG recipe.
+    #[serde(default)]
     pub asset_recipes: BTreeMap<String, u32>,
 }
 
@@ -87,6 +96,36 @@ mod tests {
             AnalysisVersionVector::current().source_enumeration,
             ENUMERATION_POLICY_VERSION
         );
+    }
+
+    #[test]
+    fn decodes_with_every_optional_field_absent() {
+        // A manifest written before Phase 8 registers any asset recipe carries no
+        // `asset_recipes` key at all. Without a read-side default the whole manifest
+        // becomes undecodable, which is the failure the no-`skip_serializing_if` rule
+        // exists to prevent (docs/technical-design.md:651; precedent state/model.rs:67).
+        let minimal: AnalysisVersionVector = serde_json::from_str(
+            r#"{"source_enumeration":3,"parsed_model":1,"resolution_profile":1,
+                "documentation":1,"localization_interpretation":1,"search":1,
+                "canonical_encoding":1,"hidden_route_identity":1,
+                "analysis_issue_propagation":1}"#,
+        )
+        .unwrap();
+        assert_eq!(minimal, AnalysisVersionVector::current());
+    }
+
+    #[test]
+    fn a_populated_vector_round_trips_and_keeps_its_digest() {
+        // The vector is stored so a reader can name the component that invalidated a
+        // revision; a decoded copy must therefore still identify the same analysis. The
+        // digest assertion is what proves serde is presentation rather than identity —
+        // it survives the round trip because it never depended on it.
+        let mut vector = AnalysisVersionVector::current();
+        vector.asset_recipes.insert("dds-to-png".to_owned(), 2);
+        let encoded = serde_json::to_vec(&vector).unwrap();
+        let decoded: AnalysisVersionVector = serde_json::from_slice(&encoded).unwrap();
+        assert_eq!(decoded, vector);
+        assert_eq!(decoded.digest(), vector.digest());
     }
 
     #[test]
