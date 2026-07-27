@@ -19,8 +19,8 @@ use crate::canonical::path::{LogicalPath, PathError};
 use crate::source::enumerate::{FileCollision, ObservationGaps};
 use crate::source::policy::{self, FileFamily};
 use crate::source::snapshot::{SourceBytes, SourceKind, SourceSnapshot};
-use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 /// A fixture Source Snapshot under construction.
@@ -32,8 +32,10 @@ pub struct FixtureCorpus {
     files: BTreeMap<LogicalPath, (FileFamily, SourceBytes)>,
     assets: BTreeMap<LogicalPath, SourceBytes>,
     gaps: ObservationGaps,
-    /// The first refusal. Later ones are dropped: the first is the one a test author has to
-    /// fix, and a list of consequences would bury it.
+    /// The first refusal a single step could see. Later ones are dropped: the first is the
+    /// one a test author has to fix, and a list of consequences would bury it. Refusals that
+    /// need the whole corpus are decided in [`FixtureCorpus::build`] and reported after this
+    /// one, because a step that could not see the problem cannot be blamed for it.
     refused: Option<FixtureError>,
 }
 
@@ -135,16 +137,11 @@ impl FixtureCorpus {
     /// case-insensitive, so colliding names cannot be created on the development machine
     /// (D-111). Declaring it is what lets the collision rules — the gap's effect on the
     /// fingerprint, and `read_asset`'s refusal to pick a winner — be exercised at all.
+    /// Every check a collision needs is a property of the whole corpus rather than of this
+    /// call, so this step only records the declaration; [`FixtureCorpus::build`] validates
+    /// it. See `validate_collisions` for why that is not a stylistic choice.
     pub fn with_collision(mut self, logical: &str, raw_labels: &[&str]) -> Self {
         match self.parse(logical) {
-            Ok(logical) if raw_labels.len() < 2 => {
-                self.refuse(FixtureError::NotACollision { logical });
-            }
-            Ok(logical) if self.files.contains_key(&logical) => {
-                // Enumeration produces one or the other, never both: a collided path has no
-                // surviving file.
-                self.refuse(FixtureError::Duplicate { logical });
-            }
             Ok(logical) => {
                 let mut raw_labels: Vec<String> =
                     raw_labels.iter().map(|label| (*label).to_owned()).collect();
@@ -160,16 +157,23 @@ impl FixtureCorpus {
     }
 
     /// Builds the snapshot, or reports the first entry the corpus refused.
-    pub fn build(self) -> Result<SourceSnapshot, FixtureError> {
-        match self.refused {
-            Some(error) => Err(error),
-            None => Ok(SourceSnapshot::in_memory(
-                self.kind,
-                self.files,
-                self.assets,
-                self.gaps,
-            )),
+    pub fn build(mut self) -> Result<SourceSnapshot, FixtureError> {
+        if let Some(error) = self.refused {
+            return Err(error);
         }
+        validate_collisions(&self.gaps.collisions, &self.files)?;
+        // `classify_entries` emits collisions in logical-path order because it drains a
+        // `BTreeMap`. The digest re-sorts, but `gaps()` is exposed, and a fixture whose
+        // report order differed from a live one's would be a difference a test could see.
+        self.gaps
+            .collisions
+            .sort_by(|left, right| left.logical.cmp(&right.logical));
+        Ok(SourceSnapshot::in_memory(
+            self.kind,
+            self.files,
+            self.assets,
+            self.gaps,
+        ))
     }
 
     fn parse(&self, logical: &str) -> Result<LogicalPath, FixtureError> {
@@ -200,6 +204,46 @@ impl FixtureCorpus {
     fn refuse(&mut self, error: FixtureError) {
         self.refused.get_or_insert(error);
     }
+}
+
+/// Checks declared collisions against the corpus they belong to.
+///
+/// Every one of these is a property of the whole corpus, not of the `with_collision` call,
+/// which is why guarding in place was wrong rather than merely untidy: `with_collision`
+/// could consult `self.files`, but `with_file` never consults `self.gaps`, so
+/// `with_file(p).with_collision(p)` was refused while `with_collision(p).with_file(p)`
+/// built — and that second corpus answers `read_asset(p)` with `Captured`, where a live
+/// snapshot answers `Absent(Collision)`. A fixture that disagrees with a live tree about the
+/// collision rule is exactly what `FixtureError`'s own contract forbids. Deciding here makes
+/// all three checks order-independent by construction rather than by guard.
+fn validate_collisions(
+    collisions: &[FileCollision],
+    files: &BTreeMap<LogicalPath, (FileFamily, SourceBytes)>,
+) -> Result<(), FixtureError> {
+    let mut declared = BTreeSet::new();
+    for collision in collisions {
+        let logical = collision.logical.clone();
+        if collision.raw_labels.len() < 2 {
+            return Err(FixtureError::NotACollision { logical });
+        }
+        // `classify_entries` only ever considers paths the policy selects, so a collision at
+        // an excluded path is not an observation any walk could make — the same rule, and
+        // the same refusal, `with_file` applies.
+        if policy::family_for(&logical).is_none() {
+            return Err(FixtureError::FileExcludedByPolicy { logical });
+        }
+        // Enumeration emits a surviving file or a collision for a path, never both: a
+        // collided path has no winner, which is the whole point of the collision.
+        if files.contains_key(&logical) {
+            return Err(FixtureError::Duplicate { logical });
+        }
+        // Collisions are keyed by logical path in `classify_entries`, so one path collides
+        // at most once. Two declarations would also encode as two items in the digest.
+        if !declared.insert(logical.clone()) {
+            return Err(FixtureError::Duplicate { logical });
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -370,7 +414,7 @@ mod tests {
     }
 
     #[test]
-    fn a_collision_needs_two_raw_spellings_and_cannot_shadow_a_file() {
+    fn a_collision_needs_two_raw_spellings() {
         assert_eq!(
             oracle_target()
                 .with_collision("common/technology/a.txt", &["common/technology/a.txt"])
@@ -380,16 +424,99 @@ mod tests {
                 logical: path("common/technology/a.txt")
             }
         );
-        // Enumeration emits a surviving file or a collision, never both.
+    }
+
+    #[test]
+    fn a_collision_cannot_shadow_a_file_in_either_declaration_order() {
+        // Enumeration emits a surviving file or a collision for a path, never both. The
+        // reversed order is the one that used to build `Ok`, because `with_collision`
+        // consulted `self.files` but `with_file` never consulted `self.gaps` — and the
+        // corpus it produced answered `read_asset` with `Captured` where a live snapshot
+        // answers `Absent(Collision)`.
+        let labels = ["descriptor.mod", "Descriptor.mod"];
         assert_eq!(
             oracle_target()
-                .with_collision("descriptor.mod", &["descriptor.mod", "Descriptor.mod"])
+                .with_collision("descriptor.mod", &labels)
                 .build()
                 .unwrap_err(),
             FixtureError::Duplicate {
                 logical: path("descriptor.mod")
             }
         );
+        assert_eq!(
+            FixtureCorpus::new(SourceKind::TargetMod)
+                .with_collision("descriptor.mod", &labels)
+                .with_file("descriptor.mod", DESCRIPTOR)
+                .build()
+                .unwrap_err(),
+            FixtureError::Duplicate {
+                logical: path("descriptor.mod")
+            }
+        );
+    }
+
+    #[test]
+    fn a_collision_cannot_be_declared_twice() {
+        // `classify_entries` keys collisions by logical path, so one path collides at most
+        // once; two declarations would also encode as two items in the digest.
+        let labels = ["common/technology/a.txt", "common/technology/A.txt"];
+        assert_eq!(
+            oracle_target()
+                .with_collision("common/technology/a.txt", &labels)
+                .with_collision("common/technology/a.txt", &labels)
+                .build()
+                .unwrap_err(),
+            FixtureError::Duplicate {
+                logical: path("common/technology/a.txt")
+            }
+        );
+    }
+
+    #[test]
+    fn a_collision_at_a_policy_excluded_path_is_refused() {
+        // The walk only ever considers paths the policy selects, so it cannot observe a
+        // collision anywhere else — the same rule `with_file` applies to content.
+        assert_eq!(
+            oracle_target()
+                .with_collision(
+                    "sound/effects.txt",
+                    &["sound/effects.txt", "sound/Effects.txt"]
+                )
+                .build()
+                .unwrap_err(),
+            FixtureError::FileExcludedByPolicy {
+                logical: path("sound/effects.txt")
+            }
+        );
+    }
+
+    #[test]
+    fn a_collided_path_never_reads_as_captured_in_any_declaration_order() {
+        // The agreement property, stated as what is checkable here: a live snapshot answers
+        // `Absent(Collision)` for a collided path, so no corpus may answer `Captured` for
+        // one. Both halves hold — a corpus that pairs a collision with a file is unbuildable
+        // (above), and one that does not never has content at that path to short-circuit to.
+        //
+        // The live half cannot be staged: APFS cannot hold two names that normalize alike
+        // (D-111). What makes the two agree is that `observe_asset` is backing-agnostic —
+        // the content shortcut, the collision refusal, and their order are one code path
+        // that a fixture and a live snapshot both run.
+        let collided = "common/technology/zz_oracle_tech.txt";
+        let snapshot = FixtureCorpus::new(SourceKind::TargetMod)
+            .with_file("descriptor.mod", DESCRIPTOR)
+            .with_collision(
+                collided,
+                &[collided, "common/technology/ZZ_oracle_tech.txt"],
+            )
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            snapshot.read_asset(&path(collided)),
+            AssetRead::Absent(AssetAbsence::Collision)
+        );
+        assert_eq!(snapshot.read(&path(collided)), None);
+        assert!(snapshot.captured_assets().is_empty());
     }
 
     #[test]
