@@ -3,3 +3,4 @@
 //! (docs/technical-design.md, "Mutable state storage"). Populated in Phase 1.
 
 pub mod model;
+pub mod replace;
