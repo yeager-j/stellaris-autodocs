@@ -4,3 +4,4 @@
 
 pub mod model;
 pub mod replace;
+pub mod store;
