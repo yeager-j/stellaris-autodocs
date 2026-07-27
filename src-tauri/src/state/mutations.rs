@@ -102,17 +102,11 @@ impl StateStore {
         })
     }
 
-    /// The publication compare-and-swap. [`PublicationCapability`] is how `revisions`
-    /// reaches it: this inherent method is the implementation, that handle is the grant.
-    ///
-    /// `installation` and `location` are trusted as a coherent pair: `ModInstallationId`
-    /// derivation is one-way, so nothing here can verify that `installation` was
-    /// actually derived from `location`. A mismatched pair would survive
-    /// `remove_discovery_location`'s cascade as an unreachable reference. The state
-    /// module deliberately does not own that guarantee — the caller (the application
-    /// layer, mapping a scan result's installation and its owning location together)
-    /// is the only place both halves of the pair are simultaneously in hand.
-    pub fn set_publication_reference(
+    /// The publication compare-and-swap. This inherent method is the implementation;
+    /// [`PublicationCapability::set_publication_reference`] is the grant, and — since this
+    /// is visible only inside `state` — the only route any other module has to it. The
+    /// caller obligation the two share is stated once, there.
+    pub(super) fn set_publication_reference(
         &self,
         installation: ModInstallationId,
         location: DiscoveryLocationId,

@@ -4,6 +4,7 @@
 
 use super::model::{AppState, CURRENT_SCHEMA};
 use super::replace::{RealIo, ReplaceOutcome, ReplacementIo, replace_state, sweep_stale_temps};
+use crate::canonical::hex;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::fmt;
@@ -165,7 +166,7 @@ impl StateStore {
             .map(|d| d.as_secs())
             .unwrap_or(0);
         let hash = Sha256::digest(&bytes);
-        let short: String = hash[..4].iter().map(|b| format!("{b:02x}")).collect();
+        let short = hex::encode(&hash[..4]);
         let name = format!("{STATE_FILE}.quarantine-{timestamp}-{short}");
         let quarantined_to = state_path.with_file_name(&name);
         fs::rename(&state_path, &quarantined_to).map_err(|error| OpenError {

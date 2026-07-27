@@ -1,14 +1,76 @@
-//! Sole owner of Documentation Revision bundle I/O: staging, validation, atomic
-//! publication, the Revision Reader, handle pinning, and retention
+//! Sole owner of Documentation Revision bundle I/O: staging, validation, and atomic
+//! publication now; the Revision Reader, handle pinning, and retention from STE-17
 //! (docs/technical-design.md, "Documentation revision publication"). Populated in Phase 3.
+//!
+//! [`RevisionStore::publish`] is the whole product surface: one operation that takes a
+//! [`RevisionCandidate`] and either publishes it or reports what is true on disk instead.
+//! Staging, the bundle layout, and the validator are deliberately unreachable from
+//! outside. A caller able to stage without publishing, or to move a directory itself,
+//! could produce exactly the intermediate states the protocol exists to make unreachable,
+//! and the module would be holding a rule rather than enforcing one.
+//!
+//! # What a publication establishes
+//!
+//! Two commit points, in this order: the durable move of a validated bundle onto its final
+//! path, and the compare-and-swap of the state publication reference. Whatever step fails
+//! or is interrupted, a reader is left on the previously published revision or on the
+//! replacement and never on staging state. [`Published`] reports how far each commit point
+//! got — [`PointerCommit::CommittedDurabilityUncertain`] is a success that withholds
+//! retirement eligibility, not a partial failure — and every [`PublishError`] variant names
+//! what is true on disk when it is returned.
+//!
+//! The layout is hidden behind that. A revision is addressed by its [`RevisionIdentity`]
+//! and no value this module returns carries a filesystem path, so nothing outside acquires
+//! the ability to open bundle files ahead of the reader STE-17 adds.
+//!
+//! # What a caller may not assume
+//!
+//! **That holding a [`RevisionStore`] excludes anybody.** Its lock serializes this
+//! process's protocol I/O against one revisions root and nothing more; the build lease that
+//! makes "one active documentation build" true arrives in Phase 9.
+//!
+//! **That publication re-checks the source.** The candidate's fingerprints are recorded,
+//! never re-observed. Verifying that the live source still matches immediately before
+//! publishing is the build coordinator's step, and `revisions` does not silently acquire it
+//! (D-085): a candidate built from a tree that has since changed publishes without
+//! complaint.
+//!
+//! **That a refusal can be retried by looping.** A stale `expected_prior` is reported as
+//! `ExpectedMismatch` *after* the bundle has reached its final path, so a retry that only
+//! re-reads the pointer republishes the same identifier — finds its own bundle already
+//! complete — and races the same way again. The caller re-derives its intent or gives up.
+//!
+//! # Platform caveat: an open handle can refuse a directory rename
+//!
+//! Commit point 1 moves a whole directory. On Windows a rename is refused with a sharing
+//! violation while a handle inside the tree is open, rather than proceeding as it does
+//! under POSIX. Nothing outside this module can hold one today — a staging directory's name
+//! is a fresh UUID that leaves only inside a [`PublishError`] — but STE-17's Revision Reader
+//! pins handles inside `bundles/`, which is where retention's removals will meet the same
+//! restriction, and where "publication is never blocked by a reader" stops being free.
+//! Established on a real machine by the Phase 12 Windows packaged smoke test, the way
+//! [`state::replace`](crate::state::replace) records the equivalent caveat for its own
+//! replacement semantics.
 
 pub mod candidate;
 pub mod manifest;
-pub mod publish;
-pub mod stage;
+mod publish;
+mod stage;
 
-use candidate::RevisionCandidate;
-use publish::{PublicationIo, PublishError, Published, RealPublicationIo, publish_revision};
+pub use candidate::{
+    CandidateError, DocumentIdentity, EntryList, EntrySummary, RevisionCandidate, RevisionDocument,
+    RevisionInputs,
+};
+pub use manifest::{
+    BUNDLE_SCHEMA_VERSION, BundleManifest, IdentityParseError, ManifestParseError, RevisionIdentity,
+};
+pub use publish::{BundleCompletion, PointerCommit, PublicationIo, PublishError, Published};
+pub use stage::{
+    BundleRefusal, RevisionMismatch, SchemaMismatch, StageError, ValidationReport,
+    is_staging_attempt_name,
+};
+
+use publish::{RealPublicationIo, publish_revision};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, PoisonError};

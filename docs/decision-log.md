@@ -912,6 +912,62 @@ That absent-to-absent rule carries a dependency on a module that does not exist 
 
 Left unfixed rather than fixed blind. macOS cannot stage the failure: APFS (case-sensitive included) and exFAT both normalize in the driver rather than the on-disk format, so writing the NFC spelling *overwrites* an NFD-named file instead of creating a second directory entry — verified on an exFAT disk image. A `read_dir`-and-match fallback on the miss path would therefore ship unexercised. Deferred to the Windows and Linux test harness, alongside the junction and reparse-point question `source::enumerate` records (Phase 12).
 
+### Revision publication
+
+Recorded on completion of Phase 3 tasks 1–2, the minimal revision bundle and atomic publication (2026-07-27). These extend D-090 (revisions owns publication sequencing) and D-093 (the module map and its sanctioned edges).
+
+**D-116 — The Phase 3 manifest carries what Phase 3 can populate**
+
+A bundle manifest carries the bundle schema version, the Mod Installation identifier, the Target Mod and Vanilla Content fingerprints, the analysis version vector, whether the documentation is complete, and the hash of every required entry. Those six are what the Revision identifier is derived over, so the identifier already distinguishes every build the walking skeleton can produce.
+
+The design's remaining manifest content — the required Asset Store keys and the referenced-source-asset input set — is deliberately absent rather than present and empty. Phase 8 is the phase that registers the DDS conversion recipe in `AnalysisVersionVector::asset_recipes`, and that registration changes the digest the identifier nests, hence every Revision identifier, at exactly that moment. Adding the two fields then costs nothing that is not already being paid, while adding them now would model something nothing writes, nothing reads, and no test can meaningfully constrain — and would leave a reader unable to tell "this revision references no assets" from "this build could not have known".
+
+**D-117 — `state` grants publication as a capability handle, not as a store reference**
+
+`revisions` receives a `PublicationCapability`, which delegates one compare-and-swap on one Mod Installation's publication reference and exposes nothing else. `StateStore`'s own compare-and-swap is visible only inside `state`, so the handle is not merely the polite route but the only expressible one from any other module.
+
+That is what makes D-090's "`revisions` cannot modify unrelated settings or access the mutable state representation" structural rather than a matter of discipline. A `&StateStore` would have carried Discovery Location configuration, quarantine acknowledgement, and the whole snapshot along with it. The capability borrows rather than owns: the store's lifetime is the process and the composition root holds it, so granting is an explicit act at a place where a `&StateStore` is legitimately in hand.
+
+The caller still owes one guarantee neither layer can check — that the installation and the location handed in are a coherent pair, since `ModInstallationId` derivation is one-way. That obligation is stated once, on the capability method, because passing the capability down does not move it.
+
+**D-118 — Bundle validation is the reader-shaped observation this phase ships**
+
+One function decides whether a directory is a Documentation Revision bundle: it reads the manifest back from disk, re-derives the identifier from the manifest's own body, re-hashes every required entry, and reports everything the directory holds that the manifest does not account for. It proves integrity, not readability — it hashes bytes without parsing them — and it reports the whole disagreement rather than the first finding, because a person diagnosing a damaged bundle needs all of it and the protocol's adopt-or-refuse decision rests on which kinds are present.
+
+The publication protocol, STE-17's Revision Reader, and Phase 9's Validate Published Revision are the same question asked of a directory. STE-17 wraps this path rather than replacing it; a second implementation would be a second authority on what a bundle is, and the two would diverge in the direction that matters — one accepting what the other rejects.
+
+A separate entry point answers the second question, "and is it *this* revision's". That a directory under `bundles/` is named by its own manifest's identifier is a property of this protocol's writes, not of the directory, so it is checked rather than assumed by every caller that arrived by identifier.
+
+**D-119 — An occupied final path is adopted or refused, never replaced**
+
+A publication whose final path already holds a bundle adopts it when it validates *and* names the expected revision, and refuses otherwise. A published path is never deleted: a pinned reader may hold it, and whether the occupant is a damaged copy of this revision or an intact copy of another one, repair is a retention concern for a later phase. On refusal the staging directory is retained, because it is the only evidence of the intended replacement.
+
+Adoption is not one of several routes; it is the only one. `fs::rename` refuses a non-empty destination *directory* — POSIX returns `ENOTEMPTY` — unlike the file replacement `state::replace` depends on, where rename overwrites the destination by design. The two modules therefore cannot share a mental model of "move onto the final path", and the difference is empirical rather than stylistic. This is also the expected shape after a crash between the two commit points: an identical rebuild derives the identifier the interrupted attempt derived, finds its own completed work, and finishes the publication instead of failing forever.
+
+**D-120 — `revisions` owns the Revision Candidate type**
+
+The Revision Candidate — the installation it documents, the source fingerprints it was built from, the analysis versions that produced it, its completeness, and its documents — is defined in `revisions`, the module that consumes it and derives identity from it. It carries no Discovery Location, because a location's path is editable configuration and a rebind must not invalidate a revision, and no document carries a caller-supplied path, because a path would leak bundle layout and from Phase 6 would carry raw Stellaris identifiers into the filesystem.
+
+Phase 6 therefore adds an `analysis -> revisions` edge. It is type-only and acyclic: `revisions` does not depend on `analysis` for behaviour, only for the version-vector value type it stores. The alternative — homing the candidate in `analysis` — would make the producer the authority over what publication accepts, and would put the parse that refuses two documents of one identity somewhere other than the module whose invariant it protects.
+
+**D-121 — An unconfirmed post-move directory flush refuses the pointer commit**
+
+After the bundle reaches its final path, the `bundles/` directory entry naming it is flushed. If that flush fails, publication stops: nothing is published and the pointer is unchanged.
+
+This is deliberately asymmetric with `state`, which floors an equivalent uncertainty at `CommittedDurabilityUncertain` and advances. There the new state *is* what a reader sees, and reporting otherwise would be a lie about visible fact. Here the pointer commit would be a *further irreversible action taken on an unconfirmed foundation*: a pointer naming a bundle that a crash can still erase makes every read fail closed, and it breaks retention's assumption that a published pointer names a complete bundle. Refusing costs one rebuild, which then takes the adoption path of D-119 and flushes again.
+
+**D-122 — Identity-type edges from `revisions` to `discovery`, `source`, `analysis`, and `canonical` — proposed, not settled**
+
+`revisions` imports `ModInstallationId` and `DiscoveryLocationId` from `discovery`, `SourceFingerprint` and `ContentHash` from `source`, `AnalysisVersionVector` from `analysis`, and `LogicalPath` and the encoding and hex primitives from `canonical`. The sanctioned direct deep-module edge list (docs/technical-design.md, "Rust package and dependency direction") names none of these; it names `revisions -> state` alone. This entry exists so the gap is decided rather than inherited.
+
+The argument for accepting them: every one is a stored identity value the manifest holds and the identifier is derived over, not a behavioural dependency. `revisions` calls no traversal, no hashing of a source tree, and no analysis; it holds values those modules minted and renders them. All three peer edges are acyclic — `discovery`, `source`, and `analysis` have no dependency on `revisions` and cannot acquire one, since nothing they do needs a bundle. `canonical` is explicitly a leaf primitive below the deep-module row (D-105) and is not a peer edge at all.
+
+The nearest precedent is `analysis -> source`, which is on the list precisely because D-114 put it there when the version vector started quoting a source-owned constant — a value-type edge, named with its owner and its cycle check rather than left implicit. `state -> discovery` exists in the code for the identical reason (publication references are keyed by `ModInstallationId`) and is likewise unlisted, but it is the weaker precedent: `state` sits in the row above the deep modules, so its edge is downward rather than peer-to-peer.
+
+The argument against: the edge list is the mechanism by which "additional edges require explicit ownership and a cycle check" is enforced, and "it is only a value type" is exactly the excuse that erodes such a list one import at a time. A design document that does not name an edge the code has does not describe the code.
+
+The fallback if these are refused: `revisions` defines its own fixed-width hex newtypes for each identity and converts at the application boundary, the way `state::RevisionId` already stays an opaque round-trip token. The cost is a second authority over each identity's rendered form — the manifest's spelling of a Mod Installation identifier would no longer be the same code as `discovery`'s — and a conversion layer whose only job is to restate what the two types agree on. That cost is why the edges are proposed rather than pre-emptively avoided, but the choice is the maintainer's, and the design document is where it becomes real.
+
 ## Provisional decisions
 
 **P-004 — Adopt the extracted serializable Result package**

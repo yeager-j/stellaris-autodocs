@@ -59,6 +59,14 @@ impl PublicationIo for RealPublicationIo {
     /// directory is. A half-written entry inside a staging directory that is never
     /// renamed is removed with that directory by the retention sweep, which recognizes it
     /// by name; removing the file alone would leave the directory behind anyway.
+    ///
+    /// **Per-file `sync_all` will not scale, and this is where that is fixed.** Phase 6
+    /// stages 712–1,475 files per revision, and one flush each is the wrong shape at that
+    /// count; "write everything, then flush the tree once" is the intended replacement.
+    /// It is deliberately not done yet: the durability policy lives entirely behind this
+    /// method, so the change is one implementation with the crash matrix already standing
+    /// to re-prove it, and correctness before measurement costs nothing at Phase 3's one
+    /// document.
     fn write_file(&mut self, path: &Path, bytes: &[u8]) -> io::Result<()> {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
@@ -1485,9 +1493,11 @@ mod tests {
         });
         let (other_location, other_installation) =
             install(&fixture.pointer.store, "/tmp/other", "ugc_2");
+        // Through the capability, not through the store: `StateStore`'s compare-and-swap is
+        // visible only inside `state`, so this is the same route the protocol takes.
         fixture
             .pointer
-            .store
+            .capability()
             .set_publication_reference(
                 other_installation,
                 other_location,

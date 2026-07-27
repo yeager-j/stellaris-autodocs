@@ -11,6 +11,7 @@
 //! across a module boundary, and no panic is serialized to a transport. Transport
 //! entrypoints catch and redact unexpected failures where the runtime can safely unwind.
 
+use crate::canonical::hex;
 use std::fmt;
 
 /// Opaque identifier correlating a user-visible failure with protected log detail.
@@ -25,10 +26,7 @@ impl CorrelationId {
 
 impl fmt::Display for CorrelationId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for byte in self.0 {
-            write!(f, "{byte:02x}")?;
-        }
-        Ok(())
+        hex::write(f, &self.0)
     }
 }
 

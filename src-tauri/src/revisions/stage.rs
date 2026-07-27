@@ -92,7 +92,7 @@ pub(crate) fn bundles_root(revisions_root: &Path) -> PathBuf {
 
 /// The canonical immutable path of one published revision. The host generates it from
 /// the identifier, never from a mod name (docs/technical-design.md, "Revision bundles").
-pub fn bundle_path(revisions_root: &Path, identity: RevisionIdentity) -> PathBuf {
+pub(crate) fn bundle_path(revisions_root: &Path, identity: RevisionIdentity) -> PathBuf {
     bundles_root(revisions_root).join(identity.to_hex())
 }
 
@@ -102,6 +102,16 @@ pub fn bundle_path(revisions_root: &Path, identity: RevisionIdentity) -> PathBuf
 /// guessing: exactly the hyphenated lowercase UUID spelling [`stage_bundle`] generates,
 /// so one written form has one recognition and an unrelated directory a user dropped
 /// there is not deleted on the strength of a loose match.
+///
+/// **The one item of this module's surface with no caller yet.** Demoting it to
+/// `pub(crate)` alongside its neighbours makes it dead code under `-D warnings`, which is
+/// the compiler stating accurately that STE-17's retention sweep — the consumer this rule
+/// was written for, and the reason [`StageError::staging`] can be abandoned safely — does
+/// not exist. It is re-exported rather than deleted because the write side would then be
+/// the only spelling of the rule, and a test asserting the spelling inline would be a
+/// second authority over it. It grants nothing: a predicate over a string cannot stage,
+/// validate, or publish. Delete the re-export when the sweep lands and calls it from
+/// inside this module.
 pub fn is_staging_attempt_name(name: &str) -> bool {
     uuid::Uuid::parse_str(name).is_ok_and(|parsed| parsed.hyphenated().to_string() == name)
 }
@@ -114,7 +124,7 @@ pub fn is_staging_attempt_name(name: &str) -> bool {
 /// of one identity, and that refusal is what makes two bundle paths unable to collide.
 /// A caller never supplies a path, so no Stellaris identifier — and nothing else drawn
 /// from mod content — can reach the filesystem.
-pub fn document_path(document: &RevisionDocument) -> LogicalPath {
+pub(crate) fn document_path(document: &RevisionDocument) -> LogicalPath {
     let raw = match document.identity() {
         DocumentIdentity::EntryList => ENTRY_LIST_FILE,
     };
@@ -163,6 +173,13 @@ impl StagedBundle {
     /// What [`BundleManifest::seal`] derived from the candidate and the bytes written.
     /// The final path comes from this value through [`bundle_path`], never from the
     /// staging name.
+    ///
+    /// **Two identities exist for one bundle, and that is the point.** This one is what
+    /// the writer sealed in memory; [`ValidatedBundle::identity`] is what the manifest on
+    /// disk says. They are not two authorities — the protocol's step 6 hands this value to
+    /// [`validate_as`] and refuses to move anything unless the disk agrees, so a bundle
+    /// whose written bytes do not derive the identifier the writer computed never reaches
+    /// a final path.
     pub fn identity(&self) -> RevisionIdentity {
         self.identity
     }
