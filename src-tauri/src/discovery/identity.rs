@@ -77,10 +77,30 @@ fn decode_hex<const N: usize>(text: &str) -> Option<[u8; N]> {
     Some(out)
 }
 
+macro_rules! hex_string_serde {
+    ($ty:ident, $expected:literal) => {
+        impl serde::Serialize for $ty {
+            fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+                s.collect_str(self)
+            }
+        }
+        impl<'de> serde::Deserialize<'de> for $ty {
+            fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+                let text = String::deserialize(d)?;
+                $ty::parse(&text).map_err(|_| serde::de::Error::custom($expected))
+            }
+        }
+    };
+}
+
+hex_string_serde!(DiscoveryLocationId, "expected 32 lowercase hex characters");
+hex_string_serde!(ModInstallationId, "expected 64 lowercase hex characters");
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::canonical::path::LogicalPath;
+    use proptest::prelude::*;
 
     fn path(raw: &str) -> LogicalPath {
         LogicalPath::parse(raw).unwrap()
@@ -135,5 +155,48 @@ mod tests {
             ModInstallationId::derive(location, &path("te\u{301}ch")),
             ModInstallationId::derive(location, &path("t\u{e9}ch"))
         );
+    }
+
+    #[test]
+    fn ids_serialize_as_hex_strings_and_round_trip_as_map_keys() {
+        let location = DiscoveryLocationId::generate();
+        let installation = ModInstallationId::derive(location, &path("ugc_1"));
+        let json = serde_json::to_string(&location).unwrap();
+        assert_eq!(json, format!("\"{location}\""));
+
+        let map = std::collections::BTreeMap::from([(installation, 1u32)]);
+        let encoded = serde_json::to_string(&map).unwrap();
+        let decoded: std::collections::BTreeMap<ModInstallationId, u32> =
+            serde_json::from_str(&encoded).unwrap();
+        assert_eq!(decoded, map);
+
+        assert!(serde_json::from_str::<DiscoveryLocationId>("\"not-hex\"").is_err());
+    }
+
+    const COMPONENT_RE: &str = "[a-z0-9_\u{e9}]{1,10}(/[a-z0-9_\u{e9}]{1,10}){0,2}";
+
+    proptest! {
+        #[test]
+        fn derivation_is_injective_over_generated_inputs(
+            a in COMPONENT_RE,
+            b in COMPONENT_RE,
+        ) {
+            // Same location: distinct logical paths must yield distinct identities.
+            // Digest framing (Phase 0) is what rules out concatenation collisions.
+            let location = DiscoveryLocationId::parse(
+                "00000000000000000000000000000001",
+            ).unwrap();
+            let left = ModInstallationId::derive(location, &path(&a));
+            let right = ModInstallationId::derive(location, &path(&b));
+            prop_assert_eq!(left == right, path(&a) == path(&b));
+        }
+
+        #[test]
+        fn display_parse_round_trips(seed in any::<[u8; 16]>()) {
+            let rendered = DiscoveryLocationId::parse(
+                &seed.iter().map(|b| format!("{b:02x}")).collect::<String>(),
+            ).unwrap();
+            prop_assert_eq!(DiscoveryLocationId::parse(&rendered.to_string()), Ok(rendered));
+        }
     }
 }
