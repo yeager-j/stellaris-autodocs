@@ -42,7 +42,12 @@ pub struct RevisionCandidate {
 /// The exact source observations a revision was built from, as the fingerprints that name
 /// them. Both are required: documentation of a mod is documentation of that mod against
 /// that game build.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Serde because the bundle manifest embeds this value verbatim
+/// ([`BundleManifest`](crate::revisions::manifest::BundleManifest)), so a stored revision's
+/// inputs can be re-read and re-checked against a fresh observation. Identity still comes
+/// from `canonical::encode`, never from this serializer's output.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RevisionInputs {
     pub target_mod: SourceFingerprint,
     pub vanilla_content: SourceFingerprint,
@@ -241,6 +246,47 @@ mod tests {
             serde_json::from_slice::<EntrySummary>(&encoded).unwrap(),
             minimal
         );
+    }
+
+    #[test]
+    fn revision_inputs_round_trip_with_every_optional_field_absent() {
+        // The manifest embeds this value, and manifest validation hashes bytes without
+        // parsing them, so a stored form that cannot be read back publishes and then
+        // fails its first read (docs/technical-design.md:651).
+        //
+        // Both fields are required — a revision documents one mod against one game build,
+        // and neither half is optional — so the value with every optional field absent is
+        // the full value, and no red is reachable for this type. That is the honest
+        // statement of the obligation, not an omission of it.
+        let inputs = RevisionInputs {
+            target_mod: fingerprint(b"name=\"Fixture\"\n"),
+            vanilla_content: fingerprint(b"name=\"Stellaris\"\n"),
+        };
+        let encoded = serde_json::to_string(&inputs).unwrap();
+        assert_eq!(
+            encoded,
+            format!(
+                r#"{{"target_mod":"{}","vanilla_content":"{}"}}"#,
+                inputs.target_mod, inputs.vanilla_content
+            )
+        );
+        assert_eq!(
+            serde_json::from_str::<RevisionInputs>(&encoded).unwrap(),
+            inputs
+        );
+
+        // Neither half may go missing: dropping one would leave a manifest naming a mod
+        // with no game build to have documented it against.
+        for partial in [
+            format!(r#"{{"target_mod":"{}"}}"#, inputs.target_mod),
+            format!(r#"{{"vanilla_content":"{}"}}"#, inputs.vanilla_content),
+            String::from("{}"),
+        ] {
+            assert!(
+                serde_json::from_str::<RevisionInputs>(&partial).is_err(),
+                "accepted {partial}"
+            );
+        }
     }
 
     #[test]
