@@ -9,6 +9,7 @@
 //! Absolute paths, titles, declared versions, and content fingerprints never enter.
 
 use crate::canonical::encode::CanonicalDigest;
+use crate::canonical::hex::{self, hex_string_serde};
 use crate::canonical::path::LogicalPath;
 use std::fmt;
 
@@ -32,13 +33,13 @@ impl DiscoveryLocationId {
     }
 
     pub fn parse(text: &str) -> Result<Self, IdParseError> {
-        decode_hex::<16>(text).map(Self).ok_or(IdParseError)
+        hex::decode::<16>(text).map(Self).ok_or(IdParseError)
     }
 }
 
 impl fmt::Display for DiscoveryLocationId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write_hex(f, &self.0)
+        hex::write(f, &self.0)
     }
 }
 
@@ -54,62 +55,14 @@ impl ModInstallationId {
     }
 
     pub fn parse(text: &str) -> Result<Self, IdParseError> {
-        decode_hex::<32>(text).map(Self).ok_or(IdParseError)
+        hex::decode::<32>(text).map(Self).ok_or(IdParseError)
     }
 }
 
 impl fmt::Display for ModInstallationId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write_hex(f, &self.0)
+        hex::write(f, &self.0)
     }
-}
-
-fn write_hex(f: &mut fmt::Formatter<'_>, bytes: &[u8]) -> fmt::Result {
-    for byte in bytes {
-        write!(f, "{byte:02x}")?;
-    }
-    Ok(())
-}
-
-fn decode_hex<const N: usize>(text: &str) -> Option<[u8; N]> {
-    let bytes = text.as_bytes();
-    if bytes.len() != N * 2 {
-        return None;
-    }
-    fn nibble(byte: u8) -> Option<u8> {
-        match byte {
-            b'0'..=b'9' => Some(byte - b'0'),
-            b'a'..=b'f' => Some(byte - b'a' + 10),
-            _ => None,
-        }
-    }
-    let mut out = [0u8; N];
-    for (slot, pair) in out.iter_mut().zip(bytes.chunks_exact(2)) {
-        let hi = nibble(pair[0])?;
-        let lo = nibble(pair[1])?;
-        *slot = (hi << 4) | lo;
-    }
-    Some(out)
-}
-
-macro_rules! hex_string_serde {
-    ($ty:ident, $expected:literal) => {
-        impl serde::Serialize for $ty {
-            fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-                s.collect_str(self)
-            }
-        }
-        impl<'de> serde::Deserialize<'de> for $ty {
-            fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-                let text = String::deserialize(d)?;
-                // Names the offending value (not just the shape it should have had), so a
-                // corrupted state file is diagnosable from the deserialize error alone.
-                $ty::parse(&text).map_err(|_| {
-                    serde::de::Error::invalid_value(serde::de::Unexpected::Str(&text), &$expected)
-                })
-            }
-        }
-    };
 }
 
 hex_string_serde!(DiscoveryLocationId, "expected 32 lowercase hex characters");

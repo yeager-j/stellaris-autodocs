@@ -55,6 +55,7 @@
 //! vector in place.
 
 use crate::canonical::encode::{CanonicalDigest, DigestBytes};
+use crate::canonical::hex::{self, hex_string_serde};
 use crate::canonical::path::LogicalPath;
 use crate::source::enumerate::ObservationGaps;
 use sha2::{Digest, Sha256};
@@ -80,9 +81,9 @@ impl ContentHash {
     }
 
     /// Reads back a rendered hash. Strict: exactly 64 lowercase hex characters, so one
-    /// stored form has one parse (`discovery::identity`'s rule).
+    /// stored form has one parse (`canonical::hex`'s rule).
     pub fn parse(text: &str) -> Result<Self, HashParseError> {
-        decode_hex(text).map(Self).ok_or(HashParseError)
+        hex::decode::<32>(text).map(Self).ok_or(HashParseError)
     }
 
     /// Hashes the file's bytes as they are, with no encoding, newline, or BOM handling:
@@ -101,13 +102,13 @@ impl ContentHash {
     }
 
     pub fn to_hex(&self) -> String {
-        self.0.iter().map(|byte| format!("{byte:02x}")).collect()
+        hex::encode(&self.0)
     }
 }
 
 impl fmt::Display for ContentHash {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.to_hex())
+        hex::write(f, &self.0)
     }
 }
 
@@ -189,7 +190,7 @@ impl SourceFingerprint {
     /// Reads back a rendered fingerprint, so a stored revision input can be compared with
     /// a freshly computed one.
     pub fn parse(text: &str) -> Result<Self, HashParseError> {
-        decode_hex(text)
+        hex::decode::<32>(text)
             .map(|bytes| Self(DigestBytes(bytes)))
             .ok_or(HashParseError)
     }
@@ -251,33 +252,17 @@ impl fmt::Display for HashParseError {
 
 impl std::error::Error for HashParseError {}
 
-/// Uppercase is refused rather than accepted-and-normalized: two spellings of one hash
-/// would make stored manifest text ambiguous. Mirrors `discovery::identity::decode_hex`;
-/// a shared codec is worth extracting once a third module needs one.
-fn decode_hex(text: &str) -> Option<[u8; 32]> {
-    let bytes = text.as_bytes();
-    if bytes.len() != 64 {
-        return None;
-    }
-    fn nibble(byte: u8) -> Option<u8> {
-        match byte {
-            b'0'..=b'9' => Some(byte - b'0'),
-            b'a'..=b'f' => Some(byte - b'a' + 10),
-            _ => None,
-        }
-    }
-    let mut out = [0u8; 32];
-    for (slot, pair) in out.iter_mut().zip(bytes.chunks_exact(2)) {
-        *slot = (nibble(pair[0])? << 4) | nibble(pair[1])?;
-    }
-    Some(out)
-}
-
 impl fmt::Display for SourceFingerprint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.to_hex())
+        fmt::Display::fmt(&self.0, f)
     }
 }
+
+// Stored, not merely rendered: a revision manifest quotes the fingerprint it was built
+// from and the content hash of every file it covers, so both must read back. Identity
+// still comes from `canonical::encode`, never from this serializer's output.
+hex_string_serde!(ContentHash, "expected 64 lowercase hex characters");
+hex_string_serde!(SourceFingerprint, "expected 64 lowercase hex characters");
 
 #[cfg(test)]
 mod tests {
@@ -666,6 +651,71 @@ mod tests {
         fn assert_error<E: std::error::Error>(_: &E) {}
         assert_error(&HashParseError);
         assert!(!HashParseError.to_string().is_empty());
+    }
+
+    #[test]
+    fn hashes_and_fingerprints_serialize_as_the_hex_strings_they_render() {
+        // A revision manifest stores both and re-reads them to re-check a prior build's
+        // inputs (STE-11 re-review: "parse but no serde — needed by revision-manifest
+        // ticket"). The stored form is the rendered hex, so the manifest stays readable
+        // and a logged value matches a stored one character for character.
+        let content = ContentHash::of(b"tech_a = {}\n");
+        assert_eq!(
+            serde_json::to_string(&content).unwrap(),
+            format!("\"{content}\"")
+        );
+        assert_eq!(
+            serde_json::from_str::<ContentHash>(&serde_json::to_string(&content).unwrap()).unwrap(),
+            content
+        );
+
+        let fingerprint = SourceFingerprint::of(hashed(pinned_entries()), &pinned_gaps()).unwrap();
+        assert_eq!(
+            serde_json::to_string(&fingerprint).unwrap(),
+            format!("\"{fingerprint}\"")
+        );
+        assert_eq!(
+            serde_json::from_str::<SourceFingerprint>(
+                &serde_json::to_string(&fingerprint).unwrap()
+            )
+            .unwrap(),
+            fingerprint
+        );
+
+        // Content hashes are stored as map values keyed by logical path, which is the
+        // shape a manifest's entry table takes.
+        let entries = std::collections::BTreeMap::from([(path("common/a.txt"), content)]);
+        let encoded = serde_json::to_string(&entries).unwrap();
+        assert_eq!(
+            serde_json::from_str::<std::collections::BTreeMap<LogicalPath, ContentHash>>(&encoded)
+                .unwrap(),
+            entries
+        );
+    }
+
+    #[test]
+    fn a_malformed_stored_hash_is_refused_and_named_in_the_error() {
+        // Same strictness as `parse`, reached through serde: uppercase is refused rather
+        // than normalized, so one identity cannot acquire two stored spellings. The error
+        // quotes the value so a corrupted manifest is diagnosable from it alone.
+        let content = ContentHash::of(b"tech_a = {}\n");
+        for hostile in [
+            String::from("\"\""),
+            String::from("\"abc\""),
+            format!("\"{}\"", content.to_hex().to_uppercase()),
+            format!("\"{}zz\"", &content.to_hex()[..62]),
+        ] {
+            assert!(
+                serde_json::from_str::<ContentHash>(&hostile).is_err(),
+                "accepted {hostile}"
+            );
+            assert!(
+                serde_json::from_str::<SourceFingerprint>(&hostile).is_err(),
+                "accepted {hostile}"
+            );
+        }
+        let error = serde_json::from_str::<ContentHash>("\"not-a-hash\"").unwrap_err();
+        assert!(error.to_string().contains("not-a-hash"), "{error}");
     }
 
     #[test]

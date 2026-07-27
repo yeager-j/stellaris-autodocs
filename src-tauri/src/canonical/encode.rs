@@ -14,6 +14,7 @@
 //!   UTF-8 byte order; iterating a `BTreeMap<String, _>` satisfies this.
 //! - `some()` is followed by exactly one encoded value; `none()` stands alone.
 
+use crate::canonical::hex;
 use sha2::{Digest, Sha256};
 use std::fmt;
 
@@ -38,13 +39,13 @@ pub struct DigestBytes(pub [u8; 32]);
 
 impl DigestBytes {
     pub fn to_hex(&self) -> String {
-        self.0.iter().map(|byte| format!("{byte:02x}")).collect()
+        hex::encode(&self.0)
     }
 }
 
 impl fmt::Display for DigestBytes {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.to_hex())
+        hex::write(f, &self.0)
     }
 }
 

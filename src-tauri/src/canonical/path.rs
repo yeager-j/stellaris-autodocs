@@ -92,6 +92,35 @@ impl fmt::Display for LogicalPath {
     }
 }
 
+impl serde::Serialize for LogicalPath {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(&self.0)
+    }
+}
+
+/// Deserialization goes through [`LogicalPath::parse`], so a stored document that names
+/// `../../etc/passwd` as an entry fails to decode. Traversal is therefore refused at the
+/// boundary, before any validation stage gets the chance to open a path — the parse
+/// result carries the evidence rather than leaving it to be re-checked downstream.
+///
+/// Written out rather than raised through `canonical::hex`'s `hex_string_serde!`: the
+/// shape is the same, but the knowledge is not, and a macro named for hex must not
+/// silently define what a path means. The rejection message is prose, matching
+/// [`PathError`]'s reason strings.
+impl<'de> serde::Deserialize<'de> for LogicalPath {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(d)?;
+        // Names the offending value, so a rejected manifest entry is diagnosable from the
+        // deserialize error alone rather than only by its position in the document.
+        Self::parse(&text).map_err(|_| {
+            serde::de::Error::invalid_value(
+                serde::de::Unexpected::Str(&text),
+                &"a relative NFC path with `/` separators and no `.` or `..` components",
+            )
+        })
+    }
+}
+
 fn has_drive_prefix(raw: &str) -> bool {
     let mut chars = raw.chars();
     matches!(
@@ -178,6 +207,71 @@ mod tests {
             assert!(!rendered.is_empty());
             assert!(!rendered.contains("PathError"), "{rendered}");
         }
+    }
+
+    #[test]
+    fn a_logical_path_round_trips_as_a_plain_json_string() {
+        // A revision manifest is human-readable JSON keyed and valued by logical paths
+        // (docs/technical-design.md, "Materialized JSON read model"), so the stored form
+        // must be the path text itself rather than a wrapper object.
+        let path = LogicalPath::parse("common/technology/00_tech.txt").unwrap();
+        assert_eq!(
+            serde_json::to_string(&path).unwrap(),
+            "\"common/technology/00_tech.txt\""
+        );
+        assert_eq!(
+            serde_json::from_str::<LogicalPath>("\"common/technology/00_tech.txt\"").unwrap(),
+            path
+        );
+
+        // Keys as well as values: entries are stored as a map from logical path.
+        let map = std::collections::BTreeMap::from([(path.clone(), 1u32)]);
+        let encoded = serde_json::to_string(&map).unwrap();
+        assert_eq!(encoded, "{\"common/technology/00_tech.txt\":1}");
+        assert_eq!(
+            serde_json::from_str::<std::collections::BTreeMap<LogicalPath, u32>>(&encoded).unwrap(),
+            map
+        );
+    }
+
+    #[test]
+    fn deserializing_normalizes_to_nfc_rather_than_preserving_stored_bytes() {
+        // `parse` is the only way in, so a decomposed spelling in a stored document
+        // becomes the same value a fresh enumeration would produce. Without that, a
+        // hand-edited manifest could carry a path that never compares equal to the file
+        // it names.
+        let decomposed = serde_json::from_str::<LogicalPath>("\"common/te\u{301}ch.txt\"").unwrap();
+        assert_eq!(
+            decomposed,
+            LogicalPath::parse("common/t\u{e9}ch.txt").unwrap()
+        );
+        assert!(is_nfc(decomposed.as_str()));
+    }
+
+    #[test]
+    fn a_stored_traversal_path_fails_to_deserialize() {
+        // The reason deserialization goes through `parse` at all: a manifest naming
+        // `../../etc/passwd` as a required entry must be refused while it is still text,
+        // so no validation stage ever resolves it against a real directory. Absolute
+        // paths and backslashes are the same escape by another spelling.
+        for hostile in [
+            "\"../../etc/passwd\"",
+            "\"common/../../etc/passwd\"",
+            "\"/etc/passwd\"",
+            "\"C:/Windows/System32/config/SAM\"",
+            "\"..\\\\..\\\\etc\\\\passwd\"",
+            "\"\"",
+        ] {
+            assert!(
+                serde_json::from_str::<LogicalPath>(hostile).is_err(),
+                "accepted {hostile}"
+            );
+        }
+
+        // The rejection names the offending value, so the refusal is diagnosable from the
+        // error alone rather than only from the document position.
+        let error = serde_json::from_str::<LogicalPath>("\"../../etc/passwd\"").unwrap_err();
+        assert!(error.to_string().contains("../../etc/passwd"), "{error}");
     }
 
     #[test]
