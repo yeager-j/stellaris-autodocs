@@ -51,9 +51,7 @@ The five golden cases are the acceptance backbone: fixture authoring starts earl
 
 ---
 
-## Phase 0 — Foundations
-
-Detailed plan: [plans/phase-0-foundations.md](./plans/phase-0-foundations.md)
+## Phase 0 — Foundations (implemented — [detailed plan](./plans/phase-0-foundations.md))
 
 **Deliverable:** A compiling module skeleton with shared primitives every later phase consumes, plus test and CI infrastructure.
 
