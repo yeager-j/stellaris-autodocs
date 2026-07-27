@@ -1302,6 +1302,13 @@ Expected: compile error — the mutation methods do not exist.
 
 - [ ] **Step 3: Implement**
 
+> **Ticket B note from the Ticket A final review:** `set_publication_reference` accepts a
+> `(ModInstallationId, DiscoveryLocationId)` pair whose coherence nothing can check, because
+> the derivation is one-way. A mismatched pair survives `remove_discovery_location`'s cascade
+> as an unreachable reference. When implementing, decide the guarantee at the mutation
+> boundary — prefer deriving the pair together from scan results at the caller, and document
+> that the state module trusts its caller here.
+
 Prepend above the test module:
 
 ```rust
@@ -1421,16 +1428,7 @@ impl StateStore {
             CommitError::Mutation(mutation) => PublicationError::Mutation(mutation),
         })
     }
-```
 
-> **Ticket B note from the Ticket A final review:** `set_publication_reference` accepts a
-> `(ModInstallationId, DiscoveryLocationId)` pair whose coherence nothing can check, because
-> the derivation is one-way. A mismatched pair survives `remove_discovery_location`'s cascade
-> as an unreachable reference. When implementing, decide the guarantee at the mutation
-> boundary — prefer deriving the pair together from scan results at the caller, and document
-> that the state module trusts its caller here.
-
-```rust
     pub fn confirm_discard_unrecovered_references(
         &self,
     ) -> Result<MutationCommit, MutationError> {
