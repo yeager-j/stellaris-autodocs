@@ -20,6 +20,9 @@ pub mod policy;
 pub mod snapshot;
 pub mod verify;
 
+#[cfg(feature = "test-support")]
+pub mod fixture;
+
 pub use enumerate::{
     FileCollision, ObservationGaps, RejectedFile, RejectionReason, RootError, SourceFile,
     SourceInventory,

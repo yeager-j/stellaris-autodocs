@@ -24,7 +24,10 @@
 //! storage choice is hidden rather than published.
 //!
 //! **Liveness is a capability, not a flag.** Only a snapshot established from a live root
-//! becomes a [`LiveSource`], and only a [`LiveSource`] can be asked to verify.
+//! becomes a [`LiveSource`], and only a [`LiveSource`] can be asked to verify. A fixture
+//! snapshot is a bare [`SourceSnapshot`]: it cannot express the question, so there is no
+//! "not applicable" arm for a caller to get wrong. The memory backing that fixtures use is
+//! compiled only under `test-support`, so a production binary cannot hold one at all.
 
 use crate::canonical::path::LogicalPath;
 use crate::source::ScanError;
@@ -127,6 +130,15 @@ impl LiveRoot {
 #[derive(Debug)]
 enum Backing {
     Live(Arc<LiveRoot>),
+    /// A fixture corpus holds every byte it can answer with, so an asset read is a lookup
+    /// and a miss is `NotFound` without a filesystem in sight.
+    ///
+    /// Compiled only under `test-support`. That is what makes "fixtures are memory-backed"
+    /// a fact about the shipped binary rather than a convention reviewers must police.
+    #[cfg(feature = "test-support")]
+    Memory {
+        assets: BTreeMap<LogicalPath, SourceBytes>,
+    },
 }
 
 /// A build-lifetime observation of one Mod Source: exact bytes for enumerated content,
@@ -270,6 +282,10 @@ impl SourceSnapshot {
         }
         let observed = match &self.backing {
             Backing::Live(root) => read_live_asset(root, &self.live_path(root, logical)),
+            #[cfg(feature = "test-support")]
+            Backing::Memory { assets } => {
+                assets.get(logical).cloned().ok_or(AssetAbsence::NotFound)
+            }
         };
         match observed {
             Ok(bytes) => AssetRead::Captured(CapturedAsset {
@@ -298,6 +314,50 @@ impl SourceSnapshot {
                 }
                 path
             }
+        }
+    }
+    /// Memory-backed construction, for [`fixture`](crate::source::fixture) corpora.
+    ///
+    /// Lives here rather than in `fixture` so the fingerprint is computed by exactly the
+    /// path a live snapshot uses: a fixture whose identity were derived separately could
+    /// agree with a live tree by accident and disagree by accident.
+    #[cfg(feature = "test-support")]
+    pub(super) fn in_memory(
+        kind: SourceKind,
+        files: BTreeMap<LogicalPath, (FileFamily, SourceBytes)>,
+        assets: BTreeMap<LogicalPath, SourceBytes>,
+    ) -> Self {
+        let content: BTreeMap<LogicalPath, CapturedFile> = files
+            .into_iter()
+            .map(|(logical, (family, bytes))| {
+                let hash = ContentHash::of(&bytes);
+                let file = SourceFile {
+                    // A fixture has no separate on-disk spelling, so the raw components are
+                    // the logical ones. Nothing addresses a filesystem through them.
+                    raw_components: logical.components().map(str::to_owned).collect(),
+                    logical: logical.clone(),
+                    family,
+                };
+                (logical, CapturedFile { file, hash, bytes })
+            })
+            .collect();
+        let gaps = ObservationGaps::default();
+        let fingerprint = SourceFingerprint::of(
+            content
+                .iter()
+                .map(|(logical, captured)| (logical.clone(), captured.hash)),
+            &gaps,
+        )
+        // `content` is a map, so no logical path can repeat; the duplicate refusal has no
+        // input to fire on.
+        .expect("a BTreeMap cannot offer one logical path twice");
+        Self {
+            kind,
+            backing: Backing::Memory { assets },
+            content,
+            gaps,
+            fingerprint,
+            assets: Mutex::new(BTreeMap::new()),
         }
     }
 }

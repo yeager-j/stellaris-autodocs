@@ -1,6 +1,11 @@
 //! Test-only helpers, compiled solely under the `test-support` feature. Production
-//! builds never enable the feature. Phase 2 adds source-owned fixture-corpus support
-//! here alongside the source module's own test seam.
+//! builds never enable the feature.
+//!
+//! Fixture Source Snapshots are **not** here: they live in
+//! [`source::fixture`](crate::source::fixture), because a fixture corpus must be built by
+//! the same construction and fingerprint path a live snapshot is, and the enumeration
+//! policy that decides what one may contain is source-owned. What lives here is helper
+//! state with a process or test lifetime rather than a deep module's knowledge.
 
 use std::path::Path;
 use tempfile::TempDir;
