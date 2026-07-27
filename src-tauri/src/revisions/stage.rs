@@ -283,8 +283,16 @@ pub fn stage_bundle(
     // name them, so the subtree the move commits is durable rather than merely visible.
     // Deepest first — a longer path sorts after its own prefix — because a parent's entry
     // is worth nothing if the child directory's contents have not reached disk.
+    //
+    // The performed/not-provided distinction is deliberately discarded here rather than
+    // accumulated: `staging/` and `bundles/` are adjacent on one filesystem, so the answer
+    // is a property of that volume and `publish_revision`'s step 8 observes the same answer
+    // one step later, where there is an outcome to carry it in (publish.rs,
+    // `BundleDurability`). Two records of one volume's answer would be two authorities on
+    // it. A flush that was *attempted and refused* is a different matter and still fails
+    // staging.
     for directory in written_dirs.iter().rev() {
-        io_seam
+        let _ = io_seam
             .sync_dir(directory)
             .map_err(|error| fail(format!("flushing {}: {error}", directory.display())))?;
     }
@@ -712,6 +720,7 @@ mod tests {
     use super::*;
     use crate::analysis::version::AnalysisVersionVector;
     use crate::discovery::identity::{DiscoveryLocationId, ModInstallationId};
+    use crate::durability::DirectoryFlush;
     use crate::revisions::candidate::{EntryList, EntrySummary, RevisionInputs};
     use crate::revisions::publish::RealPublicationIo;
     use crate::source::ObservationGaps;
@@ -807,7 +816,7 @@ mod tests {
                 .push(path.file_name().unwrap().to_string_lossy().into_owned());
             self.inner.write_file(path, bytes)
         }
-        fn sync_dir(&mut self, path: &Path) -> io::Result<()> {
+        fn sync_dir(&mut self, path: &Path) -> io::Result<DirectoryFlush> {
             self.inner.sync_dir(path)
         }
         fn rename(&mut self, from: &Path, to: &Path) -> io::Result<()> {
@@ -834,7 +843,7 @@ mod tests {
             }
             self.inner.write_file(path, bytes)
         }
-        fn sync_dir(&mut self, path: &Path) -> io::Result<()> {
+        fn sync_dir(&mut self, path: &Path) -> io::Result<DirectoryFlush> {
             self.inner.sync_dir(path)
         }
         fn rename(&mut self, from: &Path, to: &Path) -> io::Result<()> {

@@ -18,6 +18,7 @@
 //! [`stage::validate`]: crate::revisions::stage::validate
 
 use crate::discovery::identity::DiscoveryLocationId;
+use crate::durability::DirectoryFlush;
 use crate::revisions::candidate::RevisionCandidate;
 use crate::revisions::manifest::RevisionIdentity;
 use crate::revisions::stage::{
@@ -39,13 +40,16 @@ pub trait PublicationIo {
     fn create_dir(&mut self, path: &Path) -> io::Result<()>;
     /// Create, write, and durably flush one bundle file, creating parents.
     fn write_file(&mut self, path: &Path, bytes: &[u8]) -> io::Result<()>;
-    /// Durably flush a directory's entries where the platform provides it. Where it does
-    /// not — Windows offers no directory flush at all — [`durability::sync_dir`] reports
-    /// success and records what that gives up, so the protocol below can read an error as
-    /// a real durability failure on every platform (docs/decision-log.md, D-123).
+    /// Durably flush a directory's entries, reporting whether the flush was performed
+    /// ([`DirectoryFlush::Flushed`]) or is not provided by this platform and filesystem
+    /// ([`DirectoryFlush::NotProvided`]); an error means it was attempted and refused.
+    ///
+    /// The protocol below reads all three, and they are not interchangeable: an error is
+    /// D-121's refusal, while `NotProvided` publishes and weakens
+    /// [`Published::bundle_durability`] instead (docs/decision-log.md, D-121 and D-123).
     ///
     /// [`durability::sync_dir`]: crate::durability::sync_dir
-    fn sync_dir(&mut self, path: &Path) -> io::Result<()>;
+    fn sync_dir(&mut self, path: &Path) -> io::Result<DirectoryFlush>;
     /// Atomically move a validated staging directory onto its final path. Commit point 1.
     fn rename(&mut self, from: &Path, to: &Path) -> io::Result<()>;
     /// Best-effort removal of an abandoned staging directory.
@@ -82,7 +86,7 @@ impl PublicationIo for RealPublicationIo {
         file.sync_all()
     }
 
-    fn sync_dir(&mut self, path: &Path) -> io::Result<()> {
+    fn sync_dir(&mut self, path: &Path) -> io::Result<DirectoryFlush> {
         crate::durability::sync_dir(path)
     }
 
@@ -100,8 +104,9 @@ impl PublicationIo for RealPublicationIo {
     }
 }
 
-/// One completed publication: the revision that was published, and how far each of the two
-/// commit points got.
+/// One completed publication: the revision that was published, how far each of the two
+/// commit points got, and — separately from that — what is known about the first one's
+/// durability.
 ///
 /// **It carries no filesystem path, deliberately.** STE-17's Revision Reader owns bundle
 /// addressing, and handing a path back to the application would invite it to open bundle
@@ -112,6 +117,7 @@ impl PublicationIo for RealPublicationIo {
 pub struct Published {
     revision: RevisionIdentity,
     bundle: BundleCompletion,
+    bundle_durability: BundleDurability,
     pointer: PointerCommit,
 }
 
@@ -122,6 +128,14 @@ impl Published {
 
     pub fn bundle(&self) -> BundleCompletion {
         self.bundle
+    }
+
+    /// What is known about the durability of the bundle this publication completed. See
+    /// [`BundleDurability`]: on a volume that provides no directory flush this is the only
+    /// place the weakening is stated, and a caller that reports publication outcomes to the
+    /// user should report it.
+    pub fn bundle_durability(&self) -> BundleDurability {
+        self.bundle_durability
     }
 
     pub fn pointer(&self) -> PointerCommit {
@@ -140,6 +154,34 @@ pub enum BundleCompletion {
     /// rebuild derives the identifier the earlier attempt derived, so it finds its own
     /// work already complete and finishes the publication instead of failing forever.
     AlreadyComplete,
+}
+
+/// What is known about the durability of commit point 1, which is a different question
+/// from how it was reached.
+///
+/// The bundle is complete at its final path in both cases. They differ in whether anything
+/// made the `bundles/` entry naming it durable, and that is not this module's choice to
+/// make: on a volume that provides no directory flush at all — exFAT, FAT32, an SMB share —
+/// there is no operation to perform and refusing publication would mean a mod library on
+/// such a volume never works at all. So publication proceeds and says so here
+/// (docs/decision-log.md, D-121 and D-123).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BundleDurability {
+    /// `bundles/` was flushed: the entry naming this revision is on disk.
+    Flushed,
+    /// **This volume provides no directory flush, so no flush was performed.** The bundle
+    /// is complete and readable, and the same rebuild republishes it to the same path if it
+    /// is lost — the identifier is a pure function of content. What a crash or power loss in
+    /// the seconds around this publication can still cost is the bundle's directory entry,
+    /// leaving the revision absent rather than damaged, and the state pointer naming a
+    /// revision that is no longer there. Reads fail closed on that, and rebuilding repairs
+    /// it.
+    ///
+    /// **Not the same case as D-121's refusal.** A flush that was *attempted and failed* is
+    /// ambiguous evidence about one directory, and refusing there costs one rebuild. A flush
+    /// this volume never provides is a known, permanent property of the volume, and refusing
+    /// there would cost every rebuild forever.
+    NotProvidedByPlatform,
 }
 
 /// How commit point 2 — publication — was reached. Both variants mean the pointer names
@@ -360,25 +402,40 @@ pub(super) fn publish_revision(
 
     // Step 8. Also run on the adoption path: an earlier attempt may have reached exactly
     // here and failed, and this is the rebuild that is supposed to repair that.
-    if let Err(error) = io_seam.sync_dir(&bundles_root(revisions_root)) {
-        // Deliberately asymmetric with `state`, which floors at
-        // `CommittedDurabilityUncertain` and advances memory. There the new state *is*
-        // what is visible, and claiming otherwise would be a lie. Here the pointer commit
-        // would be a *further irreversible action on an unconfirmed foundation*: a pointer
-        // naming a bundle a crash can still erase makes reads fail closed, and it breaks
-        // retention's assumption that a pointer names a complete bundle. Refusing costs
-        // one rebuild, which then takes the `AlreadyComplete` path above.
+    //
+    // Three outcomes, and the middle one is the reason this is not an `if let Err`.
+    let bundle_durability = match io_seam.sync_dir(&bundles_root(revisions_root)) {
+        Ok(DirectoryFlush::Flushed) => BundleDurability::Flushed,
+        // The volume provides no directory flush. Publication proceeds, carrying the
+        // weakening in the outcome rather than refusing: this is a permanent property of
+        // the volume, not evidence about this directory, so refusing would mean a mod
+        // library on a share or a removable drive never publishes at all. The pointer
+        // commit that follows reaches the same platform fact through `state` and floors at
+        // `CommittedDurabilityUncertain` of its own accord, so the two halves of this
+        // publication agree without either consulting the other.
+        //
+        // `bundles/` and `staging/` are adjacent on one filesystem by construction — the
+        // precondition that makes the move a rename — so this one observation also settles
+        // what step 5's flushes of the staged tree achieved.
+        Ok(DirectoryFlush::NotProvided) => BundleDurability::NotProvidedByPlatform,
+        // An attempted flush was refused. Deliberately asymmetric with `state`, which
+        // floors at `CommittedDurabilityUncertain` and advances memory. There the new state
+        // *is* what is visible, and claiming otherwise would be a lie. Here the pointer
+        // commit would be a *further irreversible action on an unconfirmed foundation*: a
+        // pointer naming a bundle a crash can still erase makes reads fail closed, and it
+        // breaks retention's assumption that a pointer names a complete bundle. Refusing
+        // costs one rebuild, which then takes the `AlreadyComplete` path above.
         //
         // "Refusing costs one rebuild" is only true where the flush is an operation that
-        // can succeed. On a platform that does not provide a directory flush at all, this
-        // refusal would cost *every* rebuild forever — which is why the qualifier lives in
-        // `durability::sync_dir` rather than here: an error reaching this point always
-        // means an attempted flush was refused, never that the platform had nothing to
-        // offer (docs/decision-log.md, D-121 and D-123).
-        return Err(PublishError::BundleDurabilityUnconfirmed {
-            detail: format!("flushing the revisions directory failed: {error}"),
-        });
-    }
+        // can succeed, which is exactly what the arm above separates out: an error reaching
+        // here always means an attempted flush was refused, never that the platform had
+        // nothing to offer (docs/decision-log.md, D-121 and D-123).
+        Err(error) => {
+            return Err(PublishError::BundleDurabilityUnconfirmed {
+                detail: format!("flushing the revisions directory failed: {error}"),
+            });
+        }
+    };
 
     // Step 9 ★. The one and only state mutation this module performs, and the only one it
     // can express: `expected_prior` comes from the caller, because the caller is the only
@@ -403,6 +460,7 @@ pub(super) fn publish_revision(
     Ok(Published {
         revision,
         bundle,
+        bundle_durability,
         pointer,
     })
 }
@@ -698,8 +756,11 @@ mod tests {
         /// Step 7 ★, ambiguous the other way: the move does *not* happen, and the
         /// destination is completed by someone else before the error is classified.
         DestinationCompletedByAnotherWriter,
-        /// Step 8.
+        /// Step 8, attempted and refused — the ambiguous case D-121 refuses over.
         FlushRevisionsDirectory,
+        /// Not a failure and not one step: every directory flush reports that this volume
+        /// does not provide the operation, the way an exFAT, FAT32, or SMB volume answers.
+        NoDirectoryFlushOnThisVolume,
         /// The best-effort removal of an attempt that will never be renamed.
         DiscardStaging,
     }
@@ -749,7 +810,7 @@ mod tests {
             self.inner.write_file(path, bytes)
         }
 
-        fn sync_dir(&mut self, path: &Path) -> io::Result<()> {
+        fn sync_dir(&mut self, path: &Path) -> io::Result<DirectoryFlush> {
             if self.fails(Step::FlushRevisionsDirectory)
                 && path == bundles_root(&self.revisions_root)
             {
@@ -769,6 +830,13 @@ mod tests {
                 && path.file_name().is_some_and(|name| name == "documents")
             {
                 fs::write(path.join("stowaway.json"), b"{}").unwrap();
+            }
+            // Last, and deliberately unconditional over every path rather than scoped to one
+            // step: "this volume provides no directory flush" is a property of the volume, so
+            // a row that names it must see the same answer at open, while staging, and at
+            // step 8 alike. Every other injection above still applies on such a volume.
+            if self.fails(Step::NoDirectoryFlushOnThisVolume) {
+                return Ok(DirectoryFlush::NotProvided);
             }
             self.inner.sync_dir(path)
         }
@@ -844,7 +912,7 @@ mod tests {
             }
             self.inner.rename(from, to)
         }
-        fn sync_dir(&mut self, dir: &Path) -> io::Result<()> {
+        fn sync_dir(&mut self, dir: &Path) -> io::Result<DirectoryFlush> {
             if self.script.lock().unwrap().fail_sync_dir {
                 return Err(io::Error::other("injected state flush failure"));
             }
@@ -1086,6 +1154,7 @@ mod tests {
         let published = fixture.publish(&candidate).unwrap();
 
         assert_eq!(published.bundle(), BundleCompletion::Created);
+        assert_eq!(published.bundle_durability(), BundleDurability::Flushed);
         assert_eq!(published.pointer(), PointerCommit::Committed);
         // The final path is the identifier's, and the identifier is the candidate's alone.
         assert_eq!(published.revision(), identity_of(&candidate));
@@ -1338,6 +1407,46 @@ mod tests {
             fixture.observe(revision, &[]),
             Observed {
                 reference: Some(revision.into()),
+                bundle: BundleAtFinalPath::ThisRevision,
+                staging_attempts: 0,
+            }
+        );
+    }
+
+    #[test]
+    fn a_volume_that_provides_no_directory_flush_publishes_and_says_so() {
+        // The boundary D-121 and D-123 draw between them, from the side that must *not*
+        // refuse. The row above refuses because a flush was attempted and failed — ambiguous
+        // evidence about one directory, resolvable by one rebuild. Here the volume provides
+        // no directory flush at all, the way exFAT, FAT32, and SMB shares answer, and the
+        // same refusal would cost every rebuild forever: a mod library on a network share
+        // would simply never publish. So publication proceeds and carries the weakening in
+        // the outcome, where a caller can report it.
+        //
+        // While the two were both spelled `Ok(())` this row was indistinguishable from a
+        // clean publication and reported full durability for a flush that never happened.
+        let fixture = Fixture::new();
+        let candidate = fixture.candidate("tech_a");
+        let published = fixture
+            .publish_failing_at(&[Step::NoDirectoryFlushOnThisVolume], &candidate)
+            .unwrap();
+
+        assert_eq!(published.bundle(), BundleCompletion::Created);
+        assert_eq!(
+            published.bundle_durability(),
+            BundleDurability::NotProvidedByPlatform
+        );
+        // The revision is published and readable, which is the whole point of not refusing.
+        // The pointer commits through a real `StateStore` on this machine's own filesystem,
+        // so it reports what that filesystem actually did; on a volume where `state` met the
+        // same missing operation it would floor at `CommittedDurabilityUncertain` of its own
+        // accord (state/replace.rs,
+        // `a_flush_this_platform_does_not_provide_is_not_a_committed_durability`).
+        assert_eq!(published.pointer(), PointerCommit::Committed);
+        assert_eq!(
+            fixture.observe(published.revision(), &[]),
+            Observed {
+                reference: Some(published.revision().into()),
                 bundle: BundleAtFinalPath::ThisRevision,
                 staging_attempts: 0,
             }
@@ -1764,7 +1873,7 @@ mod tests {
         fn write_file(&mut self, path: &Path, bytes: &[u8]) -> io::Result<()> {
             self.inner.write_file(path, bytes)
         }
-        fn sync_dir(&mut self, path: &Path) -> io::Result<()> {
+        fn sync_dir(&mut self, path: &Path) -> io::Result<DirectoryFlush> {
             self.seen.lock().unwrap().push(path.to_path_buf());
             if self.refuse.as_deref() == Some(path) {
                 return Err(io::Error::other("injected open-time flush failure"));
@@ -1788,16 +1897,64 @@ mod tests {
         // flush, the first publication after these directories are created could commit its
         // pointer, lose `<root>`'s entries to a crash, and leave a reference naming a
         // revision whose entire tree is gone.
+        //
+        // `<root>` did not exist here, so the chain continues one level up: the entry naming
+        // `<root>` lives in its parent, and this open is what created it.
         let dir = TempDir::new().unwrap();
         let root = dir.path().join("revisions");
         let (seen, seam) = FlushWatch::seam(None);
         drop(RevisionStore::open_with_io(&root, seam).unwrap());
-        assert_eq!(*seen.lock().unwrap(), std::slice::from_ref(&root));
+        assert_eq!(
+            *seen.lock().unwrap(),
+            [root.clone(), dir.path().to_path_buf()]
+        );
 
         // And the refusal is fatal, which is affordable exactly here: nothing has been
         // published yet, so it costs a retry rather than a revision.
         let (_, refusing) = FlushWatch::seam(Some(root.clone()));
         assert!(RevisionStore::open_with_io(&root, refusing).is_err());
+    }
+
+    #[test]
+    fn opening_flushes_every_level_it_created_and_stops_at_the_one_it_did_not() {
+        // The finding this test exists for: `create_dir_all` creates *every* missing level,
+        // so flushing `<root>` alone leaves the entry naming `<root>` — and the entries
+        // naming each level above it — unflushed in a parent this open also created. A crash
+        // after the first publication's pointer commit could then erase the whole revisions
+        // tree while the pointer still named a bundle inside it.
+        //
+        // Where the chain stops is the other half of the claim, and it is not arbitrary: a
+        // directory that already existed was created and made durable by whoever created it,
+        // so responsibility ends at the deepest pre-existing ancestor — which is still
+        // flushed, because it holds the entry naming the topmost level this open created.
+        let dir = TempDir::new().unwrap();
+        let root = dir
+            .path()
+            .join("app-data")
+            .join("stellaris")
+            .join("revisions");
+        let (seen, seam) = FlushWatch::seam(None);
+        drop(RevisionStore::open_with_io(&root, seam).unwrap());
+        assert_eq!(
+            *seen.lock().unwrap(),
+            [
+                root.clone(),
+                root.parent().unwrap().to_path_buf(),
+                root.parent().unwrap().parent().unwrap().to_path_buf(),
+                // The TempDir itself: pre-existing, flushed because it holds the entry
+                // naming `app-data`, and the end of the walk — nothing above it is this
+                // open's to have created.
+                dir.path().to_path_buf(),
+            ],
+            "the walk must cover every level `create_dir_all` created and stop at the \
+             deepest one that already existed"
+        );
+
+        // Reopening the same root creates nothing, so only `<root>` — which holds the
+        // `bundles/` and `staging/` entries — is this open's to flush.
+        let (seen, seam) = FlushWatch::seam(None);
+        drop(RevisionStore::open_with_io(&root, seam).unwrap());
+        assert_eq!(*seen.lock().unwrap(), std::slice::from_ref(&root));
     }
 
     #[test]

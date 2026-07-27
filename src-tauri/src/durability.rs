@@ -62,6 +62,29 @@
 //! `GENERIC_WRITE` and says nothing about the directory. On a write-capable handle an access
 //! denial is a real denial and is reported.
 //!
+//! # Three outcomes, because "not performed" is not "performed"
+//!
+//! [`sync_dir`] returns [`DirectoryFlush`] inside [`io::Result`], so the three answers stay
+//! apart: the flush was performed ([`DirectoryFlush::Flushed`]), the platform does not
+//! provide it and nothing was performed ([`DirectoryFlush::NotProvided`]), or it was
+//! attempted and refused (`Err`). An earlier version collapsed the middle answer into
+//! `Ok(())`, and both callers then reported full durability for a flush that never happened:
+//! `state::replace` returned `Committed` and `revisions` committed its pointer over a
+//! directory entry a crash could still erase. Only the caller can weigh that, so this module
+//! reports it instead of deciding it — and the middle answer is not an error, because
+//! refusing it outright would mean a revisions root on a share could never be published to
+//! at all.
+//!
+//! The two callers weigh it differently, and both readings are recorded in D-121 and D-123:
+//!
+//! - **`state`** treats it as durability not confirmed —
+//!   `ReplaceOutcome::CommittedDurabilityUncertain`, which is literally what it is. The
+//!   rename is visible either way, so nothing is withheld beyond the guarantee.
+//! - **`revisions`** publishes and carries the weakening in `Published`. D-121's refusal is
+//!   kept for a flush that was *attempted and failed* — the genuinely ambiguous case, where
+//!   one rebuild is the whole cost — because on a volume that never provides the operation
+//!   the same refusal would cost every rebuild, forever.
+//!
 //! # The residual risk, stated rather than hidden
 //!
 //! Where the tolerance fires, this is a durability weakening and is recorded as one. It is
@@ -80,7 +103,11 @@
 //! directory entry that a crash erased leaves a state document or a published bundle that
 //! is absent rather than damaged, and both callers already fail closed on absence — the
 //! Revision identifier is a pure function of content, so the same rebuild republishes to
-//! the same path and repairs it. What is lost is the *guarantee*, not the recovery.
+//! the same path and repairs it. What is lost is the *guarantee*, not the recovery. Said
+//! plainly for the user on such a volume: a crash or a power loss in the seconds around a
+//! publication can leave the newly written revision, or the state document naming it,
+//! missing on the next launch. Nothing that was already there is damaged, and rebuilding
+//! the documentation restores it.
 //!
 //! The Phase 12 Windows packaged smoke test is where this stops being a CI observation on a
 //! runner's volume and becomes one on a user-shaped installation, alongside the
@@ -91,18 +118,57 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-/// Durably flush a directory's entries where the platform provides it.
+/// What a directory flush achieved. The distinction the two commit points rest on: a flush
+/// this platform never performed must not be readable as one that succeeded.
+///
+/// `#[must_use]` because the whole point of the type is that discarding it silently is the
+/// defect it exists to prevent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[must_use]
+pub enum DirectoryFlush {
+    /// The flush was performed and reported success: the directory's entries are on disk.
+    Flushed,
+    /// This platform or filesystem does not provide a directory flush, so **none was
+    /// performed**. The entries are visible to a reader and a crash can still erase them;
+    /// see the module documentation for where this happens and what it costs.
+    NotProvided,
+}
+
+/// Durably flush a directory's entries where the platform provides it, reporting which of
+/// the three outcomes occurred.
 ///
 /// An error means the flush was attempted and refused for a reason this platform does not
-/// call "unavailable" — a caller may treat that as a genuine durability failure. A missing
-/// or unopenable directory is always an error on every platform: the open is not part of
-/// the tolerance, so a path that was never created is reported rather than excused.
-pub fn sync_dir(path: &Path) -> io::Result<()> {
+/// call "unavailable" — a caller may treat that as a genuine durability failure.
+/// `Ok(DirectoryFlush::NotProvided)` means no flush happened at all and the caller decides
+/// what that costs. A missing or unopenable directory is always an error on every platform:
+/// the open is not part of the tolerance, so a path that was never created is reported
+/// rather than excused.
+pub fn sync_dir(path: &Path) -> io::Result<DirectoryFlush> {
     let (directory, has_flush_right) = open_directory(path)?;
     match directory.sync_all() {
-        Err(error) if flush_is_unavailable(&error, has_flush_right) => Ok(()),
-        outcome => outcome,
+        Ok(()) => Ok(DirectoryFlush::Flushed),
+        Err(error) => {
+            let unavailable = flush_is_unavailable(&error, has_flush_right);
+            classify_refusal(error, unavailable)
+        }
     }
+}
+
+/// A refused flush is either the platform answering "I do not provide this" — in which case
+/// no flush happened and the caller decides what that costs — or a durability failure the
+/// caller must see.
+///
+/// **Separated from the platform gate, and compiled on every platform**, for the same reason
+/// the tolerance table below is: off Windows [`flush_is_unavailable`] folds to `false`, so
+/// the [`DirectoryFlush::NotProvided`] arm is unreachable through [`sync_dir`] on the machine
+/// this project is developed on. Written this way, the arm that decides whether an
+/// unperformed flush can masquerade as a performed one is exercisable wherever the tests run,
+/// rather than only on the `windows-latest` leg.
+fn classify_refusal(error: io::Error, unavailable: bool) -> io::Result<DirectoryFlush> {
+    if unavailable {
+        return Ok(DirectoryFlush::NotProvided);
+    }
+    Err(error)
 }
 
 /// Open a directory for flushing, reporting whether the handle carries the access right
@@ -197,10 +263,34 @@ mod tests {
     use tempfile::TempDir;
 
     #[test]
-    fn flushing_a_real_directory_succeeds() {
+    fn flushing_a_real_directory_reports_that_the_flush_was_performed() {
+        // `Flushed` and not merely `Ok`: the two callers read this value to decide whether
+        // they may claim durability, so an ordinary directory on an ordinary volume must
+        // come back as the outcome that says the entries reached disk.
         let dir = TempDir::new().unwrap();
         fs::write(dir.path().join("entry"), b"{}").unwrap();
-        sync_dir(dir.path()).unwrap();
+        assert_eq!(sync_dir(dir.path()).unwrap(), DirectoryFlush::Flushed);
+    }
+
+    #[test]
+    fn an_unavailable_flush_is_a_third_outcome_and_not_a_performed_one() {
+        // The correction this type exists for. A refusal the platform classifies as "I do
+        // not provide this" was previously converted to `Ok(())`, indistinguishable from a
+        // flush that happened — so `state` returned `Committed` and `revisions` committed
+        // its pointer over an entry a crash could still erase. The three answers now differ,
+        // and `NotProvided` is not an error, because refusing outright would mean a
+        // revisions root on a share could never be published to at all.
+        let refused = || io::Error::from_raw_os_error(1);
+        assert_eq!(
+            classify_refusal(refused(), true).unwrap(),
+            DirectoryFlush::NotProvided
+        );
+        assert_eq!(
+            classify_refusal(refused(), false)
+                .unwrap_err()
+                .raw_os_error(),
+            Some(1)
+        );
     }
 
     #[test]
@@ -245,6 +335,9 @@ mod tests {
         directory
             .sync_all()
             .expect("FlushFileBuffers refused a write-capable directory handle on this volume");
+        // And the outcome the callers read says the flush was performed, not that the
+        // platform declined to perform one.
+        assert_eq!(sync_dir(dir.path()).unwrap(), DirectoryFlush::Flushed);
     }
 
     #[test]

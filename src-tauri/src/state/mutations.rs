@@ -348,6 +348,7 @@ mod tests {
     use super::*;
     use crate::canonical::path::LogicalPath;
     use crate::discovery::identity::ModInstallationId;
+    use crate::durability::DirectoryFlush;
     use crate::state::model::RevisionId;
     use crate::state::replace::{RealIo, ReplacementIo};
     use crate::state::store::{OpenOutcome, STATE_FILE, StateStore};
@@ -495,7 +496,7 @@ mod tests {
             fn rename(&mut self, _f: &Path, _t: &Path) -> io::Result<()> {
                 unreachable!("write_temp already failed")
             }
-            fn sync_dir(&mut self, _d: &Path) -> io::Result<()> {
+            fn sync_dir(&mut self, _d: &Path) -> io::Result<DirectoryFlush> {
                 unreachable!("write_temp already failed")
             }
         }
@@ -524,8 +525,8 @@ mod tests {
                 fs::write(to, b"neither prior nor next").unwrap();
                 Err(io::Error::other("injected rename failure"))
             }
-            fn sync_dir(&mut self, _d: &Path) -> io::Result<()> {
-                Ok(())
+            fn sync_dir(&mut self, _d: &Path) -> io::Result<DirectoryFlush> {
+                Ok(DirectoryFlush::Flushed)
             }
         }
         let dir = TempDir::new().unwrap();
@@ -569,7 +570,7 @@ mod tests {
             }
             self.inner.rename(from, to)
         }
-        fn sync_dir(&mut self, dir: &Path) -> io::Result<()> {
+        fn sync_dir(&mut self, dir: &Path) -> io::Result<DirectoryFlush> {
             if self.script.lock().unwrap().fail_sync_dir {
                 return Err(io::Error::other("injected sync_dir failure"));
             }
