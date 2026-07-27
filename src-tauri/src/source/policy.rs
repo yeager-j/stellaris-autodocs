@@ -337,15 +337,21 @@ mod tests {
 
     #[test]
     fn pinned_policy_surface() {
-        // The surface and the version it names, asserted together. Editing the allowlists
-        // without bumping ENUMERATION_POLICY_VERSION now fails here, and bumping the
-        // version re-pins `AnalysisVersionVector`'s digest, which is the review moment the
-        // version vector exists to force. Re-pinning either alone silently changes what
-        // every fingerprint covers.
+        // A two-sided tripwire, not a derivation. It pins the allowlists and the version
+        // side by side so an edit to either fails a test whose comment states the protocol;
+        // it cannot *make* the bump happen, and a developer who edits an allowlist can
+        // satisfy it by re-pinning the allowlist alone. A semantic policy change that
+        // touches no constant here — `family_for` starting to accept nested `.mod` files,
+        // say — does not fail this test at all.
         //
-        // This was a tripwire in Phase 2A, when the version lived in `analysis` as a
-        // literal and nothing could make the bump happen. Homing the constant here made the
-        // coupling real.
+        // What Phase 2B did make mechanical is narrower and worth stating exactly: the
+        // version has one home, so `analysis` and `source` cannot drift apart (Meyer's
+        // Single Choice). Phase 2A kept a literal in `analysis` that nothing tied to this
+        // module.
+        //
+        // Bumping the version re-pins `AnalysisVersionVector`'s digest, which is the review
+        // moment the version vector exists to force. Re-pinning either side alone silently
+        // changes what every fingerprint covers.
         //
         // Grounding (tools/parser-spike/src/corpus.rs, verified against the local
         // install): an allowlist, not a denylist, because the install also contains

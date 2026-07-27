@@ -165,7 +165,7 @@ impl SourceInventory {
 /// Homed here, beside the two types it is made of, rather than in `source::snapshot`
 /// where the Source Snapshot consumes it: `fingerprint` and `enumerate` both need the
 /// type, and `snapshot` already depends on both, so owning it there would make the
-/// dependency mutual for no gain. `source::snapshot` re-exports the name.
+/// dependency mutual for no gain. The public name is `crate::source::ObservationGaps`.
 ///
 /// Gaps are identity-bearing, not merely a report: they join the content set in a
 /// [`SourceFingerprint`](crate::source::SourceFingerprint), so a source that stops being
@@ -317,10 +317,19 @@ pub fn classify_entries(raw: Vec<RawEntry>) -> SourceInventory {
     }
     // Reports are results too: a rejection list whose order depended on walk order would
     // make two scans of one unchanged tree disagree.
+    //
+    // The tiebreak is `code()`, not the rendered reason: the rendering of `Unreadable`
+    // embeds the OS message, which is host- and locale-dependent, so it was ordering the
+    // report by a property of the machine. Residual, stated rather than hidden: two
+    // genuinely distinct rejections can share a `(raw_label, code)` pair — several
+    // unreadable entries in one directory do — and their relative order is still walk
+    // order. The old key merely concealed that behind localized text. The digest is
+    // unaffected either way; `SourceFingerprint::of` re-projects and re-sorts, and entries
+    // that project equal encode identically.
     rejected.sort_by(|left, right| {
         left.raw_label
             .cmp(&right.raw_label)
-            .then_with(|| left.reason.to_string().cmp(&right.reason.to_string()))
+            .then_with(|| left.reason.code().cmp(right.reason.code()))
     });
     SourceInventory {
         files,

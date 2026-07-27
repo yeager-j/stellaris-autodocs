@@ -16,6 +16,7 @@
 //! through `include_bytes!`, which is a compile-time read, or from inline literals.
 
 use crate::canonical::path::{LogicalPath, PathError};
+use crate::source::enumerate::{FileCollision, ObservationGaps};
 use crate::source::policy::{self, FileFamily};
 use crate::source::snapshot::{SourceBytes, SourceKind, SourceSnapshot};
 use std::collections::BTreeMap;
@@ -30,6 +31,7 @@ pub struct FixtureCorpus {
     kind: SourceKind,
     files: BTreeMap<LogicalPath, (FileFamily, SourceBytes)>,
     assets: BTreeMap<LogicalPath, SourceBytes>,
+    gaps: ObservationGaps,
     /// The first refusal. Later ones are dropped: the first is the one a test author has to
     /// fix, and a list of consequences would bury it.
     refused: Option<FixtureError>,
@@ -52,6 +54,10 @@ pub enum FixtureError {
     ///
     /// [`SourceFingerprint::of`]: crate::source::SourceFingerprint::of
     Duplicate { logical: LogicalPath },
+    /// A declared collision named fewer than two raw spellings. One raw entry that
+    /// normalizes to a logical path is a file, not a collision, and `classify_entries`
+    /// cannot produce this shape.
+    NotACollision { logical: LogicalPath },
 }
 
 impl fmt::Display for FixtureError {
@@ -73,6 +79,11 @@ impl fmt::Display for FixtureError {
             Self::Duplicate { logical } => {
                 write!(f, "the fixture corpus already contains {logical}")
             }
+            Self::NotACollision { logical } => write!(
+                f,
+                "a collision at {logical} needs at least two raw spellings; one raw entry \
+                 normalizing to a logical path is a file"
+            ),
         }
     }
 }
@@ -85,6 +96,7 @@ impl FixtureCorpus {
             kind,
             files: BTreeMap::new(),
             assets: BTreeMap::new(),
+            gaps: ObservationGaps::default(),
             refused: None,
         }
     }
@@ -116,6 +128,37 @@ impl FixtureCorpus {
         self
     }
 
+    /// Declares that two or more raw entries normalized to one logical path, making the
+    /// fixture an **incomplete** observation.
+    ///
+    /// The one gap shape a filesystem here cannot stage: APFS is normalization- and
+    /// case-insensitive, so colliding names cannot be created on the development machine
+    /// (D-111). Declaring it is what lets the collision rules — the gap's effect on the
+    /// fingerprint, and `read_asset`'s refusal to pick a winner — be exercised at all.
+    pub fn with_collision(mut self, logical: &str, raw_labels: &[&str]) -> Self {
+        match self.parse(logical) {
+            Ok(logical) if raw_labels.len() < 2 => {
+                self.refuse(FixtureError::NotACollision { logical });
+            }
+            Ok(logical) if self.files.contains_key(&logical) => {
+                // Enumeration produces one or the other, never both: a collided path has no
+                // surviving file.
+                self.refuse(FixtureError::Duplicate { logical });
+            }
+            Ok(logical) => {
+                let mut raw_labels: Vec<String> =
+                    raw_labels.iter().map(|label| (*label).to_owned()).collect();
+                raw_labels.sort();
+                self.gaps.collisions.push(FileCollision {
+                    logical,
+                    raw_labels,
+                });
+            }
+            Err(error) => self.refuse(error),
+        }
+        self
+    }
+
     /// Builds the snapshot, or reports the first entry the corpus refused.
     pub fn build(self) -> Result<SourceSnapshot, FixtureError> {
         match self.refused {
@@ -124,6 +167,7 @@ impl FixtureCorpus {
                 self.kind,
                 self.files,
                 self.assets,
+                self.gaps,
             )),
         }
     }
@@ -282,6 +326,73 @@ mod tests {
     }
 
     #[test]
+    fn an_asset_read_of_a_collided_path_refuses_to_pick_a_winner() {
+        // The collision rule has to extend to asset reads, or it is not a refusal: without
+        // the check, `observe_asset` falls through to the backing, and on a live tree that
+        // means answering with whichever raw entry the NFC spelling lands on — the arbitrary
+        // winner `enumerate` exists to refuse.
+        //
+        // What this asserts is `Collision` rather than `NotFound`: a memory backing has no
+        // raw entries to pick between, so removing the check turns this into a plain miss.
+        // The live half — which entry the fallthrough would have read — is the part macOS
+        // cannot stage, since APFS cannot hold two names that normalize alike (D-111).
+        let snapshot = oracle_target()
+            .with_collision(
+                "common/technology/t\u{e9}ch.txt",
+                &[
+                    "common/technology/te\u{301}ch.txt",
+                    "common/technology/t\u{e9}ch.txt",
+                ],
+            )
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            snapshot.read_asset(&path("common/technology/t\u{e9}ch.txt")),
+            AssetRead::Absent(AssetAbsence::Collision)
+        );
+        assert!(snapshot.captured_assets().is_empty());
+    }
+
+    #[test]
+    fn a_declared_collision_makes_the_fixture_incomplete_and_moves_its_fingerprint() {
+        let clean = oracle_target().build().unwrap();
+        let collided = oracle_target()
+            .with_collision("common/technology/a.txt", &["common/technology/a.txt", "x"])
+            .build()
+            .unwrap();
+
+        assert!(clean.gaps().is_empty());
+        assert!(!collided.gaps().is_empty());
+        assert_eq!(collided.gaps().collisions.len(), 1);
+        // Same content, different observation, therefore different identity (D-112).
+        assert_ne!(clean.fingerprint(), collided.fingerprint());
+    }
+
+    #[test]
+    fn a_collision_needs_two_raw_spellings_and_cannot_shadow_a_file() {
+        assert_eq!(
+            oracle_target()
+                .with_collision("common/technology/a.txt", &["common/technology/a.txt"])
+                .build()
+                .unwrap_err(),
+            FixtureError::NotACollision {
+                logical: path("common/technology/a.txt")
+            }
+        );
+        // Enumeration emits a surviving file or a collision, never both.
+        assert_eq!(
+            oracle_target()
+                .with_collision("descriptor.mod", &["descriptor.mod", "Descriptor.mod"])
+                .build()
+                .unwrap_err(),
+            FixtureError::Duplicate {
+                logical: path("descriptor.mod")
+            }
+        );
+    }
+
+    #[test]
     fn a_path_the_policy_excludes_is_refused_rather_than_ignored() {
         assert_eq!(
             oracle_target()
@@ -357,8 +468,9 @@ mod tests {
 
     #[test]
     fn the_first_refusal_is_the_one_reported() {
-        // Later entries are still accepted into the maps; the corpus reports the entry the
-        // author has to fix, not the last one it saw.
+        // A refused entry never reaches a map — `with_file` refuses *instead of* inserting —
+        // so neither of these two is in the corpus. What the test pins is which one is
+        // named: the entry the author has to fix, not the last one seen.
         assert_eq!(
             oracle_target()
                 .with_file("sound/first.txt", b"x")
@@ -385,6 +497,9 @@ mod tests {
                 logical: path("common/a.txt"),
             },
             FixtureError::Duplicate {
+                logical: path("common/a.txt"),
+            },
+            FixtureError::NotACollision {
                 logical: path("common/a.txt"),
             },
         ];
