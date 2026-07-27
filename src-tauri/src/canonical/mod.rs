@@ -5,3 +5,5 @@
 //! Not part of the technical design's named module map: this is a leaf primitive module
 //! below the deep-module row. Each identity's field order and schema remain owned by the
 //! module that defines that identity; only the encoding mechanics are shared.
+
+pub mod encode;
