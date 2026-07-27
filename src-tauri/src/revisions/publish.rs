@@ -21,7 +21,8 @@ use crate::discovery::identity::DiscoveryLocationId;
 use crate::revisions::candidate::RevisionCandidate;
 use crate::revisions::manifest::RevisionIdentity;
 use crate::revisions::stage::{
-    BundleRefusal, StageError, bundle_path, bundles_root, stage_bundle, validate_as,
+    BundleRefusal, StageError, ValidatedBundle, bundle_path, bundles_root, stage_bundle,
+    validate_as,
 };
 use crate::state::{MutationCommit, PublicationCapability, PublicationError, RevisionId};
 use std::fmt;
@@ -38,7 +39,12 @@ pub trait PublicationIo {
     fn create_dir(&mut self, path: &Path) -> io::Result<()>;
     /// Create, write, and durably flush one bundle file, creating parents.
     fn write_file(&mut self, path: &Path, bytes: &[u8]) -> io::Result<()>;
-    /// Durably flush a directory's entries where the platform provides it.
+    /// Durably flush a directory's entries where the platform provides it. Where it does
+    /// not — Windows offers no directory flush at all — [`durability::sync_dir`] reports
+    /// success and records what that gives up, so the protocol below can read an error as
+    /// a real durability failure on every platform (docs/decision-log.md, D-123).
+    ///
+    /// [`durability::sync_dir`]: crate::durability::sync_dir
     fn sync_dir(&mut self, path: &Path) -> io::Result<()>;
     /// Atomically move a validated staging directory onto its final path. Commit point 1.
     fn rename(&mut self, from: &Path, to: &Path) -> io::Result<()>;
@@ -77,7 +83,7 @@ impl PublicationIo for RealPublicationIo {
     }
 
     fn sync_dir(&mut self, path: &Path) -> io::Result<()> {
-        fs::File::open(path)?.sync_all()
+        crate::durability::sync_dir(path)
     }
 
     fn rename(&mut self, from: &Path, to: &Path) -> io::Result<()> {
@@ -167,12 +173,18 @@ pub enum PublishError {
     /// directory was removed best-effort — it is damaged evidence of a build this process
     /// can simply repeat, and the refusal is the diagnostic.
     BundleInvalid { refusal: BundleRefusal },
-    /// The final path is occupied by something that is not this revision's bundle. Nothing
-    /// was moved, the pointer is unchanged, and **the staging directory is retained**: it
-    /// is the only evidence of the intended replacement. The occupant is never deleted — a
-    /// pinned reader may hold it, whether it is a damaged copy of this revision or an
-    /// intact copy of another one, and repair is a retention concern for a later phase
-    /// (docs/technical-design.md, "Revision bundles").
+    /// The final path is occupied by something this publication may not adopt: a damaged
+    /// directory, another revision's bundle, or this revision's bundle with material beside
+    /// it that the manifest does not account for. Nothing was moved and the pointer is
+    /// unchanged. The occupant is never deleted — a pinned reader may hold it, and repair is
+    /// a retention concern for a later phase (docs/technical-design.md, "Revision bundles").
+    ///
+    /// **The staging directory is retained**, as the one directory a person diagnosing this
+    /// can compare against the occupant nothing is allowed to remove. It is a diagnostic and
+    /// not recoverable state: nothing reads a staging directory back, so the retention lasts
+    /// only until the next open, whose sweep is unconditional over `staging/` (stage.rs,
+    /// "Layout"). Repeated retries therefore leave one directory each within a session and
+    /// none across launches.
     PublishedBundleUnusable { refusal: BundleRefusal },
     /// The move reported failure and the final path does not hold a complete bundle, so
     /// commit point 1 did not pass. Nothing is published, the pointer is unchanged, and
@@ -283,13 +295,13 @@ pub(super) fn publish_revision(
     let revision = staged.identity();
     let final_path = bundle_path(revisions_root, revision);
 
-    // Step 6. `ValidatedBundle` exists so this cannot be skipped: the move below consumes
-    // what only `validate` constructs. `validate_as` and not `validate`, because
-    // `final_path` was computed from the identity `stage_bundle` reported in memory while
-    // validation reads the manifest back from disk: if the two ever disagreed, this
-    // publication would move a bundle for one revision onto another revision's path. That
-    // is the same claim the adoption branch below guards, made where the name is chosen.
-    let validated = match validate_as(staged.root(), revision) {
+    // Step 6. `validate_as` and not `validate`, because `final_path` was computed from the
+    // identity `stage_bundle` reported in memory while validation reads the manifest back
+    // from disk: if the two ever disagreed, this publication would move a bundle for one
+    // revision onto another revision's path. That is the same claim the adoption branch
+    // below guards, made where the name is chosen. `validate_for_commit` adds the one
+    // finding that bars a directory from commit point 1 without barring a reader from it.
+    let validated = match validate_for_commit(staged.root(), revision) {
         Ok(validated) => validated,
         Err(refusal) => {
             discard_staging(io_seam, staged.root());
@@ -304,18 +316,19 @@ pub(super) fn publish_revision(
         FinalPath::Complete => {
             // The same bundle is already there — an identical rebuild after a crash
             // between the commit points. Adoption is sound because equal identifiers mean
-            // equal manifest bodies, validation's `unexpected` check proves the directory
-            // holds nothing besides what that manifest names, and `validate_as` proves
-            // the manifest is this revision's rather than merely some revision's.
+            // equal manifest bodies, `validate_for_commit`'s unaccounted-material check
+            // proves the directory holds nothing besides what that manifest names, and
+            // `validate_as` proves the manifest is this revision's rather than merely
+            // some revision's.
             discard_staging(io_seam, staged.root());
             BundleCompletion::AlreadyComplete
         }
         FinalPath::Occupied(refusal) => {
-            // Staging is deliberately kept: it is the only evidence of the intended
-            // replacement, and the occupant is never deleted.
+            // Staging is deliberately kept as the diagnostic counterpart to an occupant
+            // nothing is allowed to delete; the next open sweeps it.
             return Err(PublishError::PublishedBundleUnusable { refusal });
         }
-        FinalPath::Absent => match io_seam.rename(validated.path(), &final_path) {
+        FinalPath::Absent => match commit_bundle(io_seam, validated, &final_path) {
             Ok(()) => BundleCompletion::Created,
             Err(error) => classify_reported_rename_failure(
                 io_seam,
@@ -337,6 +350,13 @@ pub(super) fn publish_revision(
         // naming a bundle a crash can still erase makes reads fail closed, and it breaks
         // retention's assumption that a pointer names a complete bundle. Refusing costs
         // one rebuild, which then takes the `AlreadyComplete` path above.
+        //
+        // "Refusing costs one rebuild" is only true where the flush is an operation that
+        // can succeed. On a platform that does not provide a directory flush at all, this
+        // refusal would cost *every* rebuild forever — which is why the qualifier lives in
+        // `durability::sync_dir` rather than here: an error reaching this point always
+        // means an attempted flush was refused, never that the platform had nothing to
+        // offer (docs/decision-log.md, D-121 and D-123).
         return Err(PublishError::BundleDurabilityUnconfirmed {
             detail: format!("flushing the revisions directory failed: {error}"),
         });
@@ -369,6 +389,56 @@ pub(super) fn publish_revision(
     })
 }
 
+/// Commit point 1's admission rule: a bundle of `expected` that also holds nothing the
+/// manifest does not account for.
+///
+/// **Stricter than [`validate_as`], and only here.** Readability and adoption are two
+/// questions, and the design states only the first: a bundle is validated by "the manifest,
+/// every required entry, and a content-valid Asset Store proof"
+/// (docs/technical-design.md, "Revision bundles"). "And nothing else is present" is this
+/// protocol's addition, and it belongs to the commit point rather than to the definition of
+/// a readable bundle — a `.DS_Store` that Finder left inside a published directory must not
+/// make an otherwise intact revision unreadable, but it must stop this protocol from
+/// *inheriting* a directory whose full contents it cannot account for and then republishing
+/// it as its own work (docs/decision-log.md, D-118 and D-119).
+///
+/// Applied at both routes into commit point 1 — the staged tree about to be moved and the
+/// occupant about to be adopted — because the claim being made is the same at both: this
+/// directory, entirely, is revision `expected`.
+fn validate_for_commit(
+    path: &Path,
+    expected: RevisionIdentity,
+) -> Result<ValidatedBundle, BundleRefusal> {
+    let bundle = validate_as(path, expected)?;
+    if bundle.unaccounted().is_empty() {
+        return Ok(bundle);
+    }
+    Err(BundleRefusal::UnaccountedMaterial(
+        bundle.unaccounted().to_vec(),
+    ))
+}
+
+/// Commit point 1, and the only expression of the move in this module.
+///
+/// It takes the proof **by value**. `ValidatedBundle` has one constructor —
+/// [`validate`](crate::revisions::stage::validate) — so the move step cannot be reached
+/// with a directory nobody checked without first writing a call that does not have a proof
+/// to pass, and the proof it consumed cannot be reused to move the same directory twice.
+///
+/// What that does *not* do, stated so the next reader trusts the test rather than the
+/// paragraph: [`PublicationIo::rename`] is still a method over two paths, so a maintainer
+/// who bypassed this function entirely would compile, at the cost of an unused `validated`
+/// that `-D warnings` rejects. The behavioural gate for the ordering is
+/// `a_document_corrupted_after_it_was_hashed_is_never_moved`, which goes red when step 6 is
+/// removed.
+fn commit_bundle(
+    io_seam: &mut dyn PublicationIo,
+    validated: ValidatedBundle,
+    final_path: &Path,
+) -> io::Result<()> {
+    io_seam.rename(validated.path(), final_path)
+}
+
 /// What the final bundle path holds. The one place that question is answered, so the
 /// pre-move check and the reported-failure reclassification below cannot drift apart.
 enum FinalPath {
@@ -377,17 +447,26 @@ enum FinalPath {
     Complete,
     /// Present and not that. A valid bundle of *another* revision lands here rather than
     /// in `Complete`: the directory is undamaged, but it says nothing about the revision
-    /// this publication is trying to complete, so it cannot be adopted as one.
+    /// this publication is trying to complete, so it cannot be adopted as one. So does an
+    /// intact bundle of this revision carrying material the manifest does not account for.
     Occupied(BundleRefusal),
 }
 
 fn observe_final_path(path: &Path, expected: RevisionIdentity) -> FinalPath {
     // Read with plain `std::fs` rather than through the seam, for the reason
     // [`PublicationIo`] records: a read is not a commit point.
-    if !path.exists() {
+    //
+    // Only a definite "there is nothing here" is `Absent`. `try_exists` and not `exists`,
+    // because a stat that failed for a permission or device reason is not evidence of an
+    // empty destination, and treating it as one would send this publication into a rename
+    // onto a possibly occupied path — which then reports `BundleNotCompleted` and discards
+    // the staging directory, instead of the `PublishedBundleUnusable` refusal that keeps
+    // it. Falling through to validation is what fails closed: reading the manifest hits the
+    // same condition and reports it as a refusal.
+    if matches!(path.try_exists(), Ok(false)) {
         return FinalPath::Absent;
     }
-    match validate_as(path, expected) {
+    match validate_for_commit(path, expected) {
         Ok(_) => FinalPath::Complete,
         Err(refusal) => FinalPath::Occupied(refusal),
     }
@@ -410,7 +489,12 @@ fn classify_reported_rename_failure(
     detail: &str,
 ) -> Result<BundleCompletion, PublishError> {
     match observe_final_path(final_path, expected) {
-        FinalPath::Complete if staging.exists() => {
+        // `try_exists` and not `exists` for the reason `observe_final_path` records, with
+        // the uncertain case resolved the other way round: a stat that failed says nothing
+        // about whether this attempt performed the move, so the weaker claim is the honest
+        // one. Both arms publish; they differ only in what they assert about who moved the
+        // tree, and `discard_staging` is best-effort either way.
+        FinalPath::Complete if staging.try_exists().unwrap_or(true) => {
             discard_staging(io_seam, staging);
             Ok(BundleCompletion::AlreadyComplete)
         }
@@ -448,8 +532,8 @@ mod tests {
         EntryList, EntrySummary, RevisionCandidate, RevisionDocument, RevisionInputs,
     };
     use crate::revisions::stage::{
-        RevisionMismatch, ValidationReport, bundle_path, bundles_root, stage_bundle, staging_root,
-        validate, validate_as,
+        MANIFEST_FILE, RevisionMismatch, ValidationReport, bundle_path, bundles_root, stage_bundle,
+        staging_root, validate, validate_as,
     };
     use crate::source::ObservationGaps;
     use crate::source::fingerprint::{ContentHash, SourceFingerprint};
@@ -460,11 +544,6 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::{Arc, Mutex};
     use tempfile::TempDir;
-
-    /// The manifest's name inside a bundle, as the seam sees it going past. `stage` owns
-    /// the layout and keeps its constant private; a test that must recognize one write out
-    /// of several has no other handle on it.
-    const MANIFEST_NAME: &str = "manifest.json";
 
     /// The state store, its Discovery Location, and the installation a candidate documents
     /// there. Assembled together because `set_publication_reference` refuses an unknown
@@ -591,6 +670,9 @@ mod tests {
         /// Rewrites a document after `stage_bundle` hashed it, which is what a corrupted
         /// staged bundle looks like from the validator's side.
         CorruptAfterWriting,
+        /// Drops a file into the staged tree that no manifest names — what a file browser,
+        /// an antivirus sidecar, or a backup tool leaves behind.
+        PlantStrayDocument,
         /// Step 7 ★.
         Move,
         /// Step 7 ★, ambiguous: the move happens and the seam reports failure anyway.
@@ -639,7 +721,7 @@ mod tests {
         }
 
         fn write_file(&mut self, path: &Path, bytes: &[u8]) -> io::Result<()> {
-            let manifest = path.file_name().is_some_and(|name| name == MANIFEST_NAME);
+            let manifest = path.file_name().is_some_and(|name| name == MANIFEST_FILE);
             if manifest && self.fails(Step::WriteManifest) {
                 return Err(Self::refuse(Step::WriteManifest));
             }
@@ -664,6 +746,11 @@ mod tests {
                 && path.file_name().is_some_and(|name| name == "documents")
             {
                 fs::write(path.join("entry-list.json"), b"tampered after the write").unwrap();
+            }
+            if self.fails(Step::PlantStrayDocument)
+                && path.file_name().is_some_and(|name| name == "documents")
+            {
+                fs::write(path.join("stowaway.json"), b"{}").unwrap();
             }
             self.inner.sync_dir(path)
         }
@@ -1587,6 +1674,192 @@ mod tests {
         );
     }
 
+    /// Records every directory flush and can refuse one named path; otherwise real. The
+    /// flushes a publication performs are asserted by the crash matrix through their
+    /// consequences, but the flushes *opening* performs have no consequence to observe on a
+    /// healthy filesystem — a directory entry that did not reach disk still reads back.
+    struct FlushWatch {
+        seen: Arc<Mutex<Vec<PathBuf>>>,
+        refuse: Option<PathBuf>,
+        inner: RealPublicationIo,
+    }
+
+    impl FlushWatch {
+        fn seam(
+            refuse: Option<PathBuf>,
+        ) -> (Arc<Mutex<Vec<PathBuf>>>, Box<dyn PublicationIo + Send>) {
+            let seen = Arc::new(Mutex::new(Vec::new()));
+            let seam = Box::new(Self {
+                seen: Arc::clone(&seen),
+                refuse,
+                inner: RealPublicationIo,
+            });
+            (seen, seam)
+        }
+    }
+
+    impl PublicationIo for FlushWatch {
+        fn create_dir(&mut self, path: &Path) -> io::Result<()> {
+            self.inner.create_dir(path)
+        }
+        fn write_file(&mut self, path: &Path, bytes: &[u8]) -> io::Result<()> {
+            self.inner.write_file(path, bytes)
+        }
+        fn sync_dir(&mut self, path: &Path) -> io::Result<()> {
+            self.seen.lock().unwrap().push(path.to_path_buf());
+            if self.refuse.as_deref() == Some(path) {
+                return Err(io::Error::other("injected open-time flush failure"));
+            }
+            self.inner.sync_dir(path)
+        }
+        fn rename(&mut self, from: &Path, to: &Path) -> io::Result<()> {
+            self.inner.rename(from, to)
+        }
+        fn remove_dir_all(&mut self, path: &Path) -> io::Result<()> {
+            self.inner.remove_dir_all(path)
+        }
+    }
+
+    #[test]
+    fn opening_makes_the_revisions_root_itself_durable() {
+        // The top of the chain `stage_bundle` starts. It flushes deepest first "because a
+        // parent's entry is worth nothing if the child directory's contents have not reached
+        // disk", and step 8 flushes `bundles/` so the `<hex>` entry inside it is durable —
+        // but neither can make `bundles/`'s own entry inside `<root>` durable. Without this
+        // flush, the first publication after these directories are created could commit its
+        // pointer, lose `<root>`'s entries to a crash, and leave a reference naming a
+        // revision whose entire tree is gone.
+        let dir = TempDir::new().unwrap();
+        let root = dir.path().join("revisions");
+        let (seen, seam) = FlushWatch::seam(None);
+        drop(RevisionStore::open_with_io(&root, seam).unwrap());
+        assert_eq!(*seen.lock().unwrap(), std::slice::from_ref(&root));
+
+        // And the refusal is fatal, which is affordable exactly here: nothing has been
+        // published yet, so it costs a retry rather than a revision.
+        let (_, refusing) = FlushWatch::seam(Some(root.clone()));
+        assert!(RevisionStore::open_with_io(&root, refusing).is_err());
+    }
+
+    #[test]
+    fn a_published_bundle_holding_a_stray_file_is_readable_but_not_adoptable() {
+        // The split the validator makes, from the protocol's side. A published path is
+        // never deleted (D-119) and the identifier is a pure function of content, so if a
+        // `.DS_Store` inside a published bundle disqualified the directory outright, that
+        // revision would be unreadable *and* unrebuildable forever — every retry deriving
+        // the same identifier and landing on the same occupied path. It stays readable, and
+        // the one decision the finding is load-bearing for still refuses: this protocol will
+        // not inherit a directory whose full contents it cannot account for and republish it
+        // as its own complete work.
+        let fixture = Fixture::new();
+        let candidate = fixture.candidate("tech_a");
+        let first = fixture.publish(&candidate).unwrap();
+        let revision = first.revision();
+        fs::write(
+            bundle_path(&fixture.root, revision).join(".DS_Store"),
+            b"\0",
+        )
+        .unwrap();
+
+        // Readable: the manifest, every required entry, and this revision's identity.
+        let bundle = validate_as(&bundle_path(&fixture.root, revision), revision).unwrap();
+        assert_eq!(bundle.unaccounted(), [".DS_Store"]);
+
+        // Not adoptable: republishing the same candidate is refused, and the refusal names
+        // the file rather than reporting the revision as damaged.
+        let error = fixture
+            .publish_expecting(&candidate, Some(&revision.into()))
+            .unwrap_err();
+        let PublishError::PublishedBundleUnusable {
+            refusal: BundleRefusal::UnaccountedMaterial(names),
+        } = &error
+        else {
+            panic!("expected an unaccounted-material refusal, got {error}");
+        };
+        assert_eq!(names, &[".DS_Store".to_owned()]);
+        // The already-published pointer is untouched and the occupant is not deleted, so
+        // removing the stray file is all the repair a user owes.
+        assert_eq!(fixture.pointer.published(), Some(revision.into()));
+        fs::remove_file(bundle_path(&fixture.root, revision).join(".DS_Store")).unwrap();
+        assert_eq!(
+            fixture
+                .publish_expecting(&candidate, Some(&revision.into()))
+                .unwrap()
+                .bundle(),
+            BundleCompletion::AlreadyComplete
+        );
+    }
+
+    #[test]
+    fn a_staged_bundle_holding_a_stray_file_is_never_moved() {
+        // The other route into commit point 1, held to the same rule: a directory this
+        // protocol cannot account for in full must not *become* a published bundle either,
+        // or the refusal above would be the shape every later rebuild hits. `documents/` is
+        // where a stray lands that the walk descends into rather than naming whole.
+        let fixture = Fixture::new();
+        let candidate = fixture.candidate("tech_a");
+        let error = fixture
+            .publish_failing_at(&[Step::PlantStrayDocument], &candidate)
+            .unwrap_err();
+
+        let PublishError::BundleInvalid {
+            refusal: BundleRefusal::UnaccountedMaterial(names),
+        } = &error
+        else {
+            panic!("expected an unaccounted-material refusal, got {error}");
+        };
+        assert_eq!(names, &["documents/stowaway.json".to_owned()]);
+        assert_eq!(
+            fixture.observe(identity_of(&candidate), &[]),
+            Observed {
+                reference: None,
+                bundle: BundleAtFinalPath::Absent,
+                staging_attempts: 0,
+            }
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_final_path_that_cannot_be_stated_is_refused_rather_than_renamed_onto() {
+        // Why `try_exists` and not `exists`. A stat that fails for a permission or device
+        // reason is not evidence that the destination is empty, and `exists()` reports it as
+        // exactly that. Reading it as `Absent` sends this publication into a rename onto a
+        // path it knows nothing about, and then into `BundleNotCompleted` with the staging
+        // directory deleted — where the honest outcome is the refusal that keeps it.
+        use std::os::unix::fs::PermissionsExt;
+
+        let fixture = Fixture::new();
+        let candidate = fixture.candidate("tech_a");
+        let bundles = bundles_root(&fixture.root);
+        fs::create_dir_all(&bundles).unwrap();
+        let restore = fs::metadata(&bundles).unwrap().permissions();
+        fs::set_permissions(&bundles, fs::Permissions::from_mode(0o000)).unwrap();
+        if bundle_path(&fixture.root, identity_of(&candidate))
+            .try_exists()
+            .is_ok()
+        {
+            // Running with privileges that ignore the mode, so the case cannot be staged
+            // here. Attempting it is what keeps the claim honest where it can be.
+            fs::set_permissions(&bundles, restore).unwrap();
+            return;
+        }
+
+        let error = fixture.publish(&candidate).unwrap_err();
+        fs::set_permissions(&bundles, restore).unwrap();
+
+        let PublishError::PublishedBundleUnusable {
+            refusal: BundleRefusal::NotABundle(report),
+        } = &error
+        else {
+            panic!("expected the destination to be refused, got {error}");
+        };
+        assert!(report.manifest_unreadable.is_some(), "{report:?}");
+        // Retained, which is the difference the classification buys: the intended
+        // replacement survives the refusal instead of being discarded.
+        assert_eq!(entries(&staging_root(&fixture.root)).len(), 1);
+    }
+
     #[test]
     fn opening_puts_staging_beside_bundles_and_survives_being_opened_twice() {
         // Adjacency on one filesystem is a precondition of the protocol, not a
@@ -1658,7 +1931,7 @@ mod tests {
         assert_eq!(bundle.identity(), published.revision());
 
         let manifest =
-            BundleManifest::parse(&fs::read(bundle.path().join(MANIFEST_NAME)).unwrap()).unwrap();
+            BundleManifest::parse(&fs::read(bundle.path().join(MANIFEST_FILE)).unwrap()).unwrap();
         assert_eq!(manifest.inputs().target_mod, target.fingerprint());
         assert_eq!(manifest.inputs().vanilla_content, vanilla.fingerprint());
         assert_eq!(manifest.installation(), fixture.pointer.installation);

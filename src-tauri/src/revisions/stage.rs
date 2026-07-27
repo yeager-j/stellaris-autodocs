@@ -17,6 +17,17 @@
 //! when no publication is in flight, and anything under `bundles/` whose name is not 64
 //! lowercase hex is junk.
 //!
+//! **The first rule is unconditional, and that is the decision STE-17 should write against.**
+//! One publication failure deliberately leaves its attempt behind
+//! ([`PublishError::PublishedBundleUnusable`](crate::revisions::PublishError)), and the
+//! sweep removes it at the next open like any other. The two rules do not conflict, because
+//! a retained attempt is a diagnostic for the failure being reported *now* — the directory
+//! a person can compare against the occupant this protocol refuses to delete — and never
+//! recoverable state: nothing reads a staging directory back, and the candidate that
+//! produced it is cheaper to rebuild than to recover. A sweep that had to ask whether an
+//! attempt was retained on purpose would need a record of intent outliving the process that
+//! formed it, kept to protect material no code path consumes.
+//!
 //! Each attempt gets a fresh UUID v4 with no mod-derived component. Nothing untrusted
 //! enters a path, and no later attempt can choose a crashed attempt's name, which is the
 //! same reasoning `state::replace` records for `.state-<uuid>.tmp`
@@ -65,7 +76,12 @@ const BUNDLES_DIR: &str = "bundles";
 /// The manifest's bundle-relative name. It is not a required entry of itself, so it is a
 /// plain name rather than a [`LogicalPath`] until the validator needs to exclude it from
 /// the unaccounted-for set.
-const MANIFEST_FILE: &str = "manifest.json";
+///
+/// `pub(crate)` for the reason [`staging_root`] and [`bundles_root`] are: anything else
+/// that has to recognize or read a manifest — the crash matrix's write injection, the
+/// end-to-end test that reads one back off disk, STE-17's reader — would otherwise rebuild
+/// the name from its own string literal and become a second authority over the layout.
+pub(crate) const MANIFEST_FILE: &str = "manifest.json";
 
 /// The one Phase 3 document's bundle-relative path. Under `documents/` so a later phase's
 /// non-document bundle material (search inputs, asset key lists) can sit beside it
@@ -292,17 +308,20 @@ fn resolve(root: &Path, logical: &LogicalPath) -> PathBuf {
 }
 
 /// A bundle whose manifest was read, whose identifier is the digest of its own body, and
-/// whose directory holds exactly the entries that manifest names, each with the bytes it
-/// names.
+/// every entry that manifest names is present with the bytes it names.
 ///
-/// **Why this exists rather than a `bool` or a comment.** It is one field and it looks
-/// like ceremony; the justification is the deletion test. Delete it, and "validation
-/// precedes the durable move" becomes a line of prose inside whichever function happens
-/// to call `validate` before `rename` today — a sentence a later edit can reorder without
-/// anything failing. Keep it, and the move step's signature cannot be handed a directory
-/// nobody checked, because only [`validate`] constructs this type. That ordering is a
-/// stated acceptance criterion of the publication protocol, so it is enforced by the
-/// earliest reliable mechanism available: the type system.
+/// **Why this exists rather than a `bool` or a comment.** It is the value the publication
+/// protocol's move step takes by move (`publish::commit_bundle`), and [`validate`] is its
+/// only constructor. Delete it, and that signature takes two paths, so "validation precedes
+/// the durable move" becomes a line of prose inside whichever function happens to call
+/// `validate` before `rename` today — a sentence a later edit can reorder without anything
+/// failing. Keep it, and a caller with no proof in hand has nothing to pass.
+///
+/// **What it does not enforce**, so the claim is not larger than the mechanism:
+/// [`PublicationIo::rename`] remains a method over two paths for the test double's sake, so
+/// bypassing `commit_bundle` compiles and is caught only by the unused-variable warning
+/// `-D warnings` promotes to an error. The behavioural gate for the ordering is
+/// `publish.rs::a_document_corrupted_after_it_was_hashed_is_never_moved`.
 ///
 /// Deliberately not `Clone`: a proof is about a directory as it was observed, and a copy
 /// kept past the move would outlive what it attests to.
@@ -310,11 +329,21 @@ fn resolve(root: &Path, logical: &LogicalPath) -> PathBuf {
 pub struct ValidatedBundle {
     path: PathBuf,
     identity: RevisionIdentity,
+    unaccounted: Vec<String>,
 }
 
 impl ValidatedBundle {
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    /// Bundle-relative names of everything present that the manifest does not account for.
+    ///
+    /// A *reported* finding rather than a disqualifying one: see
+    /// [`ValidationReport::unexpected`] for why it does not decide validity, and
+    /// `publish::validate_for_commit` for the one decision it does decide.
+    pub fn unaccounted(&self) -> &[String] {
+        &self.unaccounted
     }
 
     /// Which revision this directory holds, read from the manifest on disk rather than
@@ -345,23 +374,30 @@ pub struct RevisionMismatch {
     pub found: RevisionIdentity,
 }
 
-/// Why a directory is not the bundle a caller named.
+/// Why a directory cannot be used as the bundle a caller named.
 ///
-/// Two answers rather than one widened report, because they are answers to two different
-/// questions and they call for opposite actions. A [`NotABundle`] directory disagrees with
-/// its own manifest: it is damaged, and the response is to repair or rebuild it. An
-/// [`AnotherRevision`] directory disagrees with nothing — it is somebody's complete
-/// revision, sitting where this caller expected its own — and the only correct response is
-/// to leave it exactly as it is. Folding the second into [`ValidationReport`] would put a
-/// finding in it that only one of its two entry points can ever produce, and make
-/// [`ValidationReport::is_valid`] mean something different depending on who asked.
+/// Separate answers rather than one widened report, because they call for different
+/// actions. A [`NotABundle`] directory disagrees with its own manifest: it is damaged, and
+/// the response is to repair or rebuild it. An [`AnotherRevision`] directory disagrees with
+/// nothing — it is somebody's complete revision, sitting where this caller expected its own
+/// — and the only correct response is to leave it exactly as it is. An
+/// [`UnaccountedMaterial`] directory is this revision, intact, with something else beside
+/// it; the response is to look at what that something is, and the refusal names it.
+/// Folding any of them into [`ValidationReport`] would put findings in it that only some of
+/// its entry points can ever produce, and make [`ValidationReport::is_valid`] mean
+/// something different depending on who asked.
 ///
 /// [`NotABundle`]: BundleRefusal::NotABundle
 /// [`AnotherRevision`]: BundleRefusal::AnotherRevision
+/// [`UnaccountedMaterial`]: BundleRefusal::UnaccountedMaterial
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BundleRefusal {
     NotABundle(ValidationReport),
     AnotherRevision(RevisionMismatch),
+    /// A valid bundle of the expected revision that also holds files the manifest does not
+    /// account for. Produced by `publish::validate_for_commit` and never by [`validate_as`]
+    /// — reading such a directory is fine, and only commit point 1 refuses it.
+    UnaccountedMaterial(Vec<String>),
 }
 
 impl fmt::Display for BundleRefusal {
@@ -373,6 +409,12 @@ impl fmt::Display for BundleRefusal {
                 "this directory holds revision {}, not the revision {} expected here",
                 mismatch.found, mismatch.expected
             ),
+            Self::UnaccountedMaterial(names) => write!(
+                f,
+                "this revision's directory also holds files nothing accounts for, so it \
+                 cannot be published as this revision's complete contents: {}",
+                join(names.iter().map(String::as_str))
+            ),
         }
     }
 }
@@ -381,9 +423,9 @@ impl std::error::Error for BundleRefusal {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::NotABundle(report) => Some(report),
-            // Nothing wraps a cause here: the mismatch *is* the finding, and the values a
-            // reader needs are already in the message.
-            Self::AnotherRevision(_) => None,
+            // Nothing wraps a cause here: the finding *is* the message, and the values a
+            // reader needs are already in it.
+            Self::AnotherRevision(_) | Self::UnaccountedMaterial(_) => None,
         }
     }
 }
@@ -413,6 +455,16 @@ pub struct ValidationReport {
     /// Bundle-relative names of everything the manifest does not account for, and of any
     /// directory whose contents could not be enumerated.
     ///
+    /// **Reported, and deliberately not part of [`is_valid`](ValidationReport::is_valid).**
+    /// Every other field names something the revision cannot serve; this one names material
+    /// beside a revision that is entirely intact. Since a published path is never deleted
+    /// (docs/decision-log.md, D-119) and the identifier is a pure function of content, a
+    /// single `.DS_Store` or `Thumbs.db` that a file browser dropped into a published bundle
+    /// would otherwise make that revision permanently unreadable and unrebuildable, with no
+    /// repair path in this phase. The finding still decides one thing, at the place it is
+    /// actually load-bearing: `publish::validate_for_commit` refuses to move onto or adopt a
+    /// directory whose full contents it cannot account for.
+    ///
     /// **Raw names, not [`LogicalPath`]s.** A stowaway's name need not be a valid logical
     /// path — a backslash, a `.` component, or bytes that are not UTF-8 are all possible
     /// on a real filesystem — and that fact is itself evidence, so it is reported rather
@@ -426,17 +478,17 @@ impl ValidationReport {
     /// [`ValidatedBundle`] exactly when this holds, so no caller re-decides which
     /// findings are tolerable.
     ///
-    /// `unexpected` participates. A validator that only re-hashed the entries the
-    /// manifest names would report ok on a bundle carrying an extra file nothing accounts
-    /// for, and the protocol's adoption of an already-present bundle at a final path is
-    /// sound only because this report proves the directory holds nothing else.
+    /// It is exactly the design's list — "the manifest, every required entry"
+    /// (docs/technical-design.md, "Revision bundles") — and no more. `unexpected` is
+    /// deliberately absent: it is carried on the proof instead, because it bars a directory
+    /// from being *adopted* rather than from being *read*, and only one caller makes that
+    /// decision. See [`ValidationReport::unexpected`].
     pub fn is_valid(&self) -> bool {
         self.manifest_unreadable.is_none()
             && self.schema_mismatch.is_none()
             && !self.identifier_mismatch
             && self.missing.is_empty()
             && self.changed.is_empty()
-            && self.unexpected.is_empty()
     }
 }
 
@@ -536,6 +588,7 @@ pub fn validate(root: &Path) -> Result<ValidatedBundle, ValidationReport> {
         Ok(ValidatedBundle {
             path: root.to_path_buf(),
             identity: manifest.identifier(),
+            unaccounted: report.unexpected,
         })
     } else {
         Err(report)
@@ -960,11 +1013,11 @@ mod tests {
 
     #[test]
     fn a_refused_bundle_displays_its_reason_and_implements_std_error() {
-        // The publication protocol `?`s these and logs them, so both refusals need
+        // The publication protocol `?`s these and logs them, so every refusal needs
         // Display, and the damaged one must expose its report as a source rather than
         // flatten every finding into one line (the same rationale as
-        // state/mutations.rs:638). The mismatch has no source: it wraps no cause, and both
-        // identifiers a reader needs are already in its message.
+        // state/mutations.rs:638). The other two have no source: they wrap no cause, and
+        // the values a reader needs are already in their messages.
         let (_root, staged) = stage_fixture(one_entry());
         let (_other_root, other) = stage_fixture(vec![]);
 
@@ -974,6 +1027,14 @@ mod tests {
         assert!(rendered.contains(&other.identity().to_hex()), "{rendered}");
         assert!(!rendered.contains("BundleRefusal"), "{rendered}");
         assert!(std::error::Error::source(&mismatch).is_none());
+
+        // The adoption refusal names the files it found, because that list is the whole
+        // repair instruction: delete them and the same rebuild publishes.
+        let stray = BundleRefusal::UnaccountedMaterial(vec![".DS_Store".to_owned()]);
+        let rendered = stray.to_string();
+        assert!(rendered.contains(".DS_Store"), "{rendered}");
+        assert!(!rendered.contains("BundleRefusal"), "{rendered}");
+        assert!(std::error::Error::source(&stray).is_none());
 
         fs::remove_file(staged.root().join(MANIFEST_FILE)).unwrap();
         let damaged = validate_as(staged.root(), staged.identity()).unwrap_err();
@@ -1079,30 +1140,51 @@ mod tests {
     }
 
     #[test]
-    fn a_bundle_carrying_a_file_nothing_accounts_for_is_refused() {
-        // `unexpected` participates in validity. A validator that only re-hashed the
-        // entries the manifest names would report ok here, and the protocol's adoption of
-        // an already-present bundle at a final path is sound only because this report
-        // proves the directory holds nothing else.
+    fn a_bundle_carrying_a_file_nothing_accounts_for_is_still_readable_and_says_so() {
+        // Half of the split this validator makes, and the reason it makes it: a directory
+        // whose every required entry is intact is a readable revision, whatever else a file
+        // browser or a backup tool dropped beside it. The design's list is "the manifest,
+        // every required entry" (docs/technical-design.md, "Revision bundles"); "and nothing
+        // else" is the publication protocol's addition, so it decides at the commit point
+        // and not here. `publish.rs::a_published_bundle_holding_a_stray_file_is_readable_but_
+        // not_adoptable` is the other half.
         let (_root, staged) = stage_fixture(one_entry());
         fs::write(staged.root().join("stowaway.json"), b"{}").unwrap();
         fs::create_dir(staged.root().join("assets")).unwrap();
         fs::write(staged.root().join("assets").join("blob.png"), b"\x89PNG").unwrap();
         fs::write(staged.root().join("documents").join("extra.json"), b"{}").unwrap();
 
-        let report = validate(staged.root()).unwrap_err();
-        assert!(!report.is_valid());
-        // Sorted, and a stray directory is named once rather than enumerated: the report
+        let validated = validate(staged.root()).unwrap();
+        // Sorted, and a stray directory is named once rather than enumerated: the finding
         // is a function of the directory, not of the order the platform walked it in, and
-        // one finding naming the subtree is the whole evidence.
+        // one name for the subtree is the whole evidence.
         assert_eq!(
-            report.unexpected,
+            validated.unaccounted(),
             ["assets", "documents/extra.json", "stowaway.json"]
         );
-        assert!(
-            report.missing.is_empty() && report.changed.is_empty(),
-            "{report:?}"
+        // And it is still this revision's bundle, addressed by identifier: a stray file
+        // changes nothing about which revision the directory holds.
+        assert_eq!(
+            validate_as(staged.root(), staged.identity())
+                .unwrap()
+                .unaccounted(),
+            validated.unaccounted()
         );
+    }
+
+    #[test]
+    fn a_bundle_missing_a_required_entry_is_refused_even_though_a_stray_file_is_not() {
+        // The negative control for the split above: excluding `unexpected` from validity
+        // must not have excluded anything else. A directory carrying both findings is
+        // refused, and the finding that refuses it is the entry it cannot serve.
+        let (_root, staged) = stage_fixture(one_entry());
+        fs::remove_file(resolve(staged.root(), &host_path(ENTRY_LIST_FILE))).unwrap();
+        fs::write(staged.root().join("stowaway.json"), b"{}").unwrap();
+
+        let report = validate(staged.root()).unwrap_err();
+        assert_eq!(report.missing, [host_path(ENTRY_LIST_FILE)]);
+        assert_eq!(report.unexpected, ["stowaway.json"]);
+        assert!(!report.is_valid());
     }
 
     #[cfg(unix)]
@@ -1127,8 +1209,7 @@ mod tests {
             expected.sort();
         }
 
-        let report = validate(staged.root()).unwrap_err();
-        assert_eq!(report.unexpected, expected);
+        assert_eq!(validate(staged.root()).unwrap().unaccounted(), expected);
     }
 
     #[test]

@@ -111,8 +111,13 @@ pub struct EntrySummary {
     ///
     /// `default` is stated rather than left to serde's `missing_field`, which happens to
     /// tolerate a missing `Option` today: the tolerance is this document's contract, not
-    /// a serde internal to inherit. A deliberate negative control confirmed the
-    /// absent-field test detects its loss.
+    /// a serde internal to inherit. **No test can go red for its removal**, precisely
+    /// because serde already does what it asks for — removing the attribute leaves the
+    /// whole suite green. It is stated for the reader and for the day serde's default
+    /// changes, not because a gate is watching it, and saying so is the honest form of the
+    /// claim the absent-field tests make for the fields where a red *is* reachable
+    /// (`a_manifest_round_trips_with_every_optional_field_absent`,
+    /// `an_entry_list_round_trips_with_every_optional_field_absent`).
     #[serde(default)]
     pub display_name: Option<String>,
 }

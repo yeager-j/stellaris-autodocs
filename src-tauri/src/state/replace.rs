@@ -22,7 +22,9 @@ pub trait ReplacementIo {
     fn write_temp(&mut self, dir: &Path, bytes: &[u8]) -> io::Result<PathBuf>;
     /// Atomically rename `from` onto `to`. The commit point.
     fn rename(&mut self, from: &Path, to: &Path) -> io::Result<()>;
-    /// Durably flush the directory entry change where the platform provides it.
+    /// Durably flush the directory entry change where the platform provides it. Where it
+    /// does not, [`durability::sync_dir`](crate::durability::sync_dir) reports success and
+    /// records what is given up; this seam never has to know which platform it is on.
     fn sync_dir(&mut self, dir: &Path) -> io::Result<()>;
 }
 
@@ -98,8 +100,12 @@ impl ReplacementIo for RealIo {
         fs::rename(from, to)
     }
 
+    /// Delegated rather than spelled here: whether a platform provides a directory flush
+    /// at all is one fact, and this module and `revisions::publish` both reach a commit
+    /// point that rests on it (docs/decision-log.md, D-123). Two spellings would be two
+    /// answers, and the one that mattered would be the one nobody read.
     fn sync_dir(&mut self, dir: &Path) -> io::Result<()> {
-        fs::File::open(dir)?.sync_all()
+        crate::durability::sync_dir(dir)
     }
 }
 

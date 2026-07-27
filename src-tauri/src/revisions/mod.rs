@@ -40,6 +40,19 @@
 //! re-reads the pointer republishes the same identifier — finds its own bundle already
 //! complete — and races the same way again. The caller re-derives its intent or gives up.
 //!
+//! # Platform caveat: Windows provides no directory flush
+//!
+//! Both commit points rest on a directory's entries reaching disk, and Windows has no
+//! operation that means that: a directory handle needs `FILE_FLAG_BACKUP_SEMANTICS` to open
+//! at all, and `FlushFileBuffers` on the result refuses. The decision, its NTFS
+//! metadata-journal rationale, and the residual risk on non-journalling volumes are homed
+//! once in [`durability`](crate::durability) and recorded as D-123, because
+//! [`state::replace`](crate::state::replace) commits against the same platform fact. What
+//! it means here: on Windows, step 8's refusal — [`PublishError::BundleDurabilityUnconfirmed`],
+//! the D-121 behaviour — is reachable only from a flush that was attempted and failed,
+//! never from the platform having nothing to offer. Without that qualifier no revision
+//! could ever be published on Windows at all.
+//!
 //! # Platform caveat: an open handle can refuse a directory rename
 //!
 //! Commit point 1 moves a whole directory. On Windows a rename is refused with a sharing
@@ -101,6 +114,12 @@ impl RevisionStore {
     /// is adjacent to bundles on the same filesystem, which is what makes the move a
     /// rename and not a cross-device copy (docs/technical-design.md, "Revision bundles").
     ///
+    /// Both are flushed into `root` before this returns, so the directories a publication
+    /// commits into are durable before anything is published into them. **The entry naming
+    /// `root` itself inside the application-data directory is the caller's**, not this
+    /// module's: the composition root owns that directory, and a chain of flushes that
+    /// walked upward from here would have no principled stopping point short of the volume.
+    ///
     /// The error is a plain [`io::Error`]. Open makes exactly these two directories and has
     /// no classification of its own to add; a typed wrapper would only restate the cause.
     pub fn open(root: &Path) -> io::Result<Self> {
@@ -120,6 +139,19 @@ impl RevisionStore {
     fn open_seamed(root: &Path, mut io_seam: Box<dyn PublicationIo + Send>) -> io::Result<Self> {
         io_seam.create_dir(&stage::bundles_root(root))?;
         io_seam.create_dir(&stage::staging_root(root))?;
+        // And flush the root, which is the entry that names them. Step 8 of every
+        // publication flushes `bundles/`, which makes a `<hex>` entry durable *inside*
+        // `bundles/`; it cannot make `bundles/`'s own entry inside `<root>` durable. Without
+        // this, the first publication after these directories are created can commit its
+        // pointer, crash, and come back to a root that no longer contains `bundles/` at all
+        // — a reference naming a revision whose whole tree is gone, which is precisely the
+        // outcome the two commit points exist to make unreachable. It is the same
+        // deepest-first chain `stage_bundle` follows, continued to the top rather than
+        // stopped one level short.
+        //
+        // Failing here is the cheap place to fail: nothing has been published yet, so the
+        // refusal costs a retry rather than a revision.
+        io_seam.sync_dir(root)?;
         Ok(Self {
             root: root.to_path_buf(),
             io_seam: Mutex::new(io_seam),

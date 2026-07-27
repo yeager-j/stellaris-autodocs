@@ -195,9 +195,18 @@ impl BundleManifest {
     /// `a_pinned_schema_1_manifest_decodes_and_recomputes_its_identifier` is the tripwire
     /// that makes the omission visible.
     ///
-    /// The mirror case fails closed on its own: a newer manifest carrying an *extra*
-    /// component decodes here (nothing is `deny_unknown_fields`) but drops it, so its
-    /// recomputed identity cannot match the stored one and validation refuses it.
+    /// **What an unknown key does, exactly.** Nothing declares `deny_unknown_fields`, so a
+    /// key this build does not know decodes and is dropped. That alone is benign and does
+    /// *not* disturb identity: the stored identifier was sealed over the body that build
+    /// wrote, and dropping a key it never sealed leaves the recomputation unchanged
+    /// (`an_unsupported_schema_is_distinguished_from_a_damaged_manifest` asserts the
+    /// equality). What fails closed is the case that matters — a newer build that *sealed*
+    /// its identifier over a component this build cannot read. Its body no longer recomputes
+    /// to its stored identifier here, so validation reports `identifier_mismatch` and
+    /// refuses the bundle rather than reading a revision through a partial understanding of
+    /// it. The same test provokes that case directly, and
+    /// `stage.rs::a_manifest_whose_identifier_is_not_its_own_digest_is_refused` is where the
+    /// refusal itself is asserted.
     pub fn parse(bytes: &[u8]) -> Result<Self, ManifestParseError> {
         #[derive(Deserialize)]
         struct SchemaProbe {
@@ -881,15 +890,29 @@ mod tests {
             );
         }
 
-        // A newer manifest carrying an *extra* component decodes — nothing declares
-        // `deny_unknown_fields` — and then fails closed at recomputation, because the
-        // component it dropped is one identity bound.
+        // An unknown key decodes and is dropped — nothing declares `deny_unknown_fields` —
+        // and that alone does not disturb identity. It cannot: the identifier stored here
+        // was sealed over a body without the key, so dropping it recomputes what was
+        // sealed. This is the benign half, asserted so the fail-closed half below is read
+        // as the case that carries the protocol rather than as a restatement of this one.
         let extra = PINNED_MANIFEST_JSON.replace(
             "\"analysis_issue_propagation\": 1,",
             "\"analysis_issue_propagation\": 1, \"future_component\": 4,",
         );
         let decoded = BundleManifest::parse(extra.as_bytes()).unwrap();
         assert_eq!(decoded.recomputed_identity(), decoded.identifier());
+
+        // The forward-incompatible case that actually fails closed: a newer build that
+        // *sealed* its identifier over a component this build cannot read. Its stored
+        // identifier is one no body we can decode recomputes to — hand-written here,
+        // because deriving it would require the derivation this build does not have — so
+        // the manifest parses and then loses to `identifier_mismatch` at validation
+        // (stage.rs, `a_manifest_whose_identifier_is_not_its_own_digest_is_refused`).
+        // Without this the schema-version protocol would rest on an untested claim.
+        let sealed_over_more =
+            extra.replace(&identity_of(&pinned_body()).to_hex(), &"f".repeat(64));
+        let newer = BundleManifest::parse(sealed_over_more.as_bytes()).unwrap();
+        assert_ne!(newer.recomputed_identity(), newer.identifier());
     }
 
     #[test]
