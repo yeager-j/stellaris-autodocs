@@ -4,10 +4,12 @@ Status: Outline for review
 
 Last updated: 2026-07-26
 
-> **For agentic workers:** This is the master outline. Each phase will be expanded into a
-> detailed task-level plan (bite-sized TDD steps, exact files, code, commands) before that
-> phase is executed. Detailed phase plans use superpowers:subagent-driven-development or
-> superpowers:executing-plans at execution time.
+> **For agentic workers:** This is the master outline and the durable planning document.
+> Each phase gets a deep pass before execution that pins contracts, public surfaces, test
+> obligations, pinned vectors, and evidence-bearing decisions — not implementation bodies,
+> which are delegated to capable implementing agents. Phase plans are working artifacts:
+> once a phase is implemented and merged, the plan document is deleted (the code is the
+> authority; git history preserves the plan).
 
 **Goal:** Implement the MVP defined by the [product requirements](./product-requirements.md) and [technical design](./technical-design.md): a Tauri desktop app that builds deterministic, provenance-preserving technology documentation for one Target Mod against Vanilla Content, readable on the desktop and through read-only Companion Mode, accepted by the five golden cases.
 
@@ -63,7 +65,7 @@ Blocking relations encode the dependency DAG so parallelizable work is visible. 
 
 ---
 
-## Phase 0 — Foundations (implemented — [detailed plan](./plans/phase-0-foundations.md))
+## Phase 0 — Foundations (implemented)
 
 **Deliverable:** A compiling module skeleton with shared primitives every later phase consumes, plus test and CI infrastructure.
 
@@ -76,7 +78,7 @@ Blocking relations encode the dependency DAG so parallelizable work is visible. 
 
 **Exit:** Skeleton compiles on macOS CI; canonicalization and numeric property tests pass; a negative control proves the CI gate can fail.
 
-## Phase 1 — Durable state and discovery (implemented — [detailed plan](./plans/phase-1-state-and-discovery.md))
+## Phase 1 — Durable state and discovery (implemented)
 
 **Deliverable:** The state module and Mod Library derivation, headless.
 
