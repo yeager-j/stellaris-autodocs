@@ -100,24 +100,41 @@ pub fn family_for(path: &LogicalPath) -> Option<FileFamily> {
     None
 }
 
-/// A necessary condition on a raw file name, so the walk can skip the tens of thousands
-/// of `.dds` and `.mesh` files under `gfx/` without decoding or normalizing their names.
+/// Whether a raw file name in `top_level` could be selected, judged without decoding or
+/// normalizing the name. `None` means the source root itself.
 ///
-/// Derived from the same allowlists as [`family_for`], which remains the only selector:
-/// a name accepted here is still subject to the full policy once it has a logical path.
-pub fn extension_may_be_enumerated(raw_name: &[u8]) -> bool {
-    let Some(dot) = raw_name.iter().rposition(|byte| *byte == b'.') else {
+/// The same decision as [`family_for`], taken one step earlier so the walk can skip the
+/// tens of thousands of `.dds` and `.mesh` files under `gfx/` cheaply. It is family-aware
+/// rather than a union of every extension, because a name that is *not* valid Unicode can
+/// only ever be reported as a rejection, and a rejection makes the whole inventory
+/// incomplete. A `.yml` in a script directory would be excluded by the policy anyway;
+/// admitting it here would turn a silent exclusion into a completeness failure.
+///
+/// [`family_for`] remains the only selector: this answers what *could* be selected.
+pub fn raw_name_may_be_enumerated(top_level: Option<&str>, raw_name: &[u8]) -> bool {
+    let Some(extension) = raw_extension(raw_name) else {
         return false;
     };
-    if dot == 0 || dot + 1 == raw_name.len() {
-        return false;
-    }
-    let extension = &raw_name[dot + 1..];
-    SCRIPT_EXTENSIONS
+    let permitted: &[&str] = match top_level {
+        // Only the root descriptor; a `.mod` file inside content describes another source.
+        None => std::slice::from_ref(&DESCRIPTOR_EXTENSION),
+        Some(LOCALIZATION_DIRECTORY) => LOCALIZATION_EXTENSIONS,
+        Some(directory) if SCRIPT_DIRECTORIES.contains(&directory) => SCRIPT_EXTENSIONS,
+        // A directory the walk never descends.
+        Some(_) => return false,
+    };
+    permitted
         .iter()
-        .chain(LOCALIZATION_EXTENSIONS)
-        .chain(std::iter::once(&DESCRIPTOR_EXTENSION))
         .any(|candidate| candidate.as_bytes() == extension)
+}
+
+/// The bytes after the final `.`, matching [`extension_of`]'s rule on raw bytes.
+fn raw_extension(raw_name: &[u8]) -> Option<&[u8]> {
+    let dot = raw_name.iter().rposition(|byte| *byte == b'.')?;
+    if dot == 0 || dot + 1 == raw_name.len() {
+        return None;
+    }
+    Some(&raw_name[dot + 1..])
 }
 
 /// The top-level directories a source walk descends. Everything else under the root is
@@ -239,28 +256,69 @@ mod tests {
     }
 
     #[test]
-    fn the_walk_prefilter_admits_every_selectable_extension() {
-        // A necessary condition only: everything `family_for` can select must survive it,
-        // or the walk would hide files from the authority.
-        for extension in SCRIPT_EXTENSIONS
-            .iter()
-            .chain(LOCALIZATION_EXTENSIONS)
-            .chain(std::iter::once(&DESCRIPTOR_EXTENSION))
-        {
+    fn the_walk_prefilter_mirrors_the_policy_for_decodable_names() {
+        // The prefilter exists so the walk can skip tens of thousands of `.dds` files
+        // without decoding their names. It must agree with `family_for` exactly, or it
+        // would either hide a selectable file from the authority or admit one the policy
+        // excludes.
+        let extensions = ["txt", "asset", "gfx", "gui", "yml", "mod", "dds", "md"];
+        for directory in enumerated_root_directories() {
+            for extension in extensions {
+                let name = format!("name.{extension}");
+                let logical = LogicalPath::parse(&format!("{directory}/sub/{name}")).unwrap();
+                assert_eq!(
+                    raw_name_may_be_enumerated(Some(directory), name.as_bytes()),
+                    family_for(&logical).is_some(),
+                    "{directory}/{name}"
+                );
+            }
+        }
+        for extension in extensions {
             let name = format!("name.{extension}");
-            assert!(
-                extension_may_be_enumerated(name.as_bytes()),
-                "prefilter rejected {name}"
+            let logical = LogicalPath::parse(&name).unwrap();
+            assert_eq!(
+                raw_name_may_be_enumerated(None, name.as_bytes()),
+                family_for(&logical).is_some(),
+                "root {name}"
             );
         }
-        assert!(!extension_may_be_enumerated(b"ship.dds"));
-        assert!(!extension_may_be_enumerated(b"ship.mesh"));
-        assert!(!extension_may_be_enumerated(b"LICENSE"));
-        assert!(!extension_may_be_enumerated(b".DS_Store"));
-        assert!(!extension_may_be_enumerated(b"trailing."));
-        // Invalid UTF-8 with a selectable extension still passes: the name is decoded
-        // (and rejected) later, visibly, rather than being dropped here.
-        assert!(extension_may_be_enumerated(b"bad\xffname.txt"));
+        // A directory the walk never descends selects nothing.
+        assert!(!raw_name_may_be_enumerated(Some("sound"), b"effects.txt"));
+        assert!(!raw_name_may_be_enumerated(Some("common"), b"LICENSE"));
+        assert!(!raw_name_may_be_enumerated(Some("common"), b".DS_Store"));
+        assert!(!raw_name_may_be_enumerated(Some("common"), b"trailing."));
+    }
+
+    #[test]
+    fn the_walk_prefilter_is_family_aware_for_undecodable_names() {
+        // The pure seam for the one case a filesystem here cannot stage. A name that is
+        // not valid Unicode can never become an identity, so it can only be reported as a
+        // rejection — and a rejection makes the whole inventory incomplete. That must not
+        // happen for a file the policy would have excluded anyway: policy exclusions are
+        // silent by design, and that rule has to apply before identity rejection.
+        //
+        // `.yml` in a script directory and `.txt` in the localization directory are the
+        // shapes a family-blind extension union would wrongly admit.
+        assert!(!raw_name_may_be_enumerated(
+            Some("common"),
+            b"bad\xffname.yml"
+        ));
+        assert!(!raw_name_may_be_enumerated(
+            Some("localisation"),
+            b"bad\xffname.txt"
+        ));
+        assert!(!raw_name_may_be_enumerated(None, b"bad\xffname.txt"));
+        // Selectable in context: still admitted, so it is still rejected visibly rather
+        // than dropped.
+        assert!(raw_name_may_be_enumerated(
+            Some("common"),
+            b"bad\xffname.txt"
+        ));
+        assert!(raw_name_may_be_enumerated(
+            Some("localisation"),
+            b"bad\xffname.yml"
+        ));
+        assert!(raw_name_may_be_enumerated(None, b"bad\xffname.mod"));
     }
 
     #[test]

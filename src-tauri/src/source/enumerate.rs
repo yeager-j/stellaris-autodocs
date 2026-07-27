@@ -417,7 +417,13 @@ impl Walk {
         // Raw bytes are enough, and the label is built only for the few entries that need
         // one: NFC normalization never rewrites an ASCII extension, so a name the policy
         // could select cannot be normalized out of this prefilter.
-        if !policy::extension_may_be_enumerated(name.as_encoded_bytes()) {
+        //
+        // The top-level directory is what makes the question answerable in full here: an
+        // undecodable name can only leave as a rejection, and rejecting a file the policy
+        // excludes anyway would report the whole inventory incomplete over content that
+        // was never wanted.
+        let top_level = chain.first().map(String::as_str);
+        if !policy::raw_name_may_be_enumerated(top_level, name.as_encoded_bytes()) {
             return;
         }
         match name.to_str() {

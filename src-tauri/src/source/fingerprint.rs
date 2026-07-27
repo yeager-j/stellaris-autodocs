@@ -11,12 +11,19 @@
 //! distinct file sets share a byte stream by concatenation:
 //!
 //! ```text
-//! SHA-256( "stellaris-docs/source-fingerprint/v1" || 0x00
+//! SHA-256( "stellaris-docs/source-fingerprint/v2" || 0x00
 //!          || SEQ || u64be(count)
 //!          || for each entry, ordered by logical-path bytes:
+//!               SEQ   || u64be(2)
 //!               TEXT  || u64be(len(path)) || path
 //!               BYTES || u64be(32)        || sha256(content) )
 //! ```
+//!
+//! Each entry is a nested two-item sequence because the outer `begin_seq(count)` promises
+//! exactly `count` encoded items. v1 emitted the two fields flat, which stayed
+//! unambiguous — the framing is length-prefixed — but contradicted the composite contract
+//! `canonical::encode` states, so callers could not reason about the encoding from that
+//! contract alone.
 //!
 //! Path and content are separate framed fields, so moving content between two files
 //! changes the fingerprint. Logical paths are NFC and case-preserving, so a case-only
@@ -37,7 +44,7 @@ use std::fs::File;
 use std::io::{self, Read};
 use std::path::Path;
 
-const FINGERPRINT_DOMAIN: &str = "stellaris-docs/source-fingerprint/v1";
+const FINGERPRINT_DOMAIN: &str = "stellaris-docs/source-fingerprint/v2";
 
 /// Reading in bounded chunks keeps a multi-megabyte file off the heap in one piece; the
 /// hash is over the same bytes either way.
@@ -125,7 +132,10 @@ impl SourceFingerprint {
         let mut digest = CanonicalDigest::new(FINGERPRINT_DOMAIN);
         digest.begin_seq(ordered.len());
         for (logical, content) in &ordered {
-            digest.text(logical.as_str()).bytes(&content.0);
+            // Each entry is one item of the outer sequence, so it is its own two-item
+            // sequence: `begin_seq(n)` promises exactly n encoded items
+            // (canonical::encode's composite framing contract).
+            digest.begin_seq(2).text(logical.as_str()).bytes(&content.0);
         }
         Ok(Self(digest.finish()))
     }
@@ -259,26 +269,34 @@ mod tests {
         // Pinned golden vector, derived independently of this implementation by a Python
         // script mirroring the documented framing (see the module comment):
         //
-        //   SHA-256( "stellaris-docs/source-fingerprint/v1" || 0x00
+        //   SHA-256( "stellaris-docs/source-fingerprint/v2" || 0x00
         //            || 0x05 || u64be(n)
         //            || for each entry, ordered by logical-path bytes:
+        //                 0x05 || u64be(2)
         //                 0x02 || u64be(len(path)) || path
         //                 0x01 || u64be(32)        || sha256(content) )
         //
         // Change protocol: a fingerprint is durable revision identity. A change to this
-        // framing, to the digest, or to what participates is a NEW domain version
-        // (/v2) plus a bump of AnalysisVersionVector::source_enumeration — never a
-        // re-pin in place, which would silently redefine every stored revision's inputs.
+        // framing, to the digest, or to what participates is a NEW domain version plus a
+        // bump of AnalysisVersionVector::source_enumeration — never a re-pin in place,
+        // which would silently redefine every stored revision's inputs.
+        //
+        // v1 flattened each entry into the outer sequence: it declared n items and then
+        // emitted 2n, which broke canonical::encode's stated composite contract even
+        // though its length-prefixed framing stayed unambiguous. v2 gives each entry its
+        // own two-item sequence. The bump follows the protocol above rather than a re-pin;
+        // no migration accompanies it because no v1 fingerprint was ever persisted —
+        // revision publication arrives in Phase 3.
         assert_eq!(
             SourceFingerprint::of(hashed(pinned_entries()))
                 .unwrap()
                 .to_hex(),
-            "ca3b27102080255d98a3e869752493d33826c9584e3cbccf748b568cfd0dfb6e"
+            "d068d3e4437a60fe4a1255deb88a5687baf1c4f612c68629f6d277f213a93eca"
         );
         // An empty source is an identity, not an absence.
         assert_eq!(
             SourceFingerprint::of([]).unwrap().to_hex(),
-            "a1f9564b4df9fdcda24c541ea103c8cfff3b37f24506d5a8693991fc2a1dce2d"
+            "4795667a468249535ed758b76ab715c2394b0ef41d692f3c48d4ab3137402210"
         );
     }
 
@@ -407,8 +425,10 @@ mod tests {
     #[test]
     fn the_fingerprint_domain_separates_it_from_other_identities() {
         // Same body bytes under another domain must not collide with a source
-        // fingerprint (canonical::encode's domain-separation rule).
-        let mut other = CanonicalDigest::new("stellaris-docs/source-fingerprint/v2");
+        // fingerprint (canonical::encode's domain-separation rule). The stand-in is the
+        // next version of this very domain: a future scheme change must not produce a
+        // value that an older reader would accept as its own.
+        let mut other = CanonicalDigest::new("stellaris-docs/source-fingerprint/v3");
         other.begin_seq(0);
         assert_ne!(
             SourceFingerprint::of([]).unwrap().to_hex(),
