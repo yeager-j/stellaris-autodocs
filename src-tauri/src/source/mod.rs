@@ -3,13 +3,22 @@
 //! build-lifetime Source Snapshots, and final live-source verification
 //! (docs/technical-design.md, "Source module"). Populated in Phase 2.
 //!
-//! [`scan`] is the hash-only half of the snapshot protocol: enumerate, hash, fingerprint,
-//! keeping no bytes. Build-lifetime Source Snapshots and the final live-source
-//! verification build on it in the next commit of this phase.
+//! [`snapshot::establish`] is the module's product surface: it turns a live root into a
+//! build-lifetime [`SourceSnapshot`] that holds the exact bytes analysis parses, answers
+//! asset requests with frozen capture, and — through [`LiveSource::verify`] — can be
+//! checked against the live tree immediately before publication. Every later phase
+//! consumes `&SourceSnapshot` and nothing else.
+//!
+//! [`scan`] is the hash-only half of that protocol: enumerate, hash, fingerprint, keeping
+//! no bytes. Establishment does not use it (it must keep what it read), but verification
+//! does, which is the design's deliberate second read of the live filesystem
+//! (docs/technical-design.md, "Source snapshot consistency").
 
 pub mod enumerate;
 pub mod fingerprint;
 pub mod policy;
+pub mod snapshot;
+pub mod verify;
 
 pub use enumerate::{
     FileCollision, ObservationGaps, RejectedFile, RejectionReason, RootError, SourceFile,
@@ -17,6 +26,14 @@ pub use enumerate::{
 };
 pub use fingerprint::{ContentHash, DuplicateLogicalPath, HashParseError, SourceFingerprint};
 pub use policy::{ENUMERATION_POLICY_VERSION, FileFamily};
+pub use snapshot::{
+    AssetAbsence, AssetRead, CapturedAsset, EstablishError, Established, LiveSource, SourceBytes,
+    SourceKind, SourceSnapshot, establish,
+};
+pub use verify::{
+    AssetChange, FingerprintMismatch, LiveVerification, ObservedAsset, ObservedFingerprint,
+    SourceChange, UnscannableSource,
+};
 
 use crate::canonical::path::LogicalPath;
 use std::collections::BTreeMap;
@@ -30,7 +47,7 @@ use std::path::Path;
 /// observation that hit a collision or a rejection has a different identity from the same
 /// content observed cleanly. A caller therefore does not have to remember to ask whether a
 /// fingerprint is trustworthy; it has to decide what an incomplete observation means for
-/// the product, which the Source Snapshot's construction outcome forces.
+/// the product, which [`Established`] forces at the point a snapshot is built.
 #[derive(Debug)]
 pub struct SourceScan {
     pub inventory: SourceInventory,
@@ -85,8 +102,9 @@ impl From<RootError> for ScanError {
 /// Enumerates `root`, hashes the exact bytes of every enumerated file, and derives the
 /// source fingerprint from that content and the walk's gaps.
 ///
-/// Keeps no bytes: this is the identity half of the snapshot protocol, used for the
-/// pre-publication re-read.
+/// Keeps no bytes: this is the identity half of the snapshot protocol, used by
+/// [`LiveSource::verify`] for the pre-publication re-read. Use [`establish`] when the
+/// bytes themselves are wanted.
 ///
 /// Files are read through the raw names enumeration observed, never through the
 /// NFC-normalized identity: on a normalization-sensitive filesystem the identity does not
