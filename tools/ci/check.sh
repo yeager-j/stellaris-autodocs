@@ -14,5 +14,6 @@ cd "$(dirname "$0")/../.."
 (cd src-tauri && cargo fmt --check)
 (cd src-tauri && cargo clippy --all-targets --features test-support -- -D warnings)
 (cd src-tauri && cargo test --features test-support)
+npm run format:check
 npm run build
 npm test

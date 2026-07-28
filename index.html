@@ -2,12 +2,17 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tauri + React + Typescript</title>
+    <title>Stellaris Docs</title>
+    <!--
+      No Content-Security-Policy meta element here. Tauri serves the packaged assets itself and
+      sets the policy from `app.security.csp` as a response header, augmenting `script-src` and
+      `style-src` with nonces and build-time hashes for anything inline. A second static policy in
+      this document would intersect with that one and block the very scripts Tauri just hashed.
+    -->
   </head>
 
-  <body>
+  <body class="dark">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

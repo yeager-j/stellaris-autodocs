@@ -12,3 +12,6 @@ pub mod http;
 pub mod tauri;
 
 pub use envelope::{Envelope, Rejection, resolve};
+
+#[cfg(test)]
+mod contract_vectors;

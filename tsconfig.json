@@ -1,10 +1,18 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    /* ES2022: the only runtimes are the packaged WebView and Node, both well past it. Vite owns
+       the emitted target; this governs which library types the source may name. */
+    "target": "ES2022",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
+
+    "paths": { "@/*": ["./src/*"] },
+    /* Named explicitly rather than relying on automatic `@types/*` inclusion, which this
+       toolchain does not perform: without it TypeScript treats `node:fs` as an absolute URI and
+       skips it. The gates under `src/` read the source tree, so they need Node's types. */
+    "types": ["node", "vite/client"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",

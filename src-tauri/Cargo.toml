@@ -15,7 +15,12 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
-tauri-plugin-opener = "2"
+# Plain `[dependencies]`, not a target-cfg table, and registered without `#[cfg(desktop)]`. This
+# project targets macOS, Windows, and Linux; the plugin is not optional for a Desktop Host that
+# owns an application-data directory (D-065, D-092). If a mobile target is ever added, the compile
+# error is the right reminder that "one process per application-data directory" needs an answer
+# there rather than an omission that already compiled.
+tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"

@@ -20,12 +20,23 @@ use crate::application::{DocumentationHost, RevisionCandidateSource};
 use crate::revisions::RevisionStore;
 use crate::state::{OpenOutcome, OpenReport, StateStore};
 
+/// The baseline Content Security Policy, enforced rather than described.
+#[cfg(test)]
+mod config_policy;
+
 /// The revisions location inside the application-data directory.
 ///
 /// A sibling of `state.json` rather than a child of anything: `revisions/staging` must sit on
 /// the same filesystem as `revisions/bundles` for publication's commit to be a rename, and
 /// keeping the whole tree under one application-owned root is what makes that true by layout.
 const REVISIONS_DIR: &str = "revisions";
+
+/// The label of the one window this application has.
+///
+/// Tauri derives it from the unlabelled window in `tauri.conf.json`, and `capabilities/default.json`
+/// grants to the same name. Named here because the single-instance callback has to find that window
+/// again from an `AppHandle`, and a literal in two places is a rename waiting to fail silently.
+const MAIN_WINDOW: &str = "main";
 
 /// Everything the application needs from disk, opened.
 pub struct Stores {
@@ -128,7 +139,7 @@ pub fn open_stores(app_data: &Path) -> Result<Stores, StartupRefusal> {
 /// not exist in it, so "a shipped binary cannot publish a revision documenting nothing real" is
 /// a property of the build rather than of this function's body.
 #[cfg(not(feature = "test-support"))]
-fn candidate_source(_state: &StateStore) -> Box<dyn RevisionCandidateSource> {
+fn candidate_source(_state: &StateStore, _app_data: &Path) -> Box<dyn RevisionCandidateSource> {
     Box::new(crate::application::NoAnalysisSource)
 }
 
@@ -136,33 +147,51 @@ fn candidate_source(_state: &StateStore) -> Box<dyn RevisionCandidateSource> {
 /// skeleton thread needs, and reports the values a caller must pass to `build_documentation` —
 /// without them a developer could enable the feature and still have nothing to aim the command
 /// at, because an installation identifier is a digest nothing can guess.
+///
+/// The application-data directory is reported alongside them because the frontend has no build
+/// trigger this phase (STE-19 confines `@tauri-apps/api` to the documentation adapter), so
+/// publishing is done by the `seed-skeleton` binary, and that binary takes this directory as its
+/// argument. Printing it here is what makes the argument copy-pasteable rather than something a
+/// developer has to re-derive from the bundle identifier.
 #[cfg(feature = "test-support")]
-fn candidate_source(state: &StateStore) -> Box<dyn RevisionCandidateSource> {
+fn candidate_source(state: &StateStore, app_data: &Path) -> Box<dyn RevisionCandidateSource> {
     let (target, source) = crate::testsupport::candidates::seed_skeleton_thread(state);
     eprintln!(
         "skeleton thread ready — build_documentation({{ locationId: \"{}\", modRoot: \"{}\" }}), \
-         then get_entry_list({{ installation: \"{}\" }})",
+         then get_entry_list({{ installation: \"{}\" }})\n\
+         application data: {}\n\
+         to publish without the app running: cargo run --example seed-skeleton --features test-support -- \"{}\"",
         target.location(),
         target.mod_root().as_str(),
         target.installation(),
+        app_data.display(),
+        app_data.display(),
     );
     Box::new(source)
-}
-
-/// Scaffold command retained so the scaffold React page keeps working. The Phase 3
-/// frontend bootstrap deletes it together with that page.
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {name}! You've been greeted from Rust!")
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        // STE-19 registers `tauri-plugin-single-instance` HERE, before every other plugin: it
-        // must observe a second launch before anything else touches the application-data
-        // directory D-065 gives this process sole ownership of.
-        .plugin(tauri_plugin_opener::init())
+        // Before every other plugin, as the plugin requires, and before `setup`: a second launch
+        // must be observed before anything else touches the application-data directory D-065 gives
+        // this process sole ownership of. `setup` below opens the state and revision stores, and a
+        // second process reaching that point is precisely the failure this ordering prevents.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            // "A second normal launch activates or restores the existing desktop window and exits
+            // without constructing another host. The MVP does not interpret second-launch
+            // arguments" (docs/technical-design.md, "Single-instance ownership").
+            //
+            // Each result is discarded rather than propagated: every failure here is an ordinary
+            // platform no-op — unminimizing a window that is not minimized, focusing one that
+            // already has focus — and none of them is a reason to skip the remaining steps or to
+            // fail the process that is running correctly.
+            if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .setup(|app| {
             // The path resolver needs an `AppHandle`, so construction happens here rather than
             // before the builder. The directory it names is derived from the configured bundle
@@ -177,7 +206,7 @@ pub fn run() {
                     quarantined_to.display()
                 );
             }
-            let candidates = candidate_source(&stores.state);
+            let candidates = candidate_source(&stores.state, &app_data);
             app.manage(Arc::new(DocumentationHost::new(
                 stores.state,
                 stores.revisions,
@@ -188,7 +217,6 @@ pub fn run() {
         // Written out in full because `generate_handler!` resolves each name's generated
         // macro alongside it, and those live in `transport::tauri` rather than here.
         .invoke_handler(tauri::generate_handler![
-            greet,
             crate::transport::tauri::build_documentation,
             crate::transport::tauri::get_entry_list
         ])
