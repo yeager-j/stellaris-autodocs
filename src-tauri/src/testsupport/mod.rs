@@ -7,6 +7,10 @@
 //! policy that decides what one may contain is source-owned. What lives here is helper
 //! state with a process or test lifetime rather than a deep module's knowledge.
 
+pub mod candidates;
+
+pub use candidates::HandAuthoredCandidates;
+
 use std::path::Path;
 use tempfile::TempDir;
 
