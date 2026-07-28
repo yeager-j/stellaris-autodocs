@@ -1,13 +1,28 @@
-//! Sole owner of Documentation Revision bundle I/O: staging, validation, and atomic
-//! publication now; the Revision Reader, handle pinning, and retention from STE-17
-//! (docs/technical-design.md, "Documentation revision publication"). Populated in Phase 3.
+//! Sole owner of Documentation Revision bundle I/O: staging, validation, atomic
+//! publication, and the pinned typed reader that serves a published revision back; the
+//! retention sweep that deletes superseded bundles arrives in Phase 9
+//! (docs/technical-design.md, "Documentation revision publication", "Revision reader",
+//! "Revision retention"). Populated in Phase 3.
 //!
-//! [`RevisionStore::publish`] is the whole product surface: one operation that takes a
-//! [`RevisionCandidate`] and either publishes it or reports what is true on disk instead.
-//! Staging, the bundle layout, and the validator are deliberately unreachable from
-//! outside. A caller able to stage without publishing, or to move a directory itself,
-//! could produce exactly the intermediate states the protocol exists to make unreachable,
-//! and the module would be holding a rule rather than enforcing one.
+//! [`RevisionStore::publish`] and [`RevisionStore::open_revision`] are the whole product
+//! surface: one operation that takes a [`RevisionCandidate`] and either publishes it or
+//! reports what is true on disk instead, and one that takes a published revision's stored
+//! token and either serves it as a [`RevisionReader`] or says why it cannot. Staging, the
+//! bundle layout, and the validator are deliberately unreachable from outside. A caller
+//! able to stage without publishing, or to move a directory itself, could produce exactly
+//! the intermediate states the protocol exists to make unreachable; a caller able to open a
+//! bundle file directly would decide for itself what a bundle is. Either way the module
+//! would be holding a rule rather than enforcing one.
+//!
+//! # What a reader establishes
+//!
+//! Opening validates the directory through the same path publication uses — one answer to
+//! "is this a bundle, and is it *this* revision's", never two (D-118) — and pins it, so
+//! Phase 9's retention cannot delete a bundle something is still reading. Documents are
+//! decoded on demand, which is where "intact" stops being enough and readability is finally
+//! checked: validation hashes bytes without parsing them, so a bundle that is hash-valid
+//! and undecodable publishes cleanly and is refused by [`DocumentUnavailable`] rather than
+//! by anything earlier.
 //!
 //! # What a publication establishes
 //!
@@ -20,15 +35,37 @@
 //! point's durability ([`BundleDurability`]), and every [`PublishError`] variant names what
 //! is true on disk when it is returned.
 //!
-//! The layout is hidden behind that. A revision is addressed by its [`RevisionIdentity`]
-//! and no value this module returns carries a filesystem path, so nothing outside acquires
-//! the ability to open bundle files ahead of the reader STE-17 adds.
+//! The layout is hidden behind that. A revision is addressed by its [`RevisionIdentity`],
+//! and **no value this module returns lets a caller reach a bundle file**: no bundle root,
+//! no absolute path, and no accessor keyed by name — not on a reader, not on an error, not
+//! in a `Debug` rendering, which is asserted rather than assumed because a derived `Debug`
+//! would print a reader's bundle root into every log line that touched one.
+//!
+//! **What a refusal may name, and why that is not the same thing.** A damaged bundle is
+//! reported through a [`ValidationReport`], which names the bundle-relative entries that are
+//! missing, changed, or unaccounted for — `documents/entry-list.json` and the like. That is
+//! diagnosis, not addressing: it says which part of a revision is wrong, and it hands over
+//! no root to join it against and no operation that would take it. It is also the whole
+//! point of the report (D-118), and Phase 9's Validate Published Revision reads exactly
+//! those findings. The manifest stays unexposed for the converse reason — its required-entry
+//! map is a machine-readable index a caller could *use* rather than a name it can only read.
+//!
+//! One path does escape, and it is the writer's, not the reader's:
+//! [`StageError::staging`] names the staging directory a failed publication left behind,
+//! because a person diagnosing that failure has to find it. No bundle path is reachable
+//! through it.
 //!
 //! # What a caller may not assume
 //!
 //! **That holding a [`RevisionStore`] excludes anybody.** Its lock serializes this
 //! process's protocol I/O against one revisions root and nothing more; the build lease that
 //! makes "one active documentation build" true arrives in Phase 9.
+//!
+//! **That a pin excludes another process.** The pin registry is this process's memory, so a
+//! second process — or a person with a shell — can delete a bundle a reader holds. That one
+//! Desktop Host owns one application-data directory (D-065) is the compensating control,
+//! and it is a control over who else runs rather than a lock on the directory. What a pin
+//! buys is that *this* process's retention cannot delete what this process is reading.
 //!
 //! **That publication re-checks the source.** The candidate's fingerprints are recorded,
 //! never re-observed. Verifying that the live source still matches immediately before
@@ -65,17 +102,32 @@
 //!
 //! Commit point 1 moves a whole directory. On Windows a rename is refused with a sharing
 //! violation while a handle inside the tree is open, rather than proceeding as it does
-//! under POSIX. Nothing outside this module can hold one today — a staging directory's name
-//! is a fresh UUID that leaves only inside a [`PublishError`] — but STE-17's Revision Reader
-//! pins handles inside `bundles/`, which is where retention's removals will meet the same
-//! restriction, and where "publication is never blocked by a reader" stops being free.
-//! Established on a real machine by the Phase 12 Windows packaged smoke test, the way
+//! under POSIX. A staging directory's name is a fresh UUID that leaves only inside a
+//! [`PublishError`], so nothing outside this module can hold a handle there; `bundles/` is
+//! where the question becomes real, because that is where readers go and where Phase 9's
+//! removals will land.
+//!
+//! **The resolution is that a reader holds no handle at all.** Pinning is a count in
+//! process memory ([`pin`]), and every document read is read-and-close, so an open reader
+//! never refuses a rename or a delete of the tree it is reading — "publication is never
+//! blocked by a reader" stays free rather than becoming a platform-specific hope. What a
+//! reader blocks is retention, and it blocks it through
+//! [`RevisionStore::claim_for_retirement`] rather than through the filesystem, where
+//! neither party could see the refusal coming or say why it happened.
+//!
+//! The cost of that choice is stated where it belongs, under "What a caller may not
+//! assume": a pin binds this process and nothing else. The local gate is
+//! `read.rs::a_reader_holds_no_operating_system_handle_inside_the_bundle`, which only
+//! compiles and runs on Windows, so CI's Windows leg is what actually establishes it — and
+//! the Phase 12 Windows packaged smoke test confirms it on a real machine, the way
 //! [`state::replace`](crate::state::replace) records the equivalent caveat for its own
 //! replacement semantics.
 
 pub mod candidate;
 pub mod manifest;
+mod pin;
 mod publish;
+mod read;
 mod stage;
 
 pub use candidate::{
@@ -85,18 +137,21 @@ pub use candidate::{
 pub use manifest::{
     BUNDLE_SCHEMA_VERSION, BundleManifest, IdentityParseError, ManifestParseError, RevisionIdentity,
 };
+pub use pin::{RetirementClaim, RetirementRefused};
 pub use publish::{
     BundleCompletion, BundleDurability, PointerCommit, PublicationIo, PublishError, Published,
 };
+pub use read::{DocumentUnavailable, OpenRevisionError, RevisionReader};
 pub use stage::{
-    BundleRefusal, RevisionMismatch, SchemaMismatch, StageError, ValidationReport,
+    BundleRefusal, BundleUnusable, RevisionMismatch, SchemaMismatch, StageError, ValidationReport,
     is_staging_attempt_name,
 };
 
+use pin::PinRegistry;
 use publish::{RealPublicationIo, publish_revision};
 use std::io;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use crate::discovery::identity::DiscoveryLocationId;
 use crate::state::{PublicationCapability, RevisionId};
@@ -112,9 +167,22 @@ use crate::state::{PublicationCapability, RevisionId};
 /// Phase 9 build lease and must not be mistaken for one: it excludes no other process, it
 /// is not held across a build, and holding it grants no right to produce a revision. A
 /// caller that needs those guarantees waits for the lease Phase 9 introduces.
+///
+/// **One store, one pin registry.** Two stores opened over one revisions root see none of
+/// each other's readers, so a claim granted by one would be granted while the other is
+/// reading. Production has one store per root because it has one process per
+/// application-data directory (D-065); tests construct two deliberately, and are the only
+/// place the configuration exists.
 pub struct RevisionStore {
     root: PathBuf,
     io_seam: Mutex<Box<dyn PublicationIo + Send>>,
+    /// Which revisions this process is reading, and which it is retiring.
+    ///
+    /// Shared rather than owned outright: a [`RevisionReader`] outlives the call that
+    /// opened it and releases its pin from its own `drop`, wherever that runs. Sharing the
+    /// registry rather than the store is the narrow version of that — the reader gets the
+    /// one thing whose lifetime it depends on, not the ability to publish.
+    pins: Arc<PinRegistry>,
 }
 
 impl RevisionStore {
@@ -175,6 +243,7 @@ impl RevisionStore {
         Ok(Self {
             root: root.to_path_buf(),
             io_seam: Mutex::new(io_seam),
+            pins: PinRegistry::new(),
         })
     }
 

@@ -108,11 +108,12 @@ impl PublicationIo for RealPublicationIo {
 /// commit points got, and — separately from that — what is known about the first one's
 /// durability.
 ///
-/// **It carries no filesystem path, deliberately.** STE-17's Revision Reader owns bundle
+/// **It carries no filesystem path, deliberately.** The Revision Reader owns bundle
 /// addressing, and handing a path back to the application would invite it to open bundle
 /// files directly — exactly what "`revisions` is the sole owner of Documentation Revision
 /// bundle I/O" forbids (docs/technical-design.md, "Revision reader"). The identifier is
-/// enough to ask the reader for the bundle.
+/// enough to ask
+/// [`open_revision`](crate::revisions::RevisionStore::open_revision) for the bundle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Published {
     revision: RevisionIdentity,
@@ -236,7 +237,7 @@ pub enum PublishError {
     /// can compare against the occupant nothing is allowed to remove. It is a diagnostic and
     /// not recoverable state: nothing reads a staging directory back.
     ///
-    /// **Nothing removes it yet.** The retention rule it is decided against is that STE-17's
+    /// **Nothing removes it yet.** The retention rule it is decided against is that Phase 9's
     /// sweep will be unconditional over `staging/` (stage.rs, "Layout"; D-119), and once that
     /// sweep lands, retries will leave one directory each within a session and none across
     /// launches. Until then there is no sweep at all — `RevisionStore::open` does not
@@ -384,8 +385,8 @@ pub(super) fn publish_revision(
         }
         FinalPath::Occupied(refusal) => {
             // Staging is deliberately kept as the diagnostic counterpart to an occupant
-            // nothing is allowed to delete. STE-17's sweep will remove it at the next open;
-            // there is no sweep in this phase, so it survives until then.
+            // nothing is allowed to delete. Phase 9's sweep will remove it at the next open;
+            // there is no sweep yet, so it survives until then.
             return Err(PublishError::PublishedBundleUnusable { refusal });
         }
         FinalPath::Absent => match commit_bundle(io_seam, validated, &final_path) {
@@ -608,8 +609,8 @@ mod tests {
         EntryList, EntrySummary, RevisionCandidate, RevisionDocument, RevisionInputs,
     };
     use crate::revisions::stage::{
-        MANIFEST_FILE, RevisionMismatch, ValidationReport, bundle_path, bundles_root, stage_bundle,
-        staging_root, validate, validate_as,
+        BundleUnusable, MANIFEST_FILE, RevisionMismatch, ValidationReport, bundle_path,
+        bundles_root, stage_bundle, staging_root, validate, validate_as,
     };
     use crate::source::ObservationGaps;
     use crate::source::fingerprint::{ContentHash, SourceFingerprint};
@@ -968,49 +969,72 @@ mod tests {
         }
     }
 
-    /// The strongest statement STE-16 can make of its central acceptance criterion — *a
-    /// reader sees either the prior complete revision or the replacement, never staging
-    /// state* — while no reader exists yet. Run at the end of every row.
+    /// The central acceptance criterion of the publication protocol — *a reader sees either
+    /// the prior complete revision or the replacement, never staging state* — asserted as
+    /// what it actually says, through a real reader. Run at the end of every row.
     ///
     /// It asserts two things:
     ///
-    /// - every directory under `bundles/` is a complete bundle of the revision its own
-    ///   name names, so nothing half-written, half-moved, or misfiled is reachable there;
-    /// - the publication reference, when set, names one of those directories.
+    /// - every directory under `bundles/` opens as a reader for the revision its own name
+    ///   names, and serves its documents, so nothing half-written, half-moved, misfiled, or
+    ///   intact-but-undecodable is reachable there;
+    /// - the publication reference, when set, opens.
     ///
-    /// **What it does not prove.** It re-reads bytes and re-hashes them; it never decodes
-    /// a document, so a bundle that is hash-valid and undecodable passes it (stage.rs,
-    /// `a_bundle_whose_entry_list_is_undecodable_still_validates`). Nor does it observe a
-    /// reader concurrent with a publication — it runs after each row, not during one.
-    /// STE-17's typed Revision Reader is the upgrade: "the reader opened the revision the
-    /// pointer names and served its documents" subsumes both claims, and should replace
-    /// this helper rather than sit beside it.
+    /// **This replaces an earlier helper that only re-hashed bytes**, per the note that
+    /// helper carried. Re-hashing could not distinguish a bundle that decodes from one that
+    /// merely has the right bytes (stage.rs,
+    /// `a_bundle_whose_entry_list_is_undecodable_still_validates`), so every row now makes
+    /// the stronger claim. **No row today would go red for dropping the decode**, because
+    /// none of them produces an undecodable bundle — the decode is what this helper asserts
+    /// of every row present and future, not a defect it currently catches, and saying so is
+    /// the honest form of the claim. The row that does go red for it is
+    /// `read.rs::an_entry_list_that_is_hash_valid_and_undecodable_is_a_typed_refusal`.
+    ///
+    /// **What it still does not prove:** it does not observe a reader *concurrent* with a
+    /// publication, because it runs after each row rather than during one. That claim is
+    /// `a_publication_completes_while_a_reader_of_the_previous_revision_is_open`.
     ///
     /// `damaged` names bundle directories the *test* planted or tampered with. The
     /// protocol never produces one, so every entry is a deliberate act of the row that
     /// passes it, and that row's comment says why.
-    fn every_directory_under_bundles_always_validates(
+    ///
+    /// **This observation writes**, which an observation ought not to: opening a store
+    /// creates `bundles/` and `staging/` and flushes them. Both creations are idempotent and
+    /// neither produces a staging *attempt*, so no row's `staging_attempts` count or
+    /// directory assertion is affected today. A future row asserting that a publication
+    /// created nothing under the revisions root would pass vacuously, and would need to open
+    /// its store before the row rather than inside the observation.
+    fn every_directory_under_bundles_is_readable_through_a_reader(
         root: &Path,
         pointer: Option<&RevisionId>,
         damaged: &[&str],
     ) {
+        // A store of its own, and deliberately not the one the row published through: the
+        // rows construct a fresh store per publication, and a reader must be obtainable from
+        // the revisions location alone rather than from whatever happened to publish.
+        let store = RevisionStore::open(root).unwrap();
         for path in entries(&bundles_root(root)) {
             let name = path.file_name().unwrap().to_string_lossy().into_owned();
             if damaged.contains(&name.as_str()) {
                 continue;
             }
-            let identity = RevisionIdentity::parse(&name)
-                .unwrap_or_else(|error| panic!("bundles/{name} is not a revision path: {error}"));
-            if let Err(report) = validate_as(&path, identity) {
-                panic!("bundles/{name} is reachable and did not validate: {report}");
-            }
+            let reader = store
+                .open_revision(&RevisionId(name.clone()))
+                .unwrap_or_else(|error| {
+                    panic!("bundles/{name} is reachable and did not open: {error}")
+                });
+            assert_eq!(reader.revision().to_hex(), name);
+            reader
+                .entry_list()
+                .unwrap_or_else(|error| panic!("bundles/{name} opened and did not serve: {error}"));
         }
         if let Some(reference) = pointer {
-            assert!(
-                bundles_root(root).join(&reference.0).is_dir(),
-                "the publication reference names {}, which is not a directory under bundles/",
-                reference.0
-            );
+            store.open_revision(reference).unwrap_or_else(|error| {
+                panic!(
+                    "the publication reference names {}, which does not open: {error}",
+                    reference.0
+                )
+            });
         }
     }
 
@@ -1103,7 +1127,11 @@ mod tests {
         /// invariant that stands in for a reader.
         fn observe(&self, revision: RevisionIdentity, damaged: &[&str]) -> Observed {
             let reference = self.pointer.published();
-            every_directory_under_bundles_always_validates(&self.root, reference.as_ref(), damaged);
+            every_directory_under_bundles_is_readable_through_a_reader(
+                &self.root,
+                reference.as_ref(),
+                damaged,
+            );
             Observed {
                 reference,
                 bundle: bundle_at(&self.root, revision),
@@ -1278,7 +1306,7 @@ mod tests {
             .unwrap_err();
 
         let PublishError::BundleInvalid {
-            refusal: BundleRefusal::NotABundle(report),
+            refusal: BundleRefusal::Unusable(BundleUnusable::NotABundle(report)),
         } = &error
         else {
             panic!("expected an invalid staged bundle, got {error}");
@@ -1598,7 +1626,7 @@ mod tests {
             .unwrap_err();
 
         let PublishError::PublishedBundleUnusable {
-            refusal: BundleRefusal::NotABundle(report),
+            refusal: BundleRefusal::Unusable(BundleUnusable::NotABundle(report)),
         } = &error
         else {
             panic!("expected a damaged occupant, got {error}");
@@ -1643,10 +1671,10 @@ mod tests {
         // a damaged occupant invites repair and this one must simply be left alone.
         assert_eq!(
             refusal,
-            &BundleRefusal::AnotherRevision(RevisionMismatch {
+            &BundleRefusal::Unusable(BundleUnusable::AnotherRevision(RevisionMismatch {
                 expected: revision,
                 found: identity_of(&impostor),
-            })
+            }))
         );
         // Never deleted, and never repaired into place: it is still exactly the bundle it
         // was, which is what a pinned reader of *that* revision would still need.
@@ -1666,9 +1694,12 @@ mod tests {
     #[test]
     fn a_retained_attempt_survives_reopening_because_this_phase_sweeps_nothing() {
         // The bound `PublishedBundleUnusable` documents — "one directory per retry within a
-        // session and none across launches" — belongs to STE-17's sweep, which does not
+        // session and none across launches" — belongs to Phase 9's sweep, which does not
         // exist. Reopening the store is what a relaunch does, and it removes nothing, so a
-        // retained attempt is currently permanent and retries accumulate.
+        // retained attempt is currently permanent and retries accumulate. The Revision
+        // Reader landed without it deliberately: the sweep's precondition — state recovery
+        // resolved, every retained manifest having contributed to a complete live set — names
+        // facts `revisions` cannot observe on its own.
         //
         // **This test is meant to go red when the sweep lands**, and that is its job: the
         // comments that describe the sweep's rule in the future tense (`PublishError`,
@@ -1780,7 +1811,7 @@ mod tests {
         assert_eq!(remaining, before.publication_references);
         // The other installation's reference is deliberately not a bundle under this root,
         // so the reader invariant is asked only about the one this publication wrote.
-        every_directory_under_bundles_always_validates(
+        every_directory_under_bundles_is_readable_through_a_reader(
             &fixture.root,
             Some(&after.publication_references[&fixture.pointer.installation].revision),
             &[],
@@ -2065,7 +2096,7 @@ mod tests {
         fs::set_permissions(&bundles, restore).unwrap();
 
         let PublishError::PublishedBundleUnusable {
-            refusal: BundleRefusal::NotABundle(report),
+            refusal: BundleRefusal::Unusable(BundleUnusable::NotABundle(report)),
         } = &error
         else {
             panic!("expected the destination to be refused, got {error}");
@@ -2099,9 +2130,8 @@ mod tests {
         // digest: a `FixtureCorpus` snapshot's `SourceFingerprint` — derived by the same
         // construction and fingerprint path a live source uses (D-113) — reaches the sealed
         // manifest, survives the move and the pointer commit, and comes back out of a
-        // bundle resolved *only* from the state pointer. That last step is the shape
-        // STE-18's acceptance harness keeps, and the one STE-17's reader replaces: it opens
-        // a bundle by identifier and must confirm the directory is that revision's.
+        // bundle resolved *only* from the state pointer — through the reader, which is the
+        // shape STE-18's acceptance harness keeps.
         use crate::revisions::manifest::BundleManifest;
         use crate::source::fixture::FixtureCorpus;
         use crate::source::snapshot::SourceKind;
@@ -2140,14 +2170,25 @@ mod tests {
 
         let published = fixture.publish(&candidate).unwrap();
 
-        // From here nothing remembers what was published: the pointer is the only way in.
+        // From here nothing remembers what was published: the pointer is the only way in,
+        // and the reader is the only way from the pointer to the documents.
         let reference = fixture.pointer.published().unwrap();
-        let identity = RevisionIdentity::try_from(&reference).unwrap();
-        let bundle = validate_as(&bundle_path(&fixture.root, identity), identity).unwrap();
-        assert_eq!(bundle.identity(), published.revision());
+        let store = RevisionStore::open(&fixture.root).unwrap();
+        let reader = store.open_revision(&reference).unwrap();
+        assert_eq!(reader.revision(), published.revision());
+        assert_eq!(
+            reader.entry_list().unwrap().unwrap().entries[0].display_name,
+            Some("Fixture Technology".to_owned())
+        );
 
+        // The manifest is read here rather than through the reader, deliberately: these
+        // assert what *publication* recorded, and the reader exposes no manifest — its
+        // required-entry keys are bundle-relative JSON filenames, which is the one thing the
+        // read boundary must not hand out (D-124).
+        let identity = RevisionIdentity::try_from(&reference).unwrap();
+        let bundle = bundle_path(&fixture.root, identity);
         let manifest =
-            BundleManifest::parse(&fs::read(bundle.path().join(MANIFEST_FILE)).unwrap()).unwrap();
+            BundleManifest::parse(&fs::read(bundle.join(MANIFEST_FILE)).unwrap()).unwrap();
         assert_eq!(manifest.inputs().target_mod, target.fingerprint());
         assert_eq!(manifest.inputs().vanilla_content, vanilla.fingerprint());
         assert_eq!(manifest.installation(), fixture.pointer.installation);
@@ -2155,6 +2196,75 @@ mod tests {
         // A different corpus is a different revision, so the fingerprint is load-bearing
         // in the identifier rather than merely recorded beside it.
         assert_ne!(target.fingerprint(), vanilla.fingerprint());
+    }
+
+    #[test]
+    fn a_publication_completes_while_a_reader_of_the_previous_revision_is_open() {
+        // The acceptance criterion the crash matrix cannot state, because it observes only
+        // between rows: a read that began before a publication continues against the
+        // revision it began on, and one that begins afterward uses the new one. Both halves
+        // are asserted, because the first alone would also be satisfied by a reader that had
+        // simply stopped working.
+        //
+        // It is also where the platform caveat this module records stops being theoretical.
+        // Commit point 1 renames a directory into `bundles/`, and on Windows a rename is
+        // refused while a handle inside the tree is open. A reader pins logically and holds
+        // no handle, so publication is not blocked here — and if that ever changed, this row
+        // is what would fail, on the Windows leg first.
+        let fixture = Fixture::new();
+        let store = RevisionStore::open(&fixture.root).unwrap();
+
+        let first = fixture.candidate("tech_a");
+        let first_revision = fixture.publish(&first).unwrap().revision();
+        let reader = store
+            .open_revision(&fixture.pointer.published().unwrap())
+            .unwrap();
+
+        let second = fixture.candidate("tech_b");
+        let second_revision = fixture
+            .publish_expecting(&second, Some(&first_revision.into()))
+            .unwrap()
+            .revision();
+        assert_ne!(first_revision, second_revision);
+
+        // The reader opened before the publication is unmoved by it: same revision, same
+        // documents, read after the pointer already names something else.
+        assert_eq!(reader.revision(), first_revision);
+        assert_eq!(
+            reader.entry_list().unwrap().unwrap().entries[0].identifier,
+            "tech_a"
+        );
+
+        // A reader opened afterward resolves the new pointer and sees the replacement.
+        let replacement = store
+            .open_revision(&fixture.pointer.published().unwrap())
+            .unwrap();
+        assert_eq!(replacement.revision(), second_revision);
+        assert_eq!(
+            replacement.entry_list().unwrap().unwrap().entries[0].identifier,
+            "tech_b"
+        );
+
+        // And the superseded revision stays pinned while its reader lives, which is what
+        // stops Phase 9's sweep from deleting what this read is still serving.
+        assert_eq!(
+            store.claim_for_retirement(first_revision).unwrap_err(),
+            crate::revisions::RetirementRefused::Pinned { handles: 1 }
+        );
+        drop(reader);
+        assert!(store.claim_for_retirement(first_revision).is_ok());
+    }
+
+    #[test]
+    fn a_revision_reader_is_send_and_sync_and_owns_no_borrow() {
+        // Compile-time enforcement of the shape Phase 11 needs: a companion request is
+        // served on a worker thread with no access to the frame that opened the reader, so
+        // a reader carrying a lifetime could not reach the code that reads it, and the
+        // lifetime would infect both handle types and everything returning through them.
+        // Stated as a bound rather than as prose because prose cannot go red — this line
+        // fails to compile the day someone adds an `Rc` or a `Cell` cache to the reader.
+        fn assert_owned_and_shareable<T: Send + Sync + 'static>() {}
+        assert_owned_and_shareable::<crate::revisions::RevisionReader>();
     }
 
     #[test]
@@ -2178,14 +2288,14 @@ mod tests {
             &fixture.candidate("tech_a"),
         )
         .unwrap_err();
-        let damaged = BundleRefusal::NotABundle(ValidationReport {
+        let damaged = BundleRefusal::Unusable(BundleUnusable::NotABundle(ValidationReport {
             identifier_mismatch: true,
             ..ValidationReport::default()
-        });
-        let misfiled = BundleRefusal::AnotherRevision(RevisionMismatch {
+        }));
+        let misfiled = BundleRefusal::Unusable(BundleUnusable::AnotherRevision(RevisionMismatch {
             expected: identity_of(&fixture.candidate("tech_a")),
             found: identity_of(&fixture.candidate("tech_b")),
-        });
+        }));
 
         for (error, expected, has_source) in [
             (

@@ -17,11 +17,11 @@
 //! when no publication is in flight, and anything under `bundles/` whose name is not 64
 //! lowercase hex is junk.
 //!
-//! **The first rule is unconditional, and that is the decision STE-17 should write against.**
-//! One publication failure deliberately leaves its attempt behind
+//! **The first rule is unconditional, and that is the decision Phase 9's sweep writes
+//! against.** One publication failure deliberately leaves its attempt behind
 //! ([`PublishError::PublishedBundleUnusable`](crate::revisions::PublishError)), and the
 //! sweep will remove it at the next open like any other — *will*, because neither sweep
-//! exists yet, so until STE-17 lands them a retained attempt survives every launch. The two
+//! exists yet, so until Phase 9 lands them a retained attempt survives every launch. The two
 //! rules do not conflict, because
 //! a retained attempt is a diagnostic for the failure being reported *now* — the directory
 //! a person can compare against the occupant this protocol refuses to delete — and never
@@ -49,13 +49,21 @@
 //!
 //! [`validate`] proves integrity, not readability: it hashes bytes and does not parse
 //! them (docs/technical-design.md:651). It always reads the manifest back from disk
-//! rather than judging an in-memory value, because the publication protocol, STE-17's
-//! Revision Reader, and Phase 9's Validate Published Revision are all the same question
-//! asked of a directory, and one answer path is what keeps them from disagreeing.
+//! rather than judging an in-memory value, because the publication protocol,
+//! [`RevisionStore::open_revision`](crate::revisions::RevisionStore::open_revision), and
+//! Phase 9's Validate Published Revision are all the same question asked of a directory,
+//! and one answer path is what keeps them from disagreeing (D-118).
+//!
+//! Readability is asked separately and later, by the reader, when a caller actually wants a
+//! document: `a_bundle_whose_entry_list_is_undecodable_still_validates` is this function
+//! being honest about its limit, and
+//! [`DocumentUnavailable`](crate::revisions::DocumentUnavailable) is where that limit is
+//! answered. Teaching this function to parse would put a second, weaker decoder in the
+//! publication path.
 //!
 //! It proves the directory is *a* bundle, never that it is a particular one. A caller that
-//! reached a directory by identifier — the publication protocol, and STE-17's reader —
-//! asks [`validate_as`] instead, because "a directory under `bundles/` is named by its own
+//! reached a directory by identifier — the publication protocol, and the reader — asks
+//! [`validate_as`] instead, because "a directory under `bundles/` is named by its own
 //! manifest's identifier" is a property of this protocol's writes and not of the directory.
 
 use crate::canonical::path::LogicalPath;
@@ -81,8 +89,11 @@ const BUNDLES_DIR: &str = "bundles";
 ///
 /// `pub(crate)` for the reason [`staging_root`] and [`bundles_root`] are: anything else
 /// that has to recognize or read a manifest — the crash matrix's write injection, the
-/// end-to-end test that reads one back off disk, STE-17's reader — would otherwise rebuild
-/// the name from its own string literal and become a second authority over the layout.
+/// end-to-end test that reads one back off disk — would otherwise rebuild the name from
+/// its own string literal and become a second authority over the layout. The Revision
+/// Reader is deliberately not on that list: it never names the manifest, because
+/// [`validate`] hands it the one it already read and proved
+/// ([`ValidatedBundle::into_manifest`]).
 pub(crate) const MANIFEST_FILE: &str = "manifest.json";
 
 /// The one Phase 3 document's bundle-relative path. Under `documents/` so a later phase's
@@ -92,7 +103,7 @@ const ENTRY_LIST_FILE: &str = "documents/entry-list.json";
 
 /// Where every abandoned staging directory of every attempt lives.
 ///
-/// `pub(crate)` and stated once: STE-17's retention sweep enumerates this directory, and
+/// `pub(crate)` and stated once: Phase 9's retention sweep enumerates this directory, and
 /// a sweep that rebuilt the path from its own string literal would be a second authority
 /// over the layout — the kind that stays correct until one of the two moves.
 pub(crate) fn staging_root(revisions_root: &Path) -> PathBuf {
@@ -121,15 +132,16 @@ pub(crate) fn bundle_path(revisions_root: &Path, identity: RevisionIdentity) -> 
 /// so one written form has one recognition and an unrelated directory a user dropped
 /// there is not deleted on the strength of a loose match.
 ///
-/// **The one item of this module's surface with no caller yet.** Demoting it to
-/// `pub(crate)` alongside its neighbours makes it dead code under `-D warnings`, which is
-/// the compiler stating accurately that STE-17's retention sweep — the consumer this rule
-/// was written for, and the reason [`StageError::staging`] can be abandoned safely — does
-/// not exist. It is re-exported rather than deleted because the write side would then be
-/// the only spelling of the rule, and a test asserting the spelling inline would be a
-/// second authority over it. It grants nothing: a predicate over a string cannot stage,
-/// validate, or publish. Delete the re-export when the sweep lands and calls it from
-/// inside this module.
+/// **One of the two items of this module's surface with no caller yet**, the other being
+/// [`RevisionStore::claim_for_retirement`](crate::revisions::RevisionStore::claim_for_retirement),
+/// and both wait on the same consumer. Demoting it to `pub(crate)` alongside its
+/// neighbours makes it dead code under `-D warnings`, which is the compiler stating
+/// accurately that Phase 9's retention sweep — the consumer this rule was written for, and
+/// the reason [`StageError::staging`] can be abandoned safely — does not exist. It is
+/// re-exported rather than deleted because the write side would then be the only spelling
+/// of the rule, and a test asserting the spelling inline would be a second authority over
+/// it. It grants nothing: a predicate over a string cannot stage, validate, or publish.
+/// Delete the re-export when the sweep lands and calls it from inside this module.
 pub fn is_staging_attempt_name(name: &str) -> bool {
     uuid::Uuid::parse_str(name).is_ok_and(|parsed| parsed.hyphenated().to_string() == name)
 }
@@ -142,11 +154,27 @@ pub fn is_staging_attempt_name(name: &str) -> bool {
 /// of one identity, and that refusal is what makes two bundle paths unable to collide.
 /// A caller never supplies a path, so no Stellaris identifier — and nothing else drawn
 /// from mod content — can reach the filesystem.
-pub(crate) fn document_path(document: &RevisionDocument) -> LogicalPath {
-    let raw = match document.identity() {
+///
+/// The identity is the whole argument because that is all the read side has: a
+/// [`RevisionReader`](crate::revisions::RevisionReader) asks for a document it does not
+/// hold, and it must reach the same path the writer did. Taking a `&RevisionDocument`
+/// would have left the writer's shape as the only one this rule serves, so the reader
+/// would have needed a second spelling of it.
+pub(crate) fn document_path(identity: DocumentIdentity) -> LogicalPath {
+    let raw = match identity {
         DocumentIdentity::EntryList => ENTRY_LIST_FILE,
     };
     host_path(raw)
+}
+
+/// Where one document of `bundle_root` lives on this filesystem.
+///
+/// The read side's only door to a bundle file, so [`resolve`] stays private and no caller
+/// outside this module ever joins, pushes, or spells a component itself. Takes the bundle
+/// root rather than the revisions root because the reader arrives holding
+/// [`ValidatedBundle::path`] — a directory something already proved is that revision's.
+pub(crate) fn document_file(bundle_root: &Path, identity: DocumentIdentity) -> PathBuf {
+    resolve(bundle_root, &document_path(identity))
 }
 
 /// Parses a path this module wrote as a literal. Total by construction; an `expect` here
@@ -260,7 +288,7 @@ pub fn stage_bundle(
     let mut required_entries = BTreeMap::new();
     let mut written_dirs = BTreeSet::new();
     for document in candidate.documents() {
-        let logical = document_path(document);
+        let logical = document_path(document.identity());
         let bytes = encode_document(document);
         let path = resolve(&staging, &logical);
         io_seam
@@ -338,13 +366,26 @@ fn resolve(root: &Path, logical: &LogicalPath) -> PathBuf {
 #[derive(Debug)]
 pub struct ValidatedBundle {
     path: PathBuf,
-    identity: RevisionIdentity,
+    manifest: BundleManifest,
     unaccounted: Vec<String>,
 }
 
 impl ValidatedBundle {
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    /// The manifest this validation read back from disk and proved, handed on rather than
+    /// re-read.
+    ///
+    /// Takes `self` because a proof is discharged into what it authorizes: a
+    /// [`RevisionReader`](crate::revisions::RevisionReader) holds the manifest for the life
+    /// of the reader, and a second `fs::read` to obtain it could observe different bytes
+    /// than the ones this validation hashed — which is exactly the gap between an intact
+    /// bundle and an intact-looking one. What keeps the attestation true past this point is
+    /// the reader's pin, not this value.
+    pub(crate) fn into_manifest(self) -> BundleManifest {
+        self.manifest
     }
 
     /// Bundle-relative names of everything present that the manifest does not account for.
@@ -365,7 +406,7 @@ impl ValidatedBundle {
     /// staging directory a publication validates is named by a UUID, and only a directory
     /// under `bundles/` is named by its own manifest's identifier.
     pub fn identity(&self) -> RevisionIdentity {
-        self.identity
+        self.manifest.identifier()
     }
 }
 
@@ -384,33 +425,33 @@ pub struct RevisionMismatch {
     pub found: RevisionIdentity,
 }
 
-/// Why a directory cannot be used as the bundle a caller named.
+/// Why a directory is not the readable bundle a caller named.
 ///
 /// Separate answers rather than one widened report, because they call for different
 /// actions. A [`NotABundle`] directory disagrees with its own manifest: it is damaged, and
 /// the response is to repair or rebuild it. An [`AnotherRevision`] directory disagrees with
 /// nothing — it is somebody's complete revision, sitting where this caller expected its own
-/// — and the only correct response is to leave it exactly as it is. An
-/// [`UnaccountedMaterial`] directory is this revision, intact, with something else beside
-/// it; the response is to look at what that something is, and the refusal names it.
-/// Folding any of them into [`ValidationReport`] would put findings in it that only some of
-/// its entry points can ever produce, and make [`ValidationReport::is_valid`] mean
-/// something different depending on who asked.
+/// — and the only correct response is to leave it exactly as it is. Folding either into
+/// [`ValidationReport`] would put findings in it that only some of its entry points can ever
+/// produce, and make [`ValidationReport::is_valid`] mean something different depending on
+/// who asked.
 ///
-/// [`NotABundle`]: BundleRefusal::NotABundle
-/// [`AnotherRevision`]: BundleRefusal::AnotherRevision
-/// [`UnaccountedMaterial`]: BundleRefusal::UnaccountedMaterial
+/// **This is the whole range of [`validate_as`], and that is why it is its own type rather
+/// than two of [`BundleRefusal`]'s three arms.** Adoption asks a stricter question and has a
+/// third answer; a caller that only wants to *read* would otherwise have to handle an arm it
+/// can never receive, and the only way to handle it is to invent a value for it — which is
+/// how a [`ValidationReport`] whose own `is_valid` returns `true` ends up inside somebody's
+/// "this bundle is damaged" error.
+///
+/// [`NotABundle`]: BundleUnusable::NotABundle
+/// [`AnotherRevision`]: BundleUnusable::AnotherRevision
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum BundleRefusal {
+pub enum BundleUnusable {
     NotABundle(ValidationReport),
     AnotherRevision(RevisionMismatch),
-    /// A valid bundle of the expected revision that also holds files the manifest does not
-    /// account for. Produced by `publish::validate_for_commit` and never by [`validate_as`]
-    /// — reading such a directory is fine, and only commit point 1 refuses it.
-    UnaccountedMaterial(Vec<String>),
 }
 
-impl fmt::Display for BundleRefusal {
+impl fmt::Display for BundleUnusable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::NotABundle(report) => report.fmt(f),
@@ -419,6 +460,48 @@ impl fmt::Display for BundleRefusal {
                 "this directory holds revision {}, not the revision {} expected here",
                 mismatch.found, mismatch.expected
             ),
+        }
+    }
+}
+
+impl std::error::Error for BundleUnusable {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::NotABundle(report) => Some(report),
+            // Nothing wraps a cause here: the finding *is* the message, and the values a
+            // reader needs are already in it.
+            Self::AnotherRevision(_) => None,
+        }
+    }
+}
+
+/// Why a directory cannot be *adopted* as the bundle a caller named: everything
+/// [`BundleUnusable`] says, and the one finding that bars adoption without barring reading.
+///
+/// The widening belongs to commit point 1 alone. An [`UnaccountedMaterial`] directory is
+/// this revision, intact, with something else beside it; the response is to look at what
+/// that something is, and the refusal names it.
+///
+/// [`UnaccountedMaterial`]: BundleRefusal::UnaccountedMaterial
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BundleRefusal {
+    Unusable(BundleUnusable),
+    /// A valid bundle of the expected revision that also holds files the manifest does not
+    /// account for. Produced by `publish::validate_for_commit` and never by [`validate_as`]
+    /// — reading such a directory is fine, and only commit point 1 refuses it.
+    UnaccountedMaterial(Vec<String>),
+}
+
+impl From<BundleUnusable> for BundleRefusal {
+    fn from(unusable: BundleUnusable) -> Self {
+        Self::Unusable(unusable)
+    }
+}
+
+impl fmt::Display for BundleRefusal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unusable(unusable) => unusable.fmt(f),
             Self::UnaccountedMaterial(names) => write!(
                 f,
                 "this revision's directory also holds files nothing accounts for, so it \
@@ -432,10 +515,10 @@ impl fmt::Display for BundleRefusal {
 impl std::error::Error for BundleRefusal {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::NotABundle(report) => Some(report),
+            Self::Unusable(unusable) => Some(unusable),
             // Nothing wraps a cause here: the finding *is* the message, and the values a
             // reader needs are already in it.
-            Self::AnotherRevision(_) | Self::UnaccountedMaterial(_) => None,
+            Self::UnaccountedMaterial(_) => None,
         }
     }
 }
@@ -597,7 +680,7 @@ pub fn validate(root: &Path) -> Result<ValidatedBundle, ValidationReport> {
     if report.is_valid() {
         Ok(ValidatedBundle {
             path: root.to_path_buf(),
-            identity: manifest.identifier(),
+            manifest,
             unaccounted: report.unexpected,
         })
     } else {
@@ -617,16 +700,17 @@ pub fn validate(root: &Path) -> Result<ValidatedBundle, ValidationReport> {
 ///
 /// Every caller that opens a bundle it addressed by identifier wants this rather than
 /// [`validate`] — the publication protocol at both of its bundle-completion paths, and
-/// STE-17's Revision Reader when it opens a published bundle by identifier.
+/// [`RevisionStore::open_revision`](crate::revisions::RevisionStore::open_revision) when
+/// it opens a published bundle by identifier.
 pub fn validate_as(
     root: &Path,
     expected: RevisionIdentity,
-) -> Result<ValidatedBundle, BundleRefusal> {
-    let validated = validate(root).map_err(BundleRefusal::NotABundle)?;
+) -> Result<ValidatedBundle, BundleUnusable> {
+    let validated = validate(root).map_err(BundleUnusable::NotABundle)?;
     if validated.identity() == expected {
         return Ok(validated);
     }
-    Err(BundleRefusal::AnotherRevision(RevisionMismatch {
+    Err(BundleUnusable::AnotherRevision(RevisionMismatch {
         expected,
         found: validated.identity(),
     }))
@@ -1009,7 +1093,7 @@ mod tests {
         let refusal = validate_as(staged.root(), other.identity()).unwrap_err();
         assert_eq!(
             refusal,
-            BundleRefusal::AnotherRevision(RevisionMismatch {
+            BundleUnusable::AnotherRevision(RevisionMismatch {
                 expected: other.identity(),
                 found: staged.identity(),
             })
@@ -1233,6 +1317,12 @@ mod tests {
         // why every persisted type in this ticket carries an absent-field round-trip
         // test. Validation is not the mechanism that catches it, and pretending
         // otherwise here would put a second, weaker decoder in the publication path.
+        //
+        // The mechanism that *does* catch it is the Revision Reader, one layer up:
+        // `read.rs::an_entry_list_that_is_hash_valid_and_undecodable_is_a_typed_refusal`
+        // builds this same bundle and asserts the reader refuses to serve it. This test
+        // is that one's negative control — it is what proves the reader is catching
+        // something validation genuinely lets through.
         let (_root, staged) = stage_fixture(one_entry());
         let entry = resolve(staged.root(), &host_path(ENTRY_LIST_FILE));
         // An `EntrySummary` with no `identifier`: valid JSON, correct hash, and no
@@ -1293,23 +1383,39 @@ mod tests {
     fn the_document_path_is_derived_from_identity_and_stays_inside_the_bundle() {
         // One decision, made once: the path is a function of `DocumentIdentity`, so
         // `RevisionCandidate`'s refusal of two documents of one identity is what makes two
-        // bundle paths unable to collide. Nothing re-decides it per call site.
+        // bundle paths unable to collide. Nothing re-decides it per call site — which is
+        // also what lets the reader, holding only an identity, arrive at the file the
+        // writer wrote.
         let document = RevisionDocument::EntryList(EntryList {
             entries: one_entry(),
         });
-        assert_eq!(document_path(&document), host_path(ENTRY_LIST_FILE));
+        assert_eq!(
+            document_path(document.identity()),
+            host_path(ENTRY_LIST_FILE)
+        );
 
         let other = RevisionDocument::EntryList(EntryList {
             entries: Vec::new(),
         });
-        assert_eq!(document_path(&document), document_path(&other));
+        assert_eq!(
+            document_path(document.identity()),
+            document_path(other.identity())
+        );
 
         // Documents live under a directory of their own and never beside the manifest,
         // so a later phase's non-document material cannot collide with one.
-        assert_ne!(document_path(&document), host_path(MANIFEST_FILE));
+        assert_ne!(document_path(document.identity()), host_path(MANIFEST_FILE));
         assert_eq!(
-            document_path(&document).components().next(),
+            document_path(document.identity()).components().next(),
             Some("documents")
+        );
+
+        // The read side's door lands on exactly the file the writer wrote, built from the
+        // path's own components rather than by joining its `/`-separated spelling.
+        let bundle = Path::new("/app/revisions/bundles/abc");
+        assert_eq!(
+            document_file(bundle, DocumentIdentity::EntryList),
+            bundle.join("documents").join("entry-list.json")
         );
     }
 
