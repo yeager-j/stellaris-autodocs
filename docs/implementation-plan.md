@@ -91,7 +91,7 @@ Blocking relations encode the dependency DAG so parallelizable work is visible. 
 
 **Exit:** Crash-injection tests around every replacement step; identity property tests (rename, rebind, case-only, collision); discovery behavioral tests over fixture directory trees.
 
-## Phase 2 — Source module
+## Phase 2 — Source module (implemented)
 
 **Deliverable:** Source truth: snapshots, fingerprints, and the fixture seam the whole verification architecture stands on.
 
@@ -99,7 +99,7 @@ Blocking relations encode the dependency DAG so parallelizable work is visible. 
 2. Read + hash exact bytes; Target Mod and Vanilla Content fingerprints.
 3. Source Snapshot capability, including lazy frozen capture for large binary assets.
 4. Final live-source verification (the pre-publication re-fingerprint), including referenced-source-asset sets.
-5. Disposable filesystem-metadata accelerator (hint only; never identity).
+5. Disposable filesystem-metadata accelerator (hint only; never identity). (deferred to Phase 9 task 7 — `docs/decision-log.md`, D-129)
 6. Source-owned test support: construct snapshots from fixture corpora (this is what golden tests and every analysis test consume).
 
 **Exit:** Behavioral tests for edits/additions/deletions/renames/ordering/rejection/mid-build change; fingerprint determinism across enumeration order and parallelism.
@@ -213,6 +213,7 @@ Phase 9's Ensure/Rebuild coordinator is what replaces the caller: `application` 
 4. Revision retention: superseded-bundle retirement after handle release, startup sweep ordering after state recovery.
 5. Complete Tauri command surface and DTOs for every documentation-client operation and build outcome union.
 6. Cross-language contract suite (shared cases, negative controls for discriminants/shapes/JSON-safety) — HTTP side joins in Phase 11.
+7. Disposable filesystem-metadata accelerator, carried from Phase 2 task 5 once a build total exists to measure it against (D-129): hints consulted by the task 1 freshness pre-check only and never by pre-publication verification, with the boundary in the types where practical. Bounding the memory a Source Snapshot may consume ships in the same slice — the storage-backing and size-cap decisions constrain each other, and it carries a Phase 12 release-gate deadline.
 
 **Exit:** Golden cases run through real Ensure with cache-hit and invalidation assertions (edit/add/delete/rename/asset-byte/version-vector); `BuildInProgress`, staleness, and status-derivation suites pass.
 
