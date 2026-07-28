@@ -81,23 +81,29 @@ function InstallationEntries() {
  * host detail.
  */
 function TransportFailure({ error }: { error: Error }) {
-  const correlationId = error instanceof HostRejectedError ? error.correlationId : null;
-  const known = error instanceof DocumentationTransportError;
+  // Three distinct failures, and they must not share a sentence. `HostRejectedError` extends
+  // `DocumentationTransportError`, so testing the base class first would tell someone the host was
+  // unreachable while showing them a correlation identifier the host itself minted — a diagnosis
+  // contradicted by the evidence printed next to it. Most specific first.
+  if (error instanceof HostRejectedError) {
+    return (
+      <Alert>
+        <AlertTitle>The documentation could not be read</AlertTitle>
+        <AlertDescription>
+          The documentation host reached this request and could not complete it. Quote this
+          identifier when reporting it: <code className="font-mono">{error.correlationId}</code>.
+        </AlertDescription>
+      </Alert>
+    );
+  }
 
   return (
     <Alert>
       <AlertTitle>The documentation could not be read</AlertTitle>
       <AlertDescription>
-        {known
+        {error instanceof DocumentationTransportError
           ? "The request did not reach the documentation host, or the host answered in a shape this build does not understand."
           : "Something went wrong while loading this page."}
-        {correlationId !== null && (
-          <>
-            {" "}
-            Quote this identifier when reporting it:{" "}
-            <code className="font-mono">{correlationId}</code>.
-          </>
-        )}
       </AlertDescription>
     </Alert>
   );

@@ -48,6 +48,7 @@ fn main() -> std::process::ExitCode {
 
     use stellaris_docs_lib::application::DocumentationHost;
     use stellaris_docs_lib::composition::open_stores;
+    use stellaris_docs_lib::error::Failure;
     use stellaris_docs_lib::testsupport::candidates::seed_skeleton_thread;
 
     let Some(app_data) = std::env::args().nth(1).map(PathBuf::from) else {
@@ -85,10 +86,21 @@ fn main() -> std::process::ExitCode {
             );
             std::process::ExitCode::SUCCESS
         }
-        Err(failure) => {
-            // `Display` on the expected half is the redacted form; the unexpected half prints its
-            // correlation identifier and nothing else, same as a transport would.
-            eprintln!("could not publish: {failure:?}");
+        // Split by hand, because `{failure:?}` would follow `Failure`'s derived `Debug` into
+        // `Unexpected`'s, which renders the private message — the leak `error.rs` warns that "any
+        // seam reaching for `{:?}`" causes. The two halves are printed differently on purpose.
+        Err(Failure::Expected(refusal)) => {
+            // `Display`, which is the redacted form every expected error carries.
+            eprintln!("could not publish: {refusal}");
+            std::process::ExitCode::FAILURE
+        }
+        Err(Failure::Unexpected(unexpected)) => {
+            // `log_detail`, not `Display`. This writes to a developer's own terminal, which is
+            // what "detailed error chains remain only in protected desktop logs" permits, and it
+            // is the same call `transport::envelope::record` makes for the same reason. A bare
+            // correlation identifier here would correlate with nothing, since this process writes
+            // no other log.
+            eprintln!("could not publish: {}", unexpected.log_detail());
             std::process::ExitCode::FAILURE
         }
     }

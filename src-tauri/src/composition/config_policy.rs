@@ -188,13 +188,26 @@ mod tests {
              single-instance key; an identical identifier silently shares both"
         );
 
-        // No `app` key at all, so the overlay cannot weaken the security policy. Config merge is
-        // RFC 7386, which replaces arrays wholesale — an `app.windows` entry here would discard
-        // the base window's title and size rather than adding to them.
-        assert!(
-            overlay.get("app").is_none(),
-            "the overlay must not carry an `app` key: it could weaken the policy, and an \
-             `app.windows` entry would replace the base window array wholesale"
+        // The whole key set, not a deny-list of the keys that happen to be dangerous today.
+        // "Changes only the application identity" is the invariant, and naming `app` alone would
+        // stay green when someone adds `build`, `bundle`, or `plugins` — each of which silently
+        // reconfigures the development binary away from what the production config describes.
+        //
+        // `app` is merely the worst case: config merge is RFC 7386, which replaces arrays
+        // wholesale, so an `app.windows` entry would discard the base window's title and size
+        // rather than adding to them, and an `app.security` entry could weaken the policy this
+        // module exists to enforce.
+        let mut keys: Vec<&str> = overlay
+            .as_object()
+            .expect("the overlay is a JSON object")
+            .keys()
+            .map(String::as_str)
+            .collect();
+        keys.sort_unstable();
+        assert_eq!(
+            keys,
+            ["$schema", "identifier"],
+            "the development overlay must carry the application identity and nothing else"
         );
     }
 
