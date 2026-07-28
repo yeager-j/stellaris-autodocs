@@ -13,33 +13,93 @@ use jomini::text::{Operator as JominiOperator, ReaderErrorKind, Token, TokenRead
 const MAX_DEPTH: usize = 256;
 
 pub(super) fn parse(source: SourceIdentity, data: &[u8]) -> ParsedFile {
-    let mut cursor = Cursor::new(data);
-    match parse_items(&mut cursor, 0, Until::EndOfFile) {
-        Ok(items) => ParsedFile {
-            source,
-            items: clean(items),
-            faults: Vec::new(),
-        },
-        Err(stop) => ParsedFile {
-            source,
-            items: clean(stop.items),
-            faults: vec![ParseFault {
-                kind: stop.error.kind,
-                position: stop.error.position as u64,
-                recovery_boundary: None,
-            }],
-        },
+    parse_with_boundary_finder(source, data, resync)
+}
+
+fn parse_with_boundary_finder(
+    source: SourceIdentity,
+    data: &[u8],
+    boundary_after: fn(&[u8], usize) -> Option<usize>,
+) -> ParsedFile {
+    let mut items = Vec::new();
+    let mut faults = Vec::new();
+    let mut base = 0usize;
+    let mut evidence = EvidenceQuality::Clean;
+
+    loop {
+        let mut cursor = Cursor::new(&data[base..], base);
+        match parse_items(&mut cursor, 0, Until::EndOfFile) {
+            Ok(parsed) => {
+                items.extend(with_evidence(parsed, evidence));
+                break;
+            }
+            Err(stop) => {
+                items.extend(with_evidence(stop.items, evidence));
+                let recovery_boundary =
+                    boundary_after(data, stop.error.position).filter(|boundary| *boundary > base);
+                faults.push(ParseFault {
+                    kind: stop.error.kind,
+                    position: stop.error.position as u64,
+                    recovery_boundary: recovery_boundary.map(|boundary| boundary as u64),
+                });
+                match recovery_boundary {
+                    Some(boundary) => {
+                        base = boundary;
+                        evidence = EvidenceQuality::Recovered;
+                    }
+                    None => break,
+                }
+            }
+        }
+    }
+
+    ParsedFile {
+        source,
+        items,
+        faults,
     }
 }
 
-fn clean(items: Vec<Item>) -> Vec<ParsedItem> {
+fn with_evidence(items: Vec<Item>, evidence: EvidenceQuality) -> Vec<ParsedItem> {
     items
         .into_iter()
-        .map(|item| ParsedItem {
-            evidence: EvidenceQuality::Clean,
-            item,
-        })
+        .map(|item| ParsedItem { evidence, item })
         .collect()
+}
+
+/// Resume at the next column-zero identifier line after the fault.
+///
+/// This is a heuristic about Stellaris source layout, not grammar. Around a fault it can
+/// promote nested content to top level, so every item emitted after a restart is Recovered
+/// rather than Clean. It cannot detect stray tokens that leave the source valid-looking.
+fn resync(data: &[u8], after: usize) -> Option<usize> {
+    let mut index = after.min(data.len());
+
+    while index < data.len() && data[index] != b'\n' {
+        index += 1;
+    }
+
+    while index < data.len() {
+        index += 1;
+        match data.get(index) {
+            None => return None,
+            Some(&first)
+                if first.is_ascii_alphabetic()
+                    || first == b'_'
+                    || first == b'@'
+                    || first == b'"' =>
+            {
+                return Some(index);
+            }
+            Some(_) => {
+                while index < data.len() && data[index] != b'\n' {
+                    index += 1;
+                }
+            }
+        }
+    }
+
+    None
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -307,17 +367,19 @@ struct Cursor<'a> {
     reader: TokenReader<'a>,
     data: &'a [u8],
     peeked: Option<Lexeme>,
+    base: usize,
     last: usize,
     inside_conditional: bool,
 }
 
 impl<'a> Cursor<'a> {
-    fn new(data: &'a [u8]) -> Self {
+    fn new(data: &'a [u8], base: usize) -> Self {
         Self {
             reader: TokenReader::from_slice(data),
             data,
             peeked: None,
-            last: 0,
+            base,
+            last: base,
             inside_conditional: false,
         }
     }
@@ -352,7 +414,7 @@ impl<'a> Cursor<'a> {
     fn eof(&self, kind: ParseFaultKind) -> AdapterError {
         AdapterError {
             kind,
-            position: self.reader.position(),
+            position: self.base + self.reader.position(),
             eof: true,
         }
     }
@@ -395,10 +457,13 @@ impl<'a> Cursor<'a> {
             stellaris_construct(self.data, opens_at, self.inside_conditional)
         {
             let consume = opens_at - self.reader.position() + width;
-            self.reader.read_bytes(consume).map_err(reader_error)?;
+            self.reader
+                .read_bytes(consume)
+                .map_err(|error| reader_error(error, self.base))?;
+            let start = self.base + opens_at;
             return Ok(Some(Lexeme {
                 lex,
-                range: SourceRange::new(opens_at, opens_at + width),
+                range: SourceRange::new(start, start + width),
             }));
         }
 
@@ -406,7 +471,7 @@ impl<'a> Cursor<'a> {
             let token = match self.reader.next() {
                 Ok(Some(token)) => token,
                 Ok(None) => return Ok(None),
-                Err(error) => return Err(reader_error(error)),
+                Err(error) => return Err(reader_error(error, self.base)),
             };
             match token {
                 Token::Open => (Lex::Open, 1),
@@ -440,17 +505,18 @@ impl<'a> Cursor<'a> {
             }
         };
 
+        let start = self.base + opens_at;
         Ok(Some(Lexeme {
             lex,
-            range: SourceRange::new(opens_at, opens_at + width),
+            range: SourceRange::new(start, start + width),
         }))
     }
 }
 
-fn reader_error(error: jomini::ReaderError) -> AdapterError {
+fn reader_error(error: jomini::ReaderError, base: usize) -> AdapterError {
     AdapterError {
         kind: ParseFaultKind::TokenReaderFailure,
-        position: error.position(),
+        position: base + error.position(),
         eof: matches!(error.kind(), ReaderErrorKind::Eof),
     }
 }
@@ -521,6 +587,7 @@ mod tests {
     use super::*;
     use crate::canonical::path::LogicalPath;
     use crate::source::SourceKind;
+    use proptest::prelude::*;
     use std::fs;
     use std::path::{Path, PathBuf};
 
@@ -832,35 +899,295 @@ mod tests {
     }
 
     #[test]
-    fn the_first_fault_stops_the_file_and_keeps_only_clean_prefix_definitions() {
+    fn malformed_fixtures_report_faults_and_distinguish_clean_from_recovered_definitions() {
+        let failures = malformed_fixture_failures(parse);
+        assert!(failures.is_empty(), "{failures:#?}");
+    }
+
+    #[test]
+    fn malformed_fixture_expectations_detect_disabled_resynchronization() {
+        fn parse_without_resynchronization(source: SourceIdentity, data: &[u8]) -> ParsedFile {
+            parse_with_boundary_finder(source, data, |_, _| None)
+        }
+
+        let failures = malformed_fixture_failures(parse_without_resynchronization);
+        for name in [
+            "fault_at_head.txt",
+            "stray_close_brace.txt",
+            "unclosed_brace_middle.txt",
+            "unterminated_quote.txt",
+        ] {
+            assert!(
+                failures.iter().any(|failure| failure.starts_with(name)),
+                "{name} unexpectedly passed without resynchronization: {failures:#?}"
+            );
+        }
+    }
+
+    fn malformed_fixture_failures(parser: fn(SourceIdentity, &[u8]) -> ParsedFile) -> Vec<String> {
         let cases = [
-            ("fault_at_head.txt", Vec::<&str>::new()),
+            (
+                "fault_at_head.txt",
+                ParseFaultKind::ContainerUnclosed,
+                Some("parser_second"),
+                vec![
+                    ("parser_second", EvidenceQuality::Recovered),
+                    ("parser_third", EvidenceQuality::Recovered),
+                    ("parser_fourth", EvidenceQuality::Recovered),
+                ],
+            ),
             (
                 "stray_close_brace.txt",
-                vec!["parser_first", "parser_second"],
+                ParseFaultKind::UnexpectedCloseBrace,
+                Some("parser_third"),
+                vec![
+                    ("parser_first", EvidenceQuality::Clean),
+                    ("parser_second", EvidenceQuality::Clean),
+                    ("parser_third", EvidenceQuality::Recovered),
+                    ("parser_fourth", EvidenceQuality::Recovered),
+                ],
             ),
             (
                 "truncated_tail.txt",
-                vec!["parser_first", "parser_second", "parser_third"],
+                ParseFaultKind::ContainerUnclosed,
+                None,
+                vec![
+                    ("parser_first", EvidenceQuality::Clean),
+                    ("parser_second", EvidenceQuality::Clean),
+                    ("parser_third", EvidenceQuality::Clean),
+                ],
             ),
-            ("unclosed_brace_middle.txt", vec!["parser_first"]),
-            ("unterminated_quote.txt", vec!["parser_first"]),
+            (
+                "unclosed_brace_middle.txt",
+                ParseFaultKind::ContainerUnclosed,
+                Some("parser_third"),
+                vec![
+                    ("parser_first", EvidenceQuality::Clean),
+                    ("parser_third", EvidenceQuality::Recovered),
+                    ("parser_fourth", EvidenceQuality::Recovered),
+                ],
+            ),
+            (
+                "unterminated_quote.txt",
+                ParseFaultKind::ContainerUnclosed,
+                Some("parser_third"),
+                vec![
+                    ("parser_first", EvidenceQuality::Clean),
+                    ("parser_third", EvidenceQuality::Recovered),
+                    ("parser_fourth", EvidenceQuality::Recovered),
+                ],
+            ),
         ];
+        let mut failures = Vec::new();
 
-        for (name, expected) in cases {
+        for (name, expected_kind, resumes_at, expected_definitions) in cases {
             let bytes = fs::read(malformed_root().join(name)).unwrap();
-            let file = parse(identity(name), &bytes);
-            assert_eq!(definition_names(&file), expected, "{name}");
-            assert_eq!(file.faults.len(), 1, "{name}: {:?}", file.faults);
-            assert!(file.faults[0].position <= bytes.len() as u64, "{name}");
-            assert_eq!(file.faults[0].recovery_boundary, None, "{name}");
-            assert!(
-                file.items
-                    .iter()
-                    .all(|item| item.evidence == EvidenceQuality::Clean),
-                "{name}"
-            );
+            let file = parser(identity(name), &bytes);
+            if file.faults.len() != 1 {
+                failures.push(format!("{name}: expected one fault, got {:?}", file.faults));
+                continue;
+            }
+            let fault = &file.faults[0];
+            if fault.kind != expected_kind {
+                failures.push(format!(
+                    "{name}: expected {expected_kind:?}, got {:?}",
+                    fault.kind
+                ));
+            }
+            if fault.position > bytes.len() as u64 {
+                failures.push(format!(
+                    "{name}: fault position {} exceeds {} bytes",
+                    fault.position,
+                    bytes.len()
+                ));
+            }
+            let expected_boundary =
+                resumes_at.map(|needle| find_line_start(&bytes, needle.as_bytes()) as u64);
+            if fault.recovery_boundary != expected_boundary {
+                failures.push(format!(
+                    "{name}: expected recovery boundary {expected_boundary:?}, got {:?}",
+                    fault.recovery_boundary
+                ));
+            }
+            let range_faults = verify_ranges(&bytes, &file);
+            if !range_faults.is_empty() {
+                failures.push(format!("{name}: recovered ranges failed: {range_faults:?}"));
+            }
+            let observed_definitions = file
+                .definitions()
+                .map(|(field, evidence)| (field.key.text().into_owned(), evidence))
+                .collect::<Vec<_>>();
+            let expected_definitions = expected_definitions
+                .into_iter()
+                .map(|(name, evidence)| (name.to_owned(), evidence))
+                .collect::<Vec<_>>();
+            if observed_definitions != expected_definitions {
+                failures.push(format!(
+                    "{name}: expected definitions {expected_definitions:?}, got \
+                     {observed_definitions:?}"
+                ));
+            }
         }
+
+        failures
+    }
+
+    fn find_line_start(haystack: &[u8], needle: &[u8]) -> usize {
+        haystack
+            .windows(needle.len())
+            .enumerate()
+            .find_map(|(index, window)| {
+                (window == needle && (index == 0 || haystack[index - 1] == b'\n')).then_some(index)
+            })
+            .unwrap_or_else(|| panic!("{needle:?} is absent"))
+    }
+
+    #[test]
+    fn repeated_faults_are_reported_in_order_and_recovery_quality_never_returns_to_clean() {
+        let source = b"first = { cost = 100 } }\n\
+                       second = { cost = 200 } }\n\
+                       third = { cost = 300 }\n";
+        let file = parsed("two-faults.txt", source);
+
+        assert_eq!(
+            file.faults
+                .iter()
+                .map(|fault| fault.kind)
+                .collect::<Vec<_>>(),
+            [
+                ParseFaultKind::UnexpectedCloseBrace,
+                ParseFaultKind::UnexpectedCloseBrace,
+            ]
+        );
+        assert!(file.faults[0].position < file.faults[1].position);
+        assert_eq!(
+            file.faults
+                .iter()
+                .map(|fault| fault.recovery_boundary)
+                .collect::<Vec<_>>(),
+            [
+                Some(find_line_start(source, b"second") as u64),
+                Some(find_line_start(source, b"third") as u64),
+            ]
+        );
+        assert_eq!(
+            file.definitions()
+                .map(|(field, evidence)| (field.key.text().into_owned(), evidence))
+                .collect::<Vec<_>>(),
+            [
+                ("first".to_owned(), EvidenceQuality::Clean),
+                ("second".to_owned(), EvidenceQuality::Recovered),
+                ("third".to_owned(), EvidenceQuality::Recovered),
+            ]
+        );
+    }
+
+    #[derive(Debug, Clone, Copy)]
+    enum InjectedFault {
+        RemoveCloseBrace,
+        AddCloseBrace,
+        OpenQuote,
+    }
+
+    fn generated_fixture(definition_count: usize) -> Vec<u8> {
+        (0..definition_count)
+            .map(|index| format!("parser_{index} = {{ cost = {index} }}\n"))
+            .collect::<String>()
+            .into_bytes()
+    }
+
+    fn inject_fault(
+        source: &[u8],
+        clean: &ParsedFile,
+        definition_index: usize,
+        fault: InjectedFault,
+    ) -> Vec<u8> {
+        let range = clean
+            .definitions()
+            .nth(definition_index)
+            .map(|(field, _)| field.range.as_usize().unwrap())
+            .unwrap();
+        let mut mutated = source.to_vec();
+        match fault {
+            InjectedFault::RemoveCloseBrace => {
+                assert_eq!(mutated[range.end - 1], b'}');
+                mutated.remove(range.end - 1);
+            }
+            InjectedFault::AddCloseBrace => mutated.insert(range.end, b'}'),
+            InjectedFault::OpenQuote => {
+                let brace = source[range.clone()]
+                    .iter()
+                    .position(|byte| *byte == b'{')
+                    .unwrap();
+                mutated.insert(range.start + brace + 1, b'"');
+            }
+        }
+        mutated
+    }
+
+    proptest! {
+        #[test]
+        fn one_injected_fault_loses_at_most_its_definition(
+            definition_count in 1usize..12,
+            arbitrary_index in any::<usize>(),
+            fault in prop_oneof![
+                Just(InjectedFault::RemoveCloseBrace),
+                Just(InjectedFault::AddCloseBrace),
+                Just(InjectedFault::OpenQuote),
+            ],
+        ) {
+            let faulted_index = arbitrary_index % definition_count;
+            let source = generated_fixture(definition_count);
+            let clean = parsed("generated-clean.txt", &source);
+            let mutated = inject_fault(&source, &clean, faulted_index, fault);
+            let file = parsed("generated-fault.txt", &mutated);
+            let observed = definition_names(&file);
+
+            prop_assert!(!file.faults.is_empty());
+            prop_assert!(observed.len() + 1 >= definition_count);
+            for index in 0..definition_count {
+                let name = format!("parser_{index}");
+                if index != faulted_index || matches!(fault, InjectedFault::AddCloseBrace) {
+                    prop_assert!(observed.contains(&name), "{name} was outside the faulted definition");
+                }
+            }
+            prop_assert!(
+                observed
+                    .iter()
+                    .all(|name| name.strip_prefix("parser_").is_some()),
+                "recovery invented a definition: {observed:?}"
+            );
+            if matches!(fault, InjectedFault::AddCloseBrace) {
+                prop_assert!(
+                    file.faults
+                        .iter()
+                        .any(|fault| fault.kind == ParseFaultKind::UnexpectedCloseBrace)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn truncating_the_last_definition_loses_exactly_one_and_cannot_resume() {
+        let source = generated_fixture(4);
+        let clean = parsed("truncate-clean.txt", &source);
+        let last = clean.definitions().count() - 1;
+        let range = clean
+            .definitions()
+            .nth(last)
+            .map(|(field, _)| field.range.as_usize().unwrap())
+            .unwrap();
+        let mut truncated = source;
+        truncated.truncate(range.end - 1);
+
+        let file = parsed("truncate-last.txt", &truncated);
+        assert_eq!(file.definitions().count(), clean.definitions().count() - 1);
+        assert_eq!(
+            definition_names(&file),
+            ["parser_0", "parser_1", "parser_2"]
+        );
+        assert_eq!(file.faults.len(), 1);
+        assert_eq!(file.faults[0].recovery_boundary, None);
     }
 
     #[test]
