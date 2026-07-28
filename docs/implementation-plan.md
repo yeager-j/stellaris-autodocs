@@ -2,7 +2,7 @@
 
 Status: Outline for review
 
-Last updated: 2026-07-27
+Last updated: 2026-07-28
 
 > **For agentic workers:** This is the master outline and the durable planning document.
 > Each phase gets a deep pass before execution that pins contracts, public surfaces, test
@@ -91,7 +91,7 @@ Blocking relations encode the dependency DAG so parallelizable work is visible. 
 
 **Exit:** Crash-injection tests around every replacement step; identity property tests (rename, rebind, case-only, collision); discovery behavioral tests over fixture directory trees.
 
-## Phase 2 — Source module
+## Phase 2 — Source module (implemented)
 
 **Deliverable:** Source truth: snapshots, fingerprints, and the fixture seam the whole verification architecture stands on.
 
@@ -99,12 +99,12 @@ Blocking relations encode the dependency DAG so parallelizable work is visible. 
 2. Read + hash exact bytes; Target Mod and Vanilla Content fingerprints.
 3. Source Snapshot capability, including lazy frozen capture for large binary assets.
 4. Final live-source verification (the pre-publication re-fingerprint), including referenced-source-asset sets.
-5. Disposable filesystem-metadata accelerator (hint only; never identity).
+5. Disposable filesystem-metadata accelerator (hint only; never identity). (deferred to Phase 9 task 7 — `docs/decision-log.md`, D-129)
 6. Source-owned test support: construct snapshots from fixture corpora (this is what golden tests and every analysis test consume).
 
 **Exit:** Behavioral tests for edits/additions/deletions/renames/ordering/rejection/mid-build change; fingerprint determinism across enumeration order and parallelism.
 
-## Phase 3 — Walking skeleton
+## Phase 3 — Walking skeleton (implemented)
 
 **Deliverable:** The smallest honest end-to-end thread: hand-authored Revision Candidate → real bundle → real atomic publication → real Tauri read → minimal React page.
 
@@ -113,10 +113,10 @@ Blocking relations encode the dependency DAG so parallelizable work is visible. 
 3. Minimal Revision Reader with handle pinning. (implemented)
 4. Test-only candidate provider: the build coordinator accepts a Revision Candidate provider seam; the skeleton supplies hand-authored candidates from test support, exercising application coordination and publication without pretending to analyze Stellaris source. No false analysis behavior enters the production `analysis` module; deleting this provider is an explicit Phase 6 entry condition. (implemented)
 5. One awaited Tauri build command + one read command using the Result envelope and vendored Result package boundary. Includes a negative test that a serialized failure cannot contain `Unexpected` message detail — `error::Unexpected` derives `Debug` including the message, so redaction must be enforced structurally at the transport seam, not by convention (Phase 0 review finding). (implemented)
-6. Frontend bootstrap: Vite + TanStack Router + Tailwind + shadcn shell; documentation-client interface with the desktop (Tauri) adapter; one page listing entries.
-7. `tauri-plugin-single-instance` registered first in the composition root; development tools and tests use isolated application-data directories and identifiers per the design's caller precondition. (Packaged platform validation stays in Phase 12.)
-8. Baseline desktop CSP enabled with the React shell: same-origin defaults, no remote origins, no `unsafe-eval`. Later phases extend it (asset protocol in Phase 10, Companion policy in Phase 11); the production-artifact release gate stays in Phase 12.
-9. Acceptance-harness skeleton: fixture snapshots → build use case → published revision → desktop read, in the shape the golden tests will keep.
+6. Frontend bootstrap: Vite + TanStack Router + Tailwind + shadcn shell; documentation-client interface with the desktop (Tauri) adapter; one page listing entries. (implemented)
+7. `tauri-plugin-single-instance` registered first in the composition root; development tools and tests use isolated application-data directories and identifiers per the design's caller precondition. (Packaged platform validation stays in Phase 12.) (implemented)
+8. Baseline desktop CSP enabled with the React shell: same-origin defaults, no remote origins, no `unsafe-eval`. Later phases extend it (asset protocol in Phase 10, Companion policy in Phase 11); the production-artifact release gate stays in Phase 12. (implemented)
+9. Acceptance-harness skeleton: fixture snapshots → build use case → published revision → desktop read, in the shape the golden tests will keep. (implemented)
 
 **Exit:** The thread runs in the real app window under the baseline CSP and in the headless harness; publication crash-injection suite passes; the harness shape is reviewed as the golden-case vehicle.
 
@@ -163,6 +163,7 @@ What Phase 3 actually built, so the deletion has a checklist rather than an inte
 - `src-tauri/src/application/candidates.rs` — the `RevisionCandidateSource` seam itself, its `CandidateUnavailable` union, and `NoAnalysisSource`, the production implementation whose whole job is to refuse.
 - `composition::candidate_source` — the `#[cfg(feature = "test-support")]` pair that chooses between them, and the only reason a shipped binary cannot publish a revision documenting nothing real.
 - `application::publish::publish_provided_candidate`'s `candidates` parameter, and its guard that a candidate documents the target it was asked for — a check that exists only because a seam can return somebody else's candidate.
+- `src-tauri/tests/acceptance/` — the acceptance harness's own stand-ins, which are deliberately separate from `testsupport::candidates` so that this deletion stays a removal rather than a rewrite of the golden-case vehicle: `corpora::AcceptanceCorpus`'s `documentation_typed_by_hand` field and the `.documenting(…)` call in each corpus constructor; `harness::HandAuthoredCandidate` and the two places that construct one, in `AcceptanceThread::boot` and `AcceptanceThread::rebuild_over`. No acceptance case names any of them, so no case changes. Three consequences to decide rather than discover: `published_thread::the_fixture_bytes_reach_the_revision_and_nothing_a_reader_can_see` must be driven red and replaced by the assertion that two corpora document *different* entries; `corpora::carries_no_entry_list` has no successor, because an analysis that documented nothing would still emit an empty entry list, so its case relocates to a focused `application::read` test or goes; and `corpora`'s fixture bytes must from then on actually parse.
 
 Phase 9's Ensure/Rebuild coordinator is what replaces the caller: `application` calls `analysis`, assembles the Revision Candidate itself (D-120), and no seam remains for a test to substitute at. The `application::BuildTarget` and the `AnalysisFailed` build-error variant survive the deletion; `CandidateUnavailable::NoAnalysis` does not, because after this phase no build can honestly report it.
 
@@ -212,6 +213,7 @@ Phase 9's Ensure/Rebuild coordinator is what replaces the caller: `application` 
 4. Revision retention: superseded-bundle retirement after handle release, startup sweep ordering after state recovery.
 5. Complete Tauri command surface and DTOs for every documentation-client operation and build outcome union.
 6. Cross-language contract suite (shared cases, negative controls for discriminants/shapes/JSON-safety) — HTTP side joins in Phase 11.
+7. Disposable filesystem-metadata accelerator, carried from Phase 2 task 5 once a build total exists to measure it against (D-129): hints consulted by the task 1 freshness pre-check only and never by pre-publication verification, with the boundary in the types where practical. Bounding the memory a Source Snapshot may consume ships in the same slice — the storage-backing and size-cap decisions constrain each other, and it carries a Phase 12 release-gate deadline.
 
 **Exit:** Golden cases run through real Ensure with cache-hit and invalidation assertions (edit/add/delete/rename/asset-byte/version-vector); `BuildInProgress`, staleness, and status-derivation suites pass.
 
