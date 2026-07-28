@@ -1,0 +1,22 @@
+# tape rejections — vanilla: 18 total
+common/HOW_TO_MAKE_NEW_SHIPS.txt	invalid syntax encountered: unrecognized operator (offset: 1856)
+common/component_tags/00_tags.txt	unexpected end of file
+common/edicts/99_README_EDICTS.txt	unexpected end of file
+common/gamesetup_settings/gamesetup_settings.txt	invalid syntax encountered: invalid syntax for token headers (offset: 598)
+common/job_tags/00_tags.txt	unexpected end of file
+common/scripted_effects/00_scripted_effects.txt	invalid syntax encountered: expected start of parameter definition (offset: 93224)
+common/scripted_effects/archaeology_event_effects.txt	invalid syntax encountered: expected start of parameter definition (offset: 429)
+common/scripted_effects/astral_planes_effects.txt	invalid syntax encountered: expected start of parameter definition (offset: 336)
+common/scripted_effects/astral_rift_effects.txt	invalid syntax encountered: expected start of parameter definition (offset: 401)
+common/scripted_effects/espionage_event_effects.txt	invalid syntax encountered: expected start of parameter definition (offset: 92443)
+common/scripted_effects/first_contact_effects.txt	invalid syntax encountered: expected start of parameter definition (offset: 27773)
+common/scripted_effects/nomads_effects.txt	invalid syntax encountered: expected start of parameter definition (offset: 117286)
+common/scripted_effects/shroud_shadows_scripted_effects.txt	invalid syntax encountered: expected start of parameter definition (offset: 48427)
+common/trait_tags/00_tags.txt	unexpected end of file
+gfx/fonts/arimo/LICENSE.txt	invalid syntax encountered: unrecognized operator (offset: 10458)
+interface/credits.txt	invalid syntax encountered: unrecognized operator (offset: 131888)
+interface/credits_l_simp_chinese.txt	invalid syntax encountered: unrecognized operator (offset: 131889)
+interface/startup_info.txt	unexpected end of file
+# tape rejections — acot: 2 total
+common/component_tags/acot_tags.txt	unexpected end of file
+common/scripted_effects/acot_structural_effects.txt	invalid syntax encountered: expected start of parameter definition (offset: 1219)

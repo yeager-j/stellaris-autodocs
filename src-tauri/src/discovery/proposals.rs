@@ -44,19 +44,31 @@ struct LauncherSettings {
 
 pub fn detect_stellaris_install(home: &Path) -> Option<StellarisInstall> {
     let root = home.join("Library/Application Support/Steam/steamapps/common/Stellaris");
-    if !root.is_dir() {
-        return None;
-    }
+    root.is_dir().then(|| read_installed_build(root))
+}
+
+/// Reads the installed build from a root the caller already has.
+///
+/// Split out of [`detect_stellaris_install`], which proposes the macOS Steam location, so
+/// that a caller pointed at an explicitly configured root — the local-corpus conformance
+/// run, whose roots are environment-overridable — learns the build the same way rather than
+/// parsing `launcher-settings.json` a second time. Which file answers "which build is
+/// installed" has one home.
+///
+/// An unreadable or invalid settings file still yields an install with `None` versions: the
+/// directory is the evidence that Stellaris is there, and the versions are what it says
+/// about itself.
+pub fn read_installed_build(root: PathBuf) -> StellarisInstall {
     let settings: LauncherSettings = fs::read(root.join("launcher-settings.json"))
         .ok()
         .and_then(|bytes| serde_json::from_slice(&bytes).ok())
         .unwrap_or_default();
-    Some(StellarisInstall {
+    StellarisInstall {
         root,
         version: settings.version,
         raw_version: settings.raw_version,
         mods_compatibility_version: settings.mods_compatibility_version,
-    })
+    }
 }
 
 #[cfg(test)]

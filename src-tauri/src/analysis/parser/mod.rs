@@ -4,9 +4,13 @@
 //! Parser-library values stop in the adapter, so replacing the parser changes this module
 //! rather than every resolver and documentation consumer.
 
+#[cfg(test)]
+mod conformance;
 mod digest;
 mod jomini;
 mod model;
+#[cfg(test)]
+mod ranges;
 
 pub(super) use model::{
     Conditional, Container, EvidenceQuality, Field, Item, Operator, ParseFault, ParseFaultKind,

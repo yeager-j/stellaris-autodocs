@@ -17,8 +17,9 @@ src-tauri/
 # both suites are checked against.
 fixtures/
 
-# Spike harnesses are reference implementations to mine, not production code (AGENTS.md), and
-# their record JSONs are reproducibility artifacts each spike's `verify` binary recomputes.
+# Spike and verification harnesses are reference implementations to mine, not production code
+# (AGENTS.md), and their record JSONs are reproducibility artifacts each harness's `verify`
+# recomputes.
 tools/
 
 # Design documents. Prose line-wrapping is deliberate and reviewed; a formatter rewrapping it

@@ -1,6 +1,6 @@
 //! `verify` — the drift gate.
 //!
-//! Same contract as `tools/oracle/verify.py` and `tools/parser-spike/src/bin/verify.rs`:
+//! Same contract as `tools/oracle/verify.py` and the parser conformance harness's drift gate:
 //! recompute every recorded corpus tree digest, re-hash every recorded artifact, compare the
 //! recorded decoder, encoder, toolchain, and Stellaris versions against this machine, print `ok`
 //! or `DRIFT` per record, and exit non-zero on any drift.

@@ -53,10 +53,19 @@ is reproduced.
 
 ## Running
 
-```bash
-cargo test --manifest-path tools/parser-spike/Cargo.toml
-```
+These files are read by the parser's own tests, from `src-tauri/`:
 
 ```bash
-cargo run --release --manifest-path tools/parser-spike/Cargo.toml --bin blast
+cargo test --features test-support analysis::parser
 ```
+
+The `valid/` tree is also established as a corpus in its own right — it is laid out as a mod
+so it enumerates through exactly the production path a real one does — and the conformance
+harness runs its cross-check and its digest controls over it on every ordinary test run
+(`src-tauri/src/analysis/parser/conformance/`). That is what keeps those gates exercised on a
+machine with no Stellaris installed.
+
+The blast-radius measurement that shaped the `malformed/` expectations was captured by
+`tools/parser-spike`, which no longer exists; `docs/spikes/parser-evaluation.md` records what
+it found and why it was deleted. The property-based equivalent now lives beside the parser as
+`one_injected_fault_loses_at_most_its_definition`.

@@ -114,7 +114,7 @@ pub struct DecoderIdentity {
     pub bcdec_rs: String,
 }
 
-/// Versions duplicated from the lock file into code, as `parser-spike/src/record.rs` does with
+/// Versions duplicated from the lock file into code, as `analysis::parser::conformance::record` does with
 /// Jomini, so a record cannot claim a version the harness did not link against.
 pub const IMAGE_DDS_VERSION: &str = "0.7.2";
 pub const BCDEC_RS_VERSION: &str = "0.2.0";

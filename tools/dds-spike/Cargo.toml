@@ -5,7 +5,7 @@ edition = "2021"
 publish = false
 description = "Evidence harness for docs/spikes/dds-evaluation.md. Throwaway: it measures whether image_dds can back the app's asset decoder, and is not the decoder."
 
-# Deliberately not a member of any workspace, for the reason tools/parser-spike/Cargo.toml
+# Deliberately not a member of any workspace, for the reason the parser spike's manifest
 # states: image_dds must not enter src-tauri's dependency graph before an ADR accepts it, and a
 # spike that shares a lock file with the application would make that boundary a matter of
 # discipline rather than structure.

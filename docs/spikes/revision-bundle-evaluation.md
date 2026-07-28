@@ -30,7 +30,13 @@ Three mechanisms the design held open are measured out rather than left unmentio
 
 **No host-owned job.** The threshold was missed only while the build was chunking 1.5 million localization keys per revision to feed a store that is no longer built.
 
-## Reproducible record
+## Provenance: the harness this document reports on no longer exists
+
+This evaluation was produced by `tools/bundle-spike/`, which was **deleted when Phase 4C landed** ([STE-25](https://linear.app/unnamed-system/issue/STE-25)), alongside `tools/parser-spike/`, on which it held a Cargo path dependency. Phase 3 landed what this spike de-risked — the bundle layout, staging, atomic publication, and the pinned Revision Reader — and no recurrence obligation references its harness, so under the implementation plan's rule (a spike is deleted once the work it de-risked lands) it had nothing left to keep it alive.
+
+The commands below therefore no longer run, and the records under `bundle-records/` can no longer be re-captured. **The measurements stay authoritative as a document**: they are what the storage decisions were made on, against the pinned build in the table below. Their `parser_spike_source`, `dds_spike_source`, and `bundle_spike_source` digests are left byte-for-byte as captured, naming source trees two of which are gone — which is what a historical record is, and why the note you are reading exists. `fixtures/bundle/` is retained.
+
+## Reproducible record (as it was)
 
 ```bash
 cargo test --manifest-path tools/bundle-spike/Cargo.toml
@@ -41,22 +47,22 @@ cargo run --release --manifest-path tools/bundle-spike/Cargo.toml --bin buildtim
 cargo run --release --manifest-path tools/bundle-spike/Cargo.toml --bin verify
 ```
 
-`verify` recomputes every corpus tree digest, re-hashes every compared artifact, and compares the recorded versions and source digests against the current machine, printing `ok` or `DRIFT` per record and exiting non-zero on any drift — the same contract as `tools/oracle/verify.py`.
+`verify` recomputed every corpus tree digest, re-hashed every compared artifact, and compared the recorded versions and source digests against the current machine, printing `ok` or `DRIFT` per record and exiting non-zero on any drift — the same contract as `tools/oracle/verify.py`.
 
 It was shown red three times before being trusted: with `STELLARIS_WORKSHOP_ROOT` pointed elsewhere; with one byte appended to `fixtures/bundle/malformed/localisation/french/bundle_l_french.yml`, which it named by path; and with one byte appended to the harness's own `src/digest.rs`.
 
-That third demonstration is a gate no earlier spike in this repository has. `verify` re-hashes artifacts against hashes the same run recorded, so it cannot notice that the *code* which produced them has since changed — a record can be internally consistent and describe a harness that no longer exists. Every record here pins `parser-spike`, `dds-spike`, and `bundle-spike` source tree digests, and an edit to any of them is drift.
+That third demonstration was a gate no earlier spike in this repository had. `verify` re-hashes artifacts against hashes the same run recorded, so it cannot notice that the *code* which produced them has since changed — a record can be internally consistent and describe a harness that no longer exists. Every record here pins `parser-spike`, `dds-spike`, and `bundle-spike` source tree digests, and an edit to any of them was drift. The point it was making has now been demonstrated the hard way: two of those three source trees are gone, and the provenance note above is what a reader has instead.
 
-Corpus roots are environment-overridable exactly as the other harnesses' are. No corpus content is committed: records hold logical paths, tree digests, counts, and byte totals. The committed fixtures carry per-file digests, which is what makes the second demonstration name a file rather than report an opaque tree difference — the gap `d4-failures` found in itself.
+Corpus roots were environment-overridable exactly as the other harnesses' are. No corpus content is committed: records hold logical paths, tree digests, counts, and byte totals. The committed fixtures carry per-file digests, which is what makes the second demonstration name a file rather than report an opaque tree difference — the gap `d4-failures` found in itself.
 
 | Pinned | Value |
 | --- | --- |
 | Stellaris | `Pegasus v4.4.6 (fdde)`, `v4.4.6`, mods-compat `4.4`, Steam |
-| Jomini | `0.35.0`, through `parser-spike`'s adopted `TokenReader` adapter ([ADR 0007](../adr/0007-parse-stellaris-source-through-a-wrapped-incremental-lexer.md)) |
+| Jomini | `0.35.0`, through the parser spike's adopted `TokenReader` adapter ([ADR 0007](../adr/0007-parse-stellaris-source-through-a-wrapped-incremental-lexer.md)) |
 | `image_dds` / `bcdec_rs` / `png` | `0.7.2` / `0.2.0` / `0.18.1`, through `dds-spike`'s pinned recipe ([ADR 0008](../adr/0008-decode-source-textures-through-a-pinned-conversion-recipe.md)) |
 | Toolchain | `rustc 1.97.1 (8bab26f4f 2026-07-14)`, macOS, aarch64 |
 
-The adapters are Cargo path dependencies rather than copies. A fork would have meant these bundle numbers describe a parser and a decoder no decision accepted, and a later fix to the adopted adapter would silently stop applying here.
+The adapters were Cargo path dependencies rather than copies. A fork would have meant these bundle numbers describe a parser and a decoder no decision accepted, and a later fix to the adopted adapter would silently stop applying here.
 
 ## Declared definitions
 
@@ -274,7 +280,7 @@ Manifest validation cannot catch this. It hashes bytes; it does not parse them. 
 
 `verify` re-hashes a record's artifacts against hashes that same run recorded. It cannot notice that the harness which produced them has changed, so a record can be internally consistent and describe code that no longer exists. Every record here pins its own crate's source tree digest alongside the two adapter crates', and an edit to any of the three is reported as drift.
 
-This is a small change with a specific motivation: the two adapters are path dependencies, so a local edit to `parser-spike/src/lexer.rs` changes what was measured while every recorded version number stays still.
+This is a small change with a specific motivation: the two adapters were path dependencies, so a local edit to the parser spike's lexer would change what was measured while every recorded version number stayed still.
 
 ## Rejected shortcuts
 
@@ -352,4 +358,4 @@ Each manifest holds the run's purpose verbatim from its binary, the pinned envir
 
 `b1-build` and `b3-read` additionally declare `uncompared_artifacts`: their timing distributions, named with the reason they are excluded from byte comparison. `d3-recipe` had to delete two wall-clock fields to stay reproducible; this spike cannot, because the timings are the evidence, so the exclusion is structural and visible rather than silent. Their existence is still required — a missing timings file is drift.
 
-The harness lives in `tools/bundle-spike/` and is not a workspace member of `src-tauri`. It takes Cargo path dependencies on `tools/parser-spike/` and `tools/dds-spike/`, both of which are their own workspace roots, so nothing enters the application's dependency graph until the production modules are implemented.
+The harness lived in `tools/bundle-spike/`, outside `src-tauri`'s workspace, and took Cargo path dependencies on `tools/parser-spike/` and `tools/dds-spike/`, both of which were their own workspace roots, so nothing entered the application's dependency graph until the production modules were implemented. That path dependency on the parser spike is why the two harnesses were deleted together; see the provenance note above.

@@ -1,0 +1,5 @@
+# adapter recoveries — vanilla: 3 total
+common/scripted_loc/scripted_loc_ruloc.txt
+gfx/models/effects/nomads.gfx
+gfx/models/ui/nomads_frontend.gfx
+# adapter recoveries — acot: 0 total
