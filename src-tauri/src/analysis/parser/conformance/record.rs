@@ -30,7 +30,7 @@ pub(super) struct Manifest {
     pub(super) run: String,
     pub(super) purpose: String,
     pub(super) environment: Environment,
-    pub(super) corpora: Vec<CorpusIdentity>,
+    pub(super) corpora: Vec<CorpusRecord>,
     pub(super) artifacts: BTreeMap<String, String>,
     pub(super) warnings: Vec<String>,
 }
@@ -46,6 +46,7 @@ pub(super) struct Environment {
     pub(super) arch: String,
 }
 
+/// What a corpus *is*: the same identity a build derives from it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(super) struct CorpusIdentity {
     pub(super) id: String,
@@ -60,6 +61,37 @@ pub(super) struct CorpusIdentity {
     /// put a shipped product's file listing in this repository for no verification gain.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) files: Option<BTreeMap<String, String>>,
+}
+
+/// What the run *got* from a corpus.
+///
+/// Recorded and drift-compared, not merely reported, and that is the point of it. The
+/// corpus fingerprint answers "did the source move" and the environment answers "did the
+/// tools move"; **neither answers "did the parser start reading the same bytes
+/// differently"** — which is precisely what the recurrence trigger's third case, a
+/// dialect-lexer edit, causes. A change in `ScalarKind`, in a derived range that still
+/// re-slices correctly, or in evidence quality is invisible to the structural cross-check by
+/// design, and would otherwise reach generated documentation with every gate green.
+///
+/// `parsed_corpus_digest` is the value that closes that: it covers ranges, scalar kinds,
+/// operators, evidence quality, and faults over every file of the corpus.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(super) struct Outcome {
+    pub(super) parsed_corpus_digest: String,
+    pub(super) compared: usize,
+    pub(super) agreed: usize,
+    pub(super) diverged: usize,
+    pub(super) tape_rejected: usize,
+    pub(super) adapter_recovered: usize,
+    pub(super) range_faults: usize,
+}
+
+/// One corpus as a record holds it: what it is, and what reading it produced.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(super) struct CorpusRecord {
+    #[serde(flatten)]
+    pub(super) identity: CorpusIdentity,
+    pub(super) outcome: Outcome,
 }
 
 pub(super) fn records_root() -> PathBuf {
@@ -108,7 +140,7 @@ pub(super) fn write(
     run: &str,
     purpose: &str,
     environment: Environment,
-    corpora: Vec<CorpusIdentity>,
+    corpora: Vec<CorpusRecord>,
     artifacts: &[(&str, String)],
     warnings: Vec<String>,
 ) -> std::io::Result<PathBuf> {
@@ -148,7 +180,8 @@ pub(super) fn write(
 pub(super) fn drift(
     recorded: &Manifest,
     environment: &Environment,
-    corpora: &[CorpusIdentity],
+    corpora: &[CorpusRecord],
+    artifacts: &[(&str, String)],
 ) -> Vec<String> {
     let mut reasons = Vec::new();
 
@@ -171,37 +204,85 @@ pub(super) fn drift(
     }
 
     for observed in corpora {
+        let id = &observed.identity.id;
         let Some(recorded) = recorded
             .corpora
             .iter()
-            .find(|corpus| corpus.id == observed.id)
+            .find(|corpus| corpus.identity.id == *id)
         else {
-            reasons.push(format!("corpus {}: not in the record", observed.id));
+            reasons.push(format!("corpus {id}: not in the record"));
             continue;
         };
-        if recorded.fingerprint != observed.fingerprint {
+        if recorded.identity.fingerprint != observed.identity.fingerprint {
             reasons.push(format!(
-                "corpus {}: fingerprint {} -> {} ({} files, {} bytes recorded; {} files, {} bytes observed)",
-                observed.id,
-                recorded.fingerprint,
-                observed.fingerprint,
-                recorded.file_count,
-                recorded.total_bytes,
-                observed.file_count,
-                observed.total_bytes,
+                "corpus {id}: fingerprint {} -> {} ({} files, {} bytes recorded; {} files, {} bytes observed)",
+                recorded.identity.fingerprint,
+                observed.identity.fingerprint,
+                recorded.identity.file_count,
+                recorded.identity.total_bytes,
+                observed.identity.file_count,
+                observed.identity.total_bytes,
+            ));
+        }
+        // What the run *got*, not only what it read. Without this, a parser change that
+        // leaves the corpus and the tools untouched — the recurrence trigger's third case —
+        // passes every other comparison here.
+        let recorded = &recorded.outcome;
+        let outcome = &observed.outcome;
+        let mut count = |field: &str, recorded: usize, observed: usize| {
+            if recorded != observed {
+                reasons.push(format!("corpus {id}: {field} {recorded} -> {observed}"));
+            }
+        };
+        count("compared", recorded.compared, outcome.compared);
+        count("agreed", recorded.agreed, outcome.agreed);
+        count("diverged", recorded.diverged, outcome.diverged);
+        count(
+            "tape rejections",
+            recorded.tape_rejected,
+            outcome.tape_rejected,
+        );
+        count(
+            "adapter recoveries",
+            recorded.adapter_recovered,
+            outcome.adapter_recovered,
+        );
+        count("range faults", recorded.range_faults, outcome.range_faults);
+        if recorded.parsed_corpus_digest != outcome.parsed_corpus_digest {
+            reasons.push(format!(
+                "corpus {id}: parsed-corpus digest {} -> {}. The source is unchanged if no \
+                 fingerprint drifted above, so this is the parser reading the same bytes \
+                 differently.",
+                recorded.parsed_corpus_digest, outcome.parsed_corpus_digest
             ));
         }
     }
     for corpus in &recorded.corpora {
-        if !corpora.iter().any(|observed| observed.id == corpus.id) {
-            reasons.push(format!("corpus {}: recorded but not run", corpus.id));
+        let id = &corpus.identity.id;
+        if !corpora.iter().any(|observed| observed.identity.id == *id) {
+            reasons.push(format!("corpus {id}: recorded but not run"));
         }
     }
 
-    // The artifacts are the evidence the manifest speaks for. Re-hashing them catches the
-    // case the corpus and environment comparisons cannot: a record edited by hand after
-    // capture, which would otherwise keep reporting a run that never happened.
+    // The artifacts are compared twice, for two different failures.
+    //
+    // Against what this run just produced. The counts above say how many, and this says
+    // whether they are the *same* ones. It also covers the one thing `parsed_corpus_digest`
+    // cannot: that digest is the production adapter's reading, so nothing else here would
+    // notice the **second** reading changing — a Cargo.lock bump from jomini 0.35.0 to
+    // 0.35.1 leaves the declared `0.35` still. `tape-rejections.txt` is where that surfaces.
     let directory = records_root().join(&recorded.run);
+    for (artifact, contents) in artifacts {
+        match recorded.artifacts.get(*artifact) {
+            Some(digest) if ContentHash::of(contents.as_bytes()).to_hex() == *digest => {}
+            Some(_) => reasons.push(format!(
+                "artifact {artifact}: this run produced different content"
+            )),
+            None => reasons.push(format!("artifact {artifact}: not in the record")),
+        }
+    }
+    // And against what is on disk: a record edited by hand after capture would otherwise keep
+    // reporting a run that never happened.
     for (artifact, digest) in &recorded.artifacts {
         match fs::read(directory.join(artifact)) {
             Ok(bytes) if ContentHash::of(&bytes).to_hex() == *digest => {}

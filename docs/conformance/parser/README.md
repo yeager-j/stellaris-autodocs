@@ -41,22 +41,33 @@ a file that was not produced.
 | `run` | The record directory's own name. |
 | `purpose` | What the run measured, in enough detail to judge whether the numbers answer it. |
 | `environment` | The installed Stellaris build (from `launcher-settings.json`, never from `game.log`), the Jomini requirement the harness linked against, `rustc`, os, arch. |
-| `corpora[]` | Per corpus: `id`, `title`, the number of script files parsed, their total bytes, and the production `/v3` source `fingerprint`. |
+| `corpora[]` | What each corpus *is*: `id`, `title`, the number of script files parsed, their total bytes, and the production `/v3` source `fingerprint`. |
 | `corpora[].files` | Per-file digests — **only** for corpora inside this repository. A licensed local installation is identified by its fingerprint and counts; listing a shipped product's files here would add nothing verifiable. |
+| `corpora[].outcome` | What the run *got* from it: the `parsed_corpus_digest`, and how the cross-check resolved — compared, agreed, diverged, tape-rejected, adapter-recovered, plus range faults. |
 | `artifacts` | Artifact name to SHA-256 of the bytes on disk. |
 | `warnings` | Anything the run wants a reader to know but did not fail on, such as a corpus that established incomplete. |
+
+The `outcome` block is compared, not merely reported, and that is the point of recording it.
+The fingerprint answers "did the source move" and the environment answers "did the tools
+move"; neither answers **"did the parser start reading the same bytes differently"** — which
+is exactly what the third recurrence trigger, a dialect-lexer edit, causes. A change in
+`ScalarKind`, in a derived range that still re-slices correctly, or in evidence quality is
+invisible to the structural cross-check by design. `parsed_corpus_digest` covers all of it.
 
 Artifacts:
 
 | File | Contents |
 | --- | --- |
-| `conformance.json` | Per corpus: file and byte counts, the parsed-corpus digest, and how the cross-check resolved — compared, agreed, diverged, tape-rejected, adapter-recovered, plus range faults. |
 | `divergences.txt` | Every structural disagreement, one per line, each pinned and traced in `conformance/expected.rs`. |
 | `tape-rejections.txt` | Files the second reading refused, with Jomini's message. Not failures: the tape rejects real dialect the adapter handles. |
 | `recoveries.txt` | Files the adapter recovered from. Excluded from the structural comparison — a repaired file is expected to differ from a reshaped one — and listed so a wrapper defect appearing as a spurious fault cannot hide in the excluded set. |
 
 Every list prints its total before its lines, so a truncated list cannot read as a complete
-one.
+one. The lists are compared against the record as well, on two counts: they say *which*
+findings there were where `outcome` says how many, and they are the only place a change in the
+**second** reading surfaces — `parsed_corpus_digest` is the production adapter's reading, so a
+Cargo.lock bump from jomini `0.35.0` to `0.35.1` leaves the declared `0.35` still and shows up
+in `tape-rejections.txt` or nowhere.
 
 **No corpus content is copied into this repository.** Logical paths and digests are what a
 licensed local installation needs to reproduce a run, and they are all a record carries for a

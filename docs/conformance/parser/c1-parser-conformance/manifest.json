@@ -18,18 +18,35 @@
       "title": "Stellaris base game",
       "file_count": 4578,
       "total_bytes": 56085735,
-      "fingerprint": "ee02b65f04eec7b45316af77c0d8edef28102478928636292bc55249410eb387"
+      "fingerprint": "ee02b65f04eec7b45316af77c0d8edef28102478928636292bc55249410eb387",
+      "outcome": {
+        "parsed_corpus_digest": "72aee8ceff046bc78dc2203dbe5e334860c3cc5e94ac45e9793bae09169d08b5",
+        "compared": 4557,
+        "agreed": 4555,
+        "diverged": 2,
+        "tape_rejected": 18,
+        "adapter_recovered": 3,
+        "range_faults": 0
+      }
     },
     {
       "id": "acot",
       "title": "Ancient Cache of Technologies",
       "file_count": 1120,
       "total_bytes": 18521905,
-      "fingerprint": "6f6095c22464583f4576fa6fade4de28dae717a399b9a2cc1fd8e541071835eb"
+      "fingerprint": "6f6095c22464583f4576fa6fade4de28dae717a399b9a2cc1fd8e541071835eb",
+      "outcome": {
+        "parsed_corpus_digest": "66f7d8d85b8bad25d38924086ef09d83e084d410627e2d38a5833a72a3e25a54",
+        "compared": 1118,
+        "agreed": 1117,
+        "diverged": 1,
+        "tape_rejected": 2,
+        "adapter_recovered": 0,
+        "range_faults": 0
+      }
     }
   ],
   "artifacts": {
-    "conformance.json": "7c40a294af87a373c20c934db942ffc1e4a1a30235fc6b1f721397d3d5f83d12",
     "divergences.txt": "2ff7ec1964deb6b50e7dec0c698e8f243fb3958fb7f5bc8d14bcce9c2805a09c",
     "recoveries.txt": "a0928bd6fa24015d4657b31439cb44dcd1b504699f2cfee3140053f7867bcfb3",
     "tape-rejections.txt": "bf30ef1d01a80045381da69412e04485a02b0da0e5180a103ece2b62fbcc04cb"

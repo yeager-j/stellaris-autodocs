@@ -51,20 +51,34 @@
 //! - the range check, by [`super::ranges::the_range_check_detects_a_shifted_span`];
 //! - the cross-check, by [`a_seeded_structural_misread_fails_the_cross_check`], which runs
 //!   in ordinary CI over the committed fixture corpus;
-//! - the drift gate, twice — once against a corpus and once against the record itself.
+//! - the drift gate, four times, once per thing it claims to notice. Pointing
+//!   `STELLARIS_WORKSHOP_ROOT` at a copy of ACOT with one byte added:
 //!
 //! ```text
-//! STELLARIS_WORKSHOP_ROOT=/tmp/acot-with-one-added-byte \
-//!   cargo test --features test-support corpus_conformance -- --ignored --nocapture
-//!
 //! corpus acot: fingerprint 6f6095c2… -> 5e12cd18… (1120 files, 18521905 bytes recorded;
 //!                                                   425 files, 8745791 bytes observed)
 //! ```
 //!
-//! and, after appending one line to a captured artifact:
+//!   Appending one line to a captured artifact:
 //!
 //! ```text
 //! artifact divergences.txt: edited after capture
+//! ```
+//!
+//!   Narrowing `is_number` in the dialect lexer — a change that moves scalars from `Number`
+//!   to `Unquoted`, which the cross-check excludes by design and the range check does not
+//!   see, with the corpus and the environment untouched:
+//!
+//! ```text
+//! corpus vanilla: parsed-corpus digest 72aee8ce… -> 10ebbe2f…. The source is unchanged if
+//!   no fingerprint drifted above, so this is the parser reading the same bytes differently.
+//! ```
+//!
+//!   And changing the wording of a tape rejection, which no digest here covers because
+//!   `parsed_corpus_digest` is the *adapter's* reading:
+//!
+//! ```text
+//! artifact tape-rejections.txt: this run produced different content
 //! ```
 
 mod expected;
@@ -84,7 +98,7 @@ use crate::source::policy::FileFamily;
 use crate::source::snapshot::{
     Established, LiveSource, SourceBytes, SourceKind, SourceSnapshot, establish,
 };
-use record::CorpusIdentity;
+use record::{CorpusIdentity, CorpusRecord};
 use tape::{Divergence, Pairing};
 
 const RUN: &str = "c1-parser-conformance";
@@ -245,6 +259,24 @@ struct Conformance {
     tape_rejections: Vec<String>,
     recoveries: Vec<String>,
     warnings: Vec<String>,
+}
+
+impl Conformance {
+    /// What a record holds about this corpus: what it is, and what reading it produced.
+    fn record(&self) -> CorpusRecord {
+        CorpusRecord {
+            identity: self.identity.clone(),
+            outcome: record::Outcome {
+                parsed_corpus_digest: self.digest.to_hex(),
+                compared: self.compared,
+                agreed: self.agreed,
+                diverged: self.divergences.len(),
+                tape_rejected: self.tape_rejections.len(),
+                adapter_recovered: self.recoveries.len(),
+                range_faults: self.range_faults.len(),
+            },
+        }
+    }
 }
 
 fn run(corpus: &Corpus, pairing: Pairing) -> Conformance {
@@ -577,10 +609,11 @@ fn corpus_conformance() {
 
     let stellaris = installed_build();
     let environment = record::environment(stellaris);
-    let identities: Vec<CorpusIdentity> = runs
-        .iter()
-        .map(|conformance| conformance.identity.clone())
-        .collect();
+    let records: Vec<CorpusRecord> = runs.iter().map(Conformance::record).collect();
+    // Built once and used twice, so the bytes the drift check compares are the bytes a
+    // capture would write. Generating them separately would let the gate and the record
+    // describe different runs.
+    let (artifacts, warnings) = artifacts(&runs);
 
     // Capture is the deliberate act of accepting a new state, so it reports drift rather
     // than failing on it — otherwise the one instruction a drift failure gives would be
@@ -591,7 +624,7 @@ fn corpus_conformance() {
     let recorded = record::read(RUN);
     match &recorded {
         Some(recorded) => {
-            let drift = record::drift(recorded, &environment, &identities);
+            let drift = record::drift(recorded, &environment, &records, &artifacts);
             let location = record::records_root().join(RUN);
             assert!(
                 drift.is_empty() || capturing,
@@ -614,7 +647,8 @@ fn corpus_conformance() {
     }
 
     if capturing {
-        let written = capture(&runs, environment, identities);
+        let written = record::write(RUN, PURPOSE, environment, records, &artifacts, warnings)
+            .expect("the record directory is writable");
         println!("captured {}", written.display());
     }
 }
@@ -634,32 +668,18 @@ fn installed_build() -> BTreeMap<String, String> {
     .collect()
 }
 
-fn capture(
-    runs: &[Conformance],
-    environment: record::Environment,
-    identities: Vec<CorpusIdentity>,
-) -> PathBuf {
-    let mut conformance = serde_json::Map::new();
+/// The listing artifacts, and every warning the runs raised.
+///
+/// The counts these lists summarize live in each corpus's [`record::Outcome`] rather than in
+/// a JSON artifact beside them, so there is one authority for "how many" and the lists answer
+/// only "which ones".
+fn artifacts(runs: &[Conformance]) -> (Vec<(&'static str, String)>, Vec<String>) {
     let mut divergences = String::new();
     let mut rejections = String::new();
     let mut recoveries = String::new();
     let mut warnings = Vec::new();
 
     for run in runs {
-        conformance.insert(
-            run.id.to_owned(),
-            serde_json::json!({
-                "files": run.identity.file_count,
-                "total_bytes": run.identity.total_bytes,
-                "parsed_corpus_digest": run.digest.to_hex(),
-                "compared": run.compared,
-                "agreed": run.agreed,
-                "diverged": run.divergences.len(),
-                "tape_rejected": run.tape_rejections.len(),
-                "adapter_recovered": run.recoveries.len(),
-                "range_faults": run.range_faults.len(),
-            }),
-        );
         let listed: Vec<String> = run
             .divergences
             .iter()
@@ -673,22 +693,12 @@ fn capture(
         warnings.extend(run.warnings.iter().cloned());
     }
 
-    let mut json = serde_json::to_string_pretty(&serde_json::Value::Object(conformance))
-        .expect("a report of plain data");
-    json.push('\n');
-
-    record::write(
-        RUN,
-        PURPOSE,
-        environment,
-        identities,
-        &[
-            ("conformance.json", json),
+    (
+        vec![
             ("divergences.txt", divergences),
             ("tape-rejections.txt", rejections),
             ("recoveries.txt", recoveries),
         ],
         warnings,
     )
-    .expect("the record directory is writable")
 }
