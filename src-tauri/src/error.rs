@@ -131,8 +131,14 @@ mod tests {
 
     /// Every `.rs` file under this crate's `src`, so the scan cannot be defeated by adding
     /// the impl in a module the test forgot to name.
-    fn crate_sources() -> Vec<(String, String)> {
-        fn walk(dir: &std::path::Path, found: &mut Vec<(String, String)>) {
+    ///
+    /// Paths stay [`PathBuf`](std::path::PathBuf) rather than becoming display strings, so a
+    /// caller matches them with [`Path::ends_with`](std::path::Path::ends_with), which compares
+    /// whole components. A string `ends_with("state/model.rs")` is a separator assumption, and
+    /// on Windows it silently matches nothing — which is how the first version of this gate
+    /// failed CI: not by passing wrongly, but by refusing to run without its negative control.
+    fn crate_sources() -> Vec<(std::path::PathBuf, String)> {
+        fn walk(dir: &std::path::Path, found: &mut Vec<(std::path::PathBuf, String)>) {
             for entry in std::fs::read_dir(dir)
                 .expect("read a source directory")
                 .flatten()
@@ -142,7 +148,7 @@ mod tests {
                     walk(&path, found);
                 } else if path.extension().is_some_and(|extension| extension == "rs") {
                     let source = std::fs::read_to_string(&path).expect("read a source file");
-                    found.push((path.display().to_string(), code_only(&source)));
+                    found.push((path, code_only(&source)));
                 }
             }
         }
@@ -183,23 +189,30 @@ mod tests {
         for (path, source) in &sources {
             assert!(
                 !source.contains(&forbidden),
-                "{path} implements {forbidden}"
+                "{} implements {forbidden}",
+                path.display()
             );
         }
 
-        let this_file = sources
-            .iter()
-            .find(|(path, _)| path.ends_with("error.rs"))
-            .expect("this file is among the crate's sources");
-        assert!(!derives_serialize(&this_file.1, "pub struct Unexpected {"));
+        let named = |wanted: &str| {
+            let wanted = std::path::PathBuf::from(wanted);
+            sources
+                .iter()
+                .find(|(path, _)| path.ends_with(&wanted))
+                .unwrap_or_else(|| panic!("{} is among the crate's sources", wanted.display()))
+        };
+
+        assert!(!derives_serialize(
+            &named("error.rs").1,
+            "pub struct Unexpected {"
+        ));
 
         // Negative control: the same reader must find a derive where one genuinely exists, or
         // the assertions above would pass against a scanner that sees nothing at all.
-        let model = sources
-            .iter()
-            .find(|(path, _)| path.ends_with("state/model.rs"))
-            .expect("the state model is among the crate's sources");
-        assert!(derives_serialize(&model.1, "pub struct AppState {"));
+        assert!(derives_serialize(
+            &named("state/model.rs").1,
+            "pub struct AppState {"
+        ));
     }
 
     #[test]

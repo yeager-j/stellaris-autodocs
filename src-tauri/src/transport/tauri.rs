@@ -43,9 +43,9 @@ use std::sync::Arc;
 use serde::Serialize;
 
 use crate::application::{
-    AnalysisFailure, DocumentationEntries, DocumentationHost, DocumentationPublished,
-    PublishDocumentationError, PublishedDurability, ReadEntryListError, StorageFailure,
-    UnavailableReason,
+    AnalysisFailure, BundleEntryDurability, DocumentationEntries, DocumentationHost,
+    DocumentationPublished, PublicationRecordDurability, PublishDocumentationError,
+    ReadEntryListError, StorageFailure, UnavailableReason,
 };
 use crate::canonical::path::LogicalPath;
 use crate::discovery::identity::{DiscoveryLocationId, ModInstallationId};
@@ -56,21 +56,36 @@ use crate::transport::envelope::{Envelope, Rejection, resolve};
 ///
 /// **No revision identifier.** The documentation-client interface "does not expose a generic
 /// query language, revision identifier, bundle path, JSON filename, absolute source path, or
-/// arbitrary asset key", and React has nothing to do with one. What is here is the single fact
-/// a workflow is told to surface: whether the commit's durability is confirmed.
+/// arbitrary asset key", and React has nothing to do with one. What is here is what a workflow
+/// is told to surface: what is known about the durability of what it just committed.
 #[derive(Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildReport {
-    pub durability: Durability,
+    /// True only when **both** commit points were confirmed durable. Sent as well as the two
+    /// facts below because it is the question a page actually asks, and deriving it in
+    /// TypeScript would put the rule in two places — the second of which would forget a field
+    /// the day a third commit point exists.
+    pub durable: bool,
+    pub bundle_entry: BundleEntryDurabilityView,
+    pub publication_record: PublicationRecordDurabilityView,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub enum Durability {
-    Confirmed,
-    /// Published, on a volume that provides no way to prove the bundle's directory entry
+pub enum BundleEntryDurabilityView {
+    Flushed,
+    /// Published on a volume that provides no way to prove the bundle's directory entry
     /// reached disk (D-123).
-    BundleEntryNotFlushedByPlatform,
+    NotProvidedByPlatform,
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum PublicationRecordDurabilityView {
+    Flushed,
+    /// The new revision is visible and the record's replacement was not confirmed durable, so
+    /// a crash can still revert it to the revision it replaced.
+    NotConfirmed,
 }
 
 /// Every expected outcome of the build command, flat and discriminated.
@@ -229,10 +244,17 @@ fn project<E, D>(
 
 fn build_report(published: DocumentationPublished) -> BuildReport {
     BuildReport {
-        durability: match published.durability {
-            PublishedDurability::Confirmed => Durability::Confirmed,
-            PublishedDurability::BundleEntryNotFlushedByPlatform => {
-                Durability::BundleEntryNotFlushedByPlatform
+        durable: published.durability.is_fully_confirmed(),
+        bundle_entry: match published.durability.bundle_entry {
+            BundleEntryDurability::Flushed => BundleEntryDurabilityView::Flushed,
+            BundleEntryDurability::NotProvidedByPlatform => {
+                BundleEntryDurabilityView::NotProvidedByPlatform
+            }
+        },
+        publication_record: match published.durability.publication_record {
+            PublicationRecordDurability::Flushed => PublicationRecordDurabilityView::Flushed,
+            PublicationRecordDurability::NotConfirmed => {
+                PublicationRecordDurabilityView::NotConfirmed
             }
         },
     }
@@ -318,6 +340,7 @@ fn read_refusal(error: ReadEntryListError) -> ReadRefusal {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::application::PublishedDurability;
     use crate::state::RevisionId;
     use serde_json::{Value, json};
 
@@ -332,17 +355,60 @@ mod tests {
         ModInstallationId::parse(&"ab".repeat(32)).unwrap()
     }
 
-    #[test]
-    fn a_completed_build_reports_its_durability_as_an_explicit_object() {
-        let report = build_report(DocumentationPublished {
+    fn published(durability: PublishedDurability) -> DocumentationPublished {
+        DocumentationPublished {
             installation: installation(),
             revision: RevisionId("cd".repeat(32)),
-            durability: PublishedDurability::BundleEntryNotFlushedByPlatform,
-        });
+            durability,
+        }
+    }
+
+    fn durability(
+        bundle_entry: BundleEntryDurability,
+        publication_record: PublicationRecordDurability,
+    ) -> PublishedDurability {
+        PublishedDurability {
+            bundle_entry,
+            publication_record,
+        }
+    }
+
+    #[test]
+    fn a_completed_build_reports_both_commit_points_as_an_explicit_object() {
+        let report = build_report(published(durability(
+            BundleEntryDurability::NotProvidedByPlatform,
+            PublicationRecordDurability::Flushed,
+        )));
 
         assert_eq!(
             value_of(&report),
-            json!({ "durability": "bundleEntryNotFlushedByPlatform" })
+            json!({
+                "durable": false,
+                "bundleEntry": "notProvidedByPlatform",
+                "publicationRecord": "flushed"
+            })
+        );
+    }
+
+    #[test]
+    fn a_build_is_durable_only_when_both_commit_points_were_confirmed() {
+        // The regression this pair pins: reading the bundle flush alone reported a durable
+        // publication while the record's own replacement was unconfirmed, so a crash could
+        // still revert the pointer to the revision it replaced.
+        let both = build_report(published(durability(
+            BundleEntryDurability::Flushed,
+            PublicationRecordDurability::Flushed,
+        )));
+        let record_only = build_report(published(durability(
+            BundleEntryDurability::Flushed,
+            PublicationRecordDurability::NotConfirmed,
+        )));
+
+        assert!(both.durable);
+        assert!(!record_only.durable);
+        assert_eq!(
+            value_of(&record_only)["publicationRecord"],
+            json!("notConfirmed")
         );
     }
 
@@ -354,7 +420,10 @@ mod tests {
         let report = build_report(DocumentationPublished {
             installation: installation(),
             revision: RevisionId(revision.clone()),
-            durability: PublishedDurability::Confirmed,
+            durability: durability(
+                BundleEntryDurability::Flushed,
+                PublicationRecordDurability::Flushed,
+            ),
         });
 
         assert!(!serde_json::to_string(&report).unwrap().contains(&revision));

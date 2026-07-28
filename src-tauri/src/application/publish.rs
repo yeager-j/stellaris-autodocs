@@ -60,7 +60,7 @@ use crate::application::candidates::{CandidateUnavailable, RevisionCandidateSour
 use crate::application::target::BuildTarget;
 use crate::discovery::identity::ModInstallationId;
 use crate::error::{Failure, OpResult, Unexpected};
-use crate::revisions::{BundleDurability, PublishError, RevisionStore};
+use crate::revisions::{BundleDurability, PointerCommit, PublishError, Published, RevisionStore};
 use crate::state::{
     MutationError, PublicationCapability, PublicationError, RevisionId, StateStore,
 };
@@ -128,11 +128,6 @@ impl Drop for BuildHold<'_> {
 }
 
 /// What a completed publication established.
-///
-/// Carries [`PublishedDurability`] because `revisions` states that a caller reporting
-/// publication outcomes should report it, and deliberately **not**
-/// [`PointerCommit`](crate::revisions::PointerCommit): that value's only consequence is
-/// retirement eligibility, and retention is Phase 9's.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DocumentationPublished {
     pub installation: ModInstallationId,
@@ -140,13 +135,51 @@ pub struct DocumentationPublished {
     pub durability: PublishedDurability,
 }
 
+/// What is known about the durability of each of publication's two commit points.
+///
+/// **Both, separately, rather than one summary.** An earlier version of this type reported only
+/// the bundle's flush and called the result `Confirmed` — which claimed the whole publication
+/// was durable while the pointer commit's own durability was unknown. Whichever half is
+/// unconfirmed, a crash in the seconds around the publication can undo it, so a summary would
+/// have to pick a precedence between two facts that are not ordered; two fields invent nothing
+/// and map one-to-one from [`Published`](crate::revisions::Published).
+///
+/// [`PointerCommit`](crate::revisions::PointerCommit) is still not carried *as itself*: its
+/// retirement-eligibility consequence belongs to Phase 9's retention sweep, and a workflow
+/// reporting to a person needs the durability fact rather than the sweep's input.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PublishedDurability {
-    Confirmed,
-    /// The bundle is published and this volume provides no way to prove its directory entry
-    /// reached disk, so a crash could still lose it. A property of the volume, not of this
-    /// build (D-123).
-    BundleEntryNotFlushedByPlatform,
+pub struct PublishedDurability {
+    pub bundle_entry: BundleEntryDurability,
+    pub publication_record: PublicationRecordDurability,
+}
+
+impl PublishedDurability {
+    /// Whether every commit point this publication made was confirmed durable.
+    ///
+    /// The one derived answer worth naming here, so a caller asking the simple question cannot
+    /// get it wrong by reading one field and forgetting the other.
+    pub fn is_fully_confirmed(&self) -> bool {
+        self.bundle_entry == BundleEntryDurability::Flushed
+            && self.publication_record == PublicationRecordDurability::Flushed
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BundleEntryDurability {
+    Flushed,
+    /// This volume provides no way to prove the bundle's directory entry reached disk, so a
+    /// crash could still lose it, leaving the revision absent rather than damaged. A permanent
+    /// property of the volume, not of this build (D-123).
+    NotProvidedByPlatform,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PublicationRecordDurability {
+    Flushed,
+    /// The new revision is what a reader sees now — `state` reopened and validated the
+    /// authoritative path — and the replacement's durability was not confirmed, so a crash can
+    /// still revert the record to the revision it replaced.
+    NotConfirmed,
 }
 
 /// Every way this operation can refuse.
@@ -376,13 +409,29 @@ pub fn publish_provided_candidate(
     Ok(DocumentationPublished {
         installation,
         revision: published.revision().into(),
-        durability: match published.bundle_durability() {
-            BundleDurability::Flushed => PublishedDurability::Confirmed,
-            BundleDurability::NotProvidedByPlatform => {
-                PublishedDurability::BundleEntryNotFlushedByPlatform
+        durability: durability_of(&published),
+    })
+}
+
+/// Reads both commit points' durability off one [`Published`].
+///
+/// Separate and total, for the reason [`classify_publish`] is: every combination is reachable
+/// from a test without arranging two independent filesystem conditions at once.
+///
+/// [`Published`]: crate::revisions::Published
+fn durability_of(published: &Published) -> PublishedDurability {
+    PublishedDurability {
+        bundle_entry: match published.bundle_durability() {
+            BundleDurability::Flushed => BundleEntryDurability::Flushed,
+            BundleDurability::NotProvidedByPlatform => BundleEntryDurability::NotProvidedByPlatform,
+        },
+        publication_record: match published.pointer() {
+            PointerCommit::Committed => PublicationRecordDurability::Flushed,
+            PointerCommit::CommittedDurabilityUncertain => {
+                PublicationRecordDurability::NotConfirmed
             }
         },
-    })
+    }
 }
 
 /// Total over [`PublishError`], and separate from the function above so every arm is reachable
@@ -529,17 +578,23 @@ mod tests {
         /// write, and a seam that refused from the start would fail the setup instead of the
         /// step under test.
         refuse_state_writes: Arc<AtomicBool>,
+        /// Flipped to make the flush *after* a state replacement fail, which is how `state`
+        /// reaches `CommittedDurabilityUncertain`: the new document is visible and its
+        /// durability is unknown.
+        refuse_state_flush: Arc<AtomicBool>,
     }
 
     impl Host {
         fn new() -> Self {
             let dir = TempDir::new().unwrap();
             let refuse = Arc::new(AtomicBool::new(false));
+            let refuse_flush = Arc::new(AtomicBool::new(false));
             let OpenOutcome::Ready { store, .. } = StateStore::open_with_io(
                 dir.path(),
                 Box::new(RefusingWhenAsked {
                     inner: RealIo,
                     refuse: Arc::clone(&refuse),
+                    refuse_flush: Arc::clone(&refuse_flush),
                 }),
             )
             .unwrap() else {
@@ -558,6 +613,7 @@ mod tests {
                 guard: BuildGuard::new(),
                 target: BuildTarget::derive(location, LogicalPath::parse("ugc_1").unwrap()),
                 refuse_state_writes: refuse,
+                refuse_state_flush: refuse_flush,
             }
         }
 
@@ -565,6 +621,12 @@ mod tests {
         /// bundle and cannot commit the pointer.
         fn refuse_state_writes(&self) {
             self.refuse_state_writes.store(true, Ordering::SeqCst);
+        }
+
+        /// Makes the flush after every further state replacement fail, so the pointer commit
+        /// succeeds with its durability unconfirmed.
+        fn refuse_state_flush(&self) {
+            self.refuse_state_flush.store(true, Ordering::SeqCst);
         }
 
         /// A target under a Discovery Location that was never configured.
@@ -617,6 +679,7 @@ mod tests {
     struct RefusingWhenAsked {
         inner: RealIo,
         refuse: Arc<AtomicBool>,
+        refuse_flush: Arc<AtomicBool>,
     }
 
     impl ReplacementIo for RefusingWhenAsked {
@@ -632,6 +695,9 @@ mod tests {
         }
 
         fn sync_dir(&mut self, dir: &Path) -> std::io::Result<crate::durability::DirectoryFlush> {
+            if self.refuse_flush.load(Ordering::SeqCst) {
+                return Err(std::io::Error::other("directory flush refused"));
+            }
             self.inner.sync_dir(dir)
         }
     }
@@ -721,6 +787,41 @@ mod tests {
             })
         ));
         assert_eq!(host.published(&host.target), None);
+    }
+
+    #[test]
+    fn a_publication_whose_record_flush_is_refused_reports_it_rather_than_claiming_durability() {
+        // Reported by review, and reachable: reading `bundle_durability()` alone called this
+        // publication durable while `state` had told us the opposite about the second commit
+        // point. The bundle's own flush succeeds here — only the record's does not — so the
+        // fact under test cannot be supplied by the other half.
+        let host = Host::new();
+        host.refuse_state_flush();
+
+        let published = host.publish(&host.target, &answering("tech_a")).unwrap();
+
+        assert_eq!(
+            published.durability.bundle_entry,
+            BundleEntryDurability::Flushed
+        );
+        assert_eq!(
+            published.durability.publication_record,
+            PublicationRecordDurability::NotConfirmed
+        );
+        assert!(!published.durability.is_fully_confirmed());
+        // Still a publication: the revision is what a reader sees now.
+        assert_eq!(host.published(&host.target), Some(published.revision));
+    }
+
+    #[test]
+    fn an_ordinary_publication_confirms_both_commit_points() {
+        // The negative control for the test above: without it, "not fully confirmed" could be
+        // what this coordinator always reports.
+        let host = Host::new();
+
+        let published = host.publish(&host.target, &answering("tech_a")).unwrap();
+
+        assert!(published.durability.is_fully_confirmed());
     }
 
     #[test]

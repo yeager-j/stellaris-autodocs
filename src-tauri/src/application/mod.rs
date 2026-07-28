@@ -22,8 +22,9 @@ pub mod target;
 pub use candidates::{CandidateUnavailable, NoAnalysisSource, RevisionCandidateSource};
 pub use host::DocumentationHost;
 pub use publish::{
-    AnalysisFailure, BuildGuard, DocumentationPublished, PublishDocumentationError,
-    PublishedDurability, StorageFailure, publish_provided_candidate,
+    AnalysisFailure, BuildGuard, BundleEntryDurability, DocumentationPublished,
+    PublicationRecordDurability, PublishDocumentationError, PublishedDurability, StorageFailure,
+    publish_provided_candidate,
 };
 pub use read::{
     DocumentationEntries, DocumentationEntry, ReadEntryListError, UnavailableReason,
