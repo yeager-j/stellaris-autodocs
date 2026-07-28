@@ -5,13 +5,21 @@
 //!
 //! # What a corpus contributes today, and what it does not
 //!
-//! **Exactly two values reach a published revision from a corpus: the two fingerprints in its
-//! [`RevisionInputs`].** Nothing parses the bytes. The documented content comes from
-//! [`documentation_typed_by_hand`](AcceptanceCorpus::documenting), which is a stand-in for what
-//! `analysis` will derive from those bytes in Phase 6 — and until then, `tech_a` appearing both
-//! in a fixture file and in an entry summary is the author typing it twice, not a derivation.
-//! `published_thread::the_fixture_bytes_reach_the_revision_and_nothing_a_reader_can_see` asserts that gap
-//! rather than leaving this paragraph as the only place it is stated.
+//! Three things reach a published revision from a corpus, and only one of them is *derived*:
+//!
+//! - Its `location_path` and `mod_root`, which [`AcceptanceThread::boot`] turns into the Mod
+//!   Installation identifier the revision documents.
+//! - Its [`documentation_typed_by_hand`](AcceptanceCorpus::documenting), published unchanged.
+//! - Its snapshot **bytes — and those reach a revision as exactly two values, the fingerprints
+//!   in its [`RevisionInputs`], because nothing parses them.**
+//!
+//! That last line is the one a reader must not soften. The documentation field is a stand-in for
+//! what `analysis` will derive from those bytes in Phase 6; until then `tech_a` appearing both in
+//! a fixture file and in an entry summary is the author typing it twice, not a derivation.
+//! `published_thread::the_fixture_bytes_reach_the_revision_and_nothing_a_reader_can_see` asserts
+//! that gap rather than leaving this paragraph as the only place it is stated.
+//!
+//! [`AcceptanceThread::boot`]: crate::harness::AcceptanceThread::boot
 
 use std::path::{Path, PathBuf};
 

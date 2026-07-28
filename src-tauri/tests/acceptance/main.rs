@@ -18,15 +18,22 @@
 //! Headless throughout: no Steam installation, no host-specific paths, no live traversal
 //! (docs/technical-design.md, "Verification architecture").
 //!
-//! # What a fixture corpus supplies, and what it does not
+//! # What a fixture corpus's *bytes* supply, and what they do not
 //!
-//! **Exactly two values: the Target Mod and Vanilla Content fingerprints a revision records as
-//! its `RevisionInputs`.** No documented content is derived from a corpus's bytes. The entries a
-//! case asserts on were written into the corpus definition by hand and published unchanged —
-//! this build performs no analysis, and `analysis` stays empty until Phase 6. A reader who
-//! assumed the entries came from the fixture files would be wrong about every case in this
-//! target, which is why `published_thread::the_fixture_bytes_reach_the_revision_and_nothing_a_reader_can_see`
-//! asserts the gap instead of leaving this paragraph as the only place it is stated.
+//! **They reach a published revision as exactly two values: the Target Mod and Vanilla Content
+//! fingerprints a revision records as its `RevisionInputs`.** Nothing parses them. No documented
+//! content is derived from them — the entries a case asserts on were written into the corpus
+//! definition by hand and published unchanged, because this build performs no analysis and
+//! `analysis` stays empty until Phase 6. A reader who assumed the entries came from the fixture
+//! files would be wrong about every case in this target, which is why
+//! `published_thread::the_fixture_bytes_reach_the_revision_and_nothing_a_reader_can_see` asserts
+//! the gap instead of leaving this paragraph as the only place it is stated.
+//!
+//! The claim is about the bytes, and a later phase widening this must not read it as a claim
+//! about the corpus. A corpus also carries the identity inputs a build is derived through — its
+//! `location_path` and `mod_root` are what `boot` turns into a Mod Installation identifier — and
+//! the `documentation_typed_by_hand` that is published. Those are corpus contributions today and
+//! stay contributions afterwards; what Phase 6 changes is that the bytes stop being inert.
 //!
 //! # Where it stops, and why that is not a shortcut
 //!
