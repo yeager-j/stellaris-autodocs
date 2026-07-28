@@ -5,7 +5,8 @@
 //! locations are different evidence and should not share a digest.
 
 use super::{
-    Conditional, Container, Field, Item, ParseFault, ParsedFile, Scalar, SourceRange, Value,
+    Conditional, Container, Field, Item, ParseFault, ParsedFile, Scalar, SourceIdentity,
+    SourceRange, Value,
 };
 use crate::canonical::encode::{CanonicalDigest, DigestBytes};
 use crate::source::SourceKind;
@@ -25,12 +26,29 @@ pub(super) fn parsed_file(file: &ParsedFile) -> DigestBytes {
 }
 
 pub(super) fn corpus<'a>(files: impl IntoIterator<Item = &'a ParsedFile>) -> DigestBytes {
-    let mut files: Vec<_> = files.into_iter().collect();
-    files.sort_by(|left, right| left.source.cmp(&right.source));
+    corpus_of(
+        files
+            .into_iter()
+            .map(|file| (file.source.clone(), parsed_file(file))),
+    )
+}
+
+/// The same fold over per-file digests that have already been computed.
+///
+/// Exists because a whole-corpus run cannot hold every parsed tree at once: vanilla alone is
+/// millions of scalars, each owning its exact bytes. Digesting a file and dropping its tree
+/// keeps the run's memory bounded by the largest single file. The sort and the fold stay
+/// here rather than being repeated by the caller, so both surfaces produce one corpus digest
+/// by one rule.
+pub(super) fn corpus_of(
+    entries: impl IntoIterator<Item = (SourceIdentity, DigestBytes)>,
+) -> DigestBytes {
+    let mut entries: Vec<_> = entries.into_iter().collect();
+    entries.sort_by(|left, right| left.0.cmp(&right.0));
     let mut digest = CanonicalDigest::new(CORPUS_DOMAIN);
-    digest.begin_seq(files.len());
-    for file in files {
-        digest.bytes(&parsed_file(file).0);
+    digest.begin_seq(entries.len());
+    for (_, file) in entries {
+        digest.bytes(&file.0);
     }
     digest.finish()
 }

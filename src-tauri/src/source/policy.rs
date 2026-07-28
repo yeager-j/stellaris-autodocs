@@ -3,7 +3,7 @@
 //! consistency" step 1).
 //!
 //! The policy is an allowlist of top-level directories and exact lowercase extensions,
-//! taken from the parser spike's corpus conventions (tools/parser-spike/src/corpus.rs)
+//! taken from the parser spike's corpus conventions (docs/spikes/parser-evaluation.md)
 //! and re-verified against the local installation. A denylist would have to keep pace
 //! with everything a game install and a Workshop mod happen to contain: licence text,
 //! launcher payloads, sound banks, an application bundle, a mod author's stray `.git`
@@ -353,7 +353,7 @@ mod tests {
         // moment the version vector exists to force. Re-pinning either side alone silently
         // changes what every fingerprint covers.
         //
-        // Grounding (tools/parser-spike/src/corpus.rs, verified against the local
+        // Grounding (docs/spikes/parser-evaluation.md, verified against the local
         // install): an allowlist, not a denylist, because the install also contains
         // licenses/, pdx_launcher/, sound/ and an application bundle full of .txt files
         // that were never script. The checksum manifest is explicitly NOT the rule: it

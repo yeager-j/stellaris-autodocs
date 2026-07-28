@@ -42,7 +42,7 @@ const DEFINITION_EXTENSIONS: &[&str] = &["gfx", "gui"];
 
 /// Directories whose sprite definitions are game content.
 ///
-/// An allowlist for the same reason `tools/parser-spike/src/corpus.rs` uses one: the install also
+/// An allowlist for the same reason `src-tauri/src/source/policy.rs` uses one: the install also
 /// contains `pdx_launcher/`, `pdx_online_assets/`, `previewer_assets/`, and `tweakergui_assets/`,
 /// whose `.gfx` files describe the Paradox launcher and internal developer tools. Scanning them
 /// adds 83 references and 22 dangling paths that say nothing about game content — a number about

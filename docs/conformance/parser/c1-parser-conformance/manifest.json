@@ -1,0 +1,38 @@
+{
+  "run": "c1-parser-conformance",
+  "purpose": "Parse every enumerated script file of the installed Vanilla and ACOT corpora through the production adapter, re-slice every derived byte range against the source it claims to cover, and compare the parsed model against an independent reading of the same bytes through Jomini's TextTape. The two readings share no trivia or dialect code, so a structural disagreement over a file both accept is a defect in one of them rather than a difference of opinion — and it is the only detector for a misread that leaves the source syntactically valid. The corpus digest is recomputed under a reversed fold and under serial execution, because an identity that depended on scheduling would not be an identity.",
+  "environment": {
+    "stellaris": {
+      "modsCompatibilityVersion": "4.4",
+      "rawVersion": "v4.4.6",
+      "version": "Pegasus v4.4.6 (fdde)"
+    },
+    "jomini": "0.35",
+    "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+    "os": "macos",
+    "arch": "aarch64"
+  },
+  "corpora": [
+    {
+      "id": "vanilla",
+      "title": "Stellaris base game",
+      "file_count": 4578,
+      "total_bytes": 56085735,
+      "fingerprint": "ee02b65f04eec7b45316af77c0d8edef28102478928636292bc55249410eb387"
+    },
+    {
+      "id": "acot",
+      "title": "Ancient Cache of Technologies",
+      "file_count": 1120,
+      "total_bytes": 18521905,
+      "fingerprint": "6f6095c22464583f4576fa6fade4de28dae717a399b9a2cc1fd8e541071835eb"
+    }
+  ],
+  "artifacts": {
+    "conformance.json": "7c40a294af87a373c20c934db942ffc1e4a1a30235fc6b1f721397d3d5f83d12",
+    "divergences.txt": "2ff7ec1964deb6b50e7dec0c698e8f243fb3958fb7f5bc8d14bcce9c2805a09c",
+    "recoveries.txt": "a0928bd6fa24015d4657b31439cb44dcd1b504699f2cfee3140053f7867bcfb3",
+    "tape-rejections.txt": "bf30ef1d01a80045381da69412e04485a02b0da0e5180a103ece2b62fbcc04cb"
+  },
+  "warnings": []
+}

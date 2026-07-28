@@ -1,0 +1,5 @@
+# divergences — vanilla: 2 total
+common/scripted_effects/02_machine_age_effects.txt	<root>[25](synth_queen_spawn_history_projects).value: item count 10 vs 8
+interface/reference.txt	<root>: item count 111 vs 93
+# divergences — acot: 1 total
+common/component_templates/acot_1_components_weapons_mutations_delta.txt	<root>: item count 336 vs 326

@@ -1,7 +1,14 @@
-# Bundle spike fixtures
+# Bundle fixtures
 
 The malformed-source golden case for
 [the revision bundle evaluation](../../docs/spikes/revision-bundle-evaluation.md).
+
+**The harness that consumed these files is gone.** `tools/bundle-spike/` was deleted in Phase
+4C ([STE-25](https://linear.app/unnamed-system/issue/STE-25)) under the implementation plan's
+rule that a spike is deleted once the work it de-risked lands; the evaluation's provenance
+note records why. The fixtures are retained rather than deleted with it: they encode a
+correctness expectation about publication that Phase 6 onward still has to meet, stated below,
+and re-deriving that shape later would be work for nothing. Nothing currently reads them.
 
 `fixtures/parser/malformed/` already holds malformed source, and this fixture does not
 replace it. Those files are flat `.txt` at the fixture root, which is the right shape for

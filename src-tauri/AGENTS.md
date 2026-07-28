@@ -12,6 +12,13 @@ Run these from `src-tauri/` unless noted otherwise.
   fixture and temp-directory helpers (`testsupport`, `source::fixture`) that production
   builds never enable; CI always passes this flag.
 - `cargo test --features test-support --test acceptance` — the acceptance harness alone.
+- `cargo test --features test-support corpus_conformance -- --ignored --nocapture` — the
+  whole-corpus parser conformance run against an installed Stellaris and ACOT. Ignored by
+  default, so ordinary `cargo test` and CI never need the corpora; a missing corpus root
+  fails the run rather than skipping it. **Re-run it on a Stellaris build change, a Jomini
+  upgrade, or any edit to the dialect lexer** — the same standard `docs/adr/0008` holds for a
+  texture-decoder upgrade. Records and drift live in `docs/conformance/parser/`; see
+  `src/analysis/parser/conformance/` for the contract.
 - `cargo clippy --all-targets --features test-support -- -D warnings` — lint, matching CI.
 - `cargo fmt` — format.
 - `npm run app:dev` (from the repo root) — run the desktop app with hot reload, under the

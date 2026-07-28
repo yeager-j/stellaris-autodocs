@@ -1,7 +1,7 @@
 //! Corpus locations, enumeration, and content identity.
 //!
 //! Follows the conventions `tools/oracle/oracle_paths.py` established and
-//! `tools/parser-spike/src/corpus.rs` carried into Rust: every root is overridable by environment
+//! The oracle harness's path conventions carried into Rust: every root is overridable by environment
 //! variable so the harness can run against another installation without editing code, and
 //! enumeration sorts by normalized path bytes rather than filesystem walk order, so a result
 //! never depends on how a directory happened to be traversed

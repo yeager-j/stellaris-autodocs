@@ -12,9 +12,17 @@ Adopt Jomini, consumed through its `TokenReader` incremental lexer rather than i
 
 This is the spike's second listed outcome — extend or wrap to close specific, bounded gaps — and the gaps are enumerated in [Findings](#findings) rather than described in general.
 
-The `TextTape` path is retained in the harness as a cross-check, not as a fallback. It is what caught every defect in the wrapper, and it is what would catch the next one.
+The `TextTape` path is retained as a cross-check, not as a fallback. It is what caught every defect in the wrapper, and it is what would catch the next one.
 
-## Reproducible record
+## Provenance: the harness this document reports on no longer exists
+
+This evaluation was produced by `tools/parser-spike/`, which was **deleted when Phase 4C landed** ([STE-25](https://linear.app/unnamed-system/issue/STE-25)). The rule is the implementation plan's: a spike is deleted once the work it de-risked lands, and a capability that outlives its spike is ported into owned code first. The tape cross-check was the capability that outlived it, and it now lives in `src-tauri/src/analysis/parser/conformance/`, where it runs against the same corpora as a production-owned dev-only projection.
+
+So the commands below no longer run, and the records under `parser-records/` can no longer be re-captured. They remain as the evidence [ADR 0007](../adr/0007-parse-stellaris-source-through-a-wrapped-incremental-lexer.md) was decided on, and everything this document measured is a statement about a specific pinned build, not a standing gate. **The standing gate is `docs/conformance/parser/`**, whose records are re-capturable and whose drift check is armed.
+
+Two of the measurements below were reproduced by the conformance run against the same Stellaris build, which is the closest thing to a check on this document that now exists: vanilla enumerates 4,578 script files totalling 56,085,735 bytes, and the ACOT stray-token divergence is still 336 items versus 326.
+
+## Reproducible record (as it was)
 
 ```bash
 cargo test --manifest-path tools/parser-spike/Cargo.toml
@@ -22,9 +30,9 @@ cargo run --release --manifest-path tools/parser-spike/Cargo.toml --bin coverage
 cargo run --release --manifest-path tools/parser-spike/Cargo.toml --bin verify
 ```
 
-`verify` recomputes every corpus tree digest and compares the recorded Stellaris build, Jomini version, and rustc version against the current machine, printing `ok` or `DRIFT` per record and exiting non-zero on any drift — the same contract as `tools/oracle/verify.py`. It was shown red before being trusted: it failed on `p1-coverage` on its first real run, correctly, because a fixture comment had been edited after capture, and it fails again on demand with `STELLARIS_WORKSHOP_ROOT` pointed elsewhere.
+`verify` recomputed every corpus tree digest and compared the recorded Stellaris build, Jomini version, and rustc version against the current machine, printing `ok` or `DRIFT` per record and exiting non-zero on any drift — the same contract as `tools/oracle/verify.py`. It was shown red before being trusted: it failed on `p1-coverage` on its first real run, correctly, because a fixture comment had been edited after capture, and it failed again on demand with `STELLARIS_WORKSHOP_ROOT` pointed elsewhere.
 
-Corpus roots are environment-overridable exactly as the oracle harness's are. No corpus content is committed: records hold tree digests, file counts, and byte totals, which is what a licensed local installation needs to reproduce a run.
+Corpus roots were environment-overridable exactly as the oracle harness's are. No corpus content is committed: records hold tree digests, file counts, and byte totals, which is what a licensed local installation needs to reproduce a run.
 
 | Pinned | Value |
 | --- | --- |
@@ -281,4 +289,4 @@ Comments are not semantically preserved, which the planned document permits: the
 
 Each record holds a manifest pinning the installed Stellaris build, the Jomini and rustc versions, the operating system and architecture, a content digest per corpus with its file count and byte total, a SHA-256 for every emitted artifact, and the run's purpose stated in full. Per-file digests are recorded only for corpora committed to this repository; the game corpora are pinned by tree digest, because listing 7,927 proprietary paths in every record would add a megabyte of duplicated JSON for a detail that re-running `coverage` supplies.
 
-The harness lives in `tools/parser-spike/` and is not a workspace member of `src-tauri`. [ADR 0007](../adr/0007-parse-stellaris-source-through-a-wrapped-incremental-lexer.md) accepts Jomini; the dependency enters the application's Cargo graph when the production parser adapter is implemented. The fixture corpus, cross-check technique, and captured expectations are referenced by the implementation plan.
+The harness lived in `tools/parser-spike/`, outside `src-tauri`'s workspace, so that Jomini could not enter the application's dependency graph before a decision accepted it. [ADR 0007](../adr/0007-parse-stellaris-source-through-a-wrapped-incremental-lexer.md) accepted it; the dependency entered that graph with the production adapter in Phase 4A, and the harness was deleted in Phase 4C once `src-tauri/src/analysis/parser/conformance/` reproduced its verification value. The fixture corpus survives in `fixtures/parser/`, and the cross-check technique survives as owned code — see the provenance note above.
