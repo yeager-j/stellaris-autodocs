@@ -20,6 +20,10 @@ Run these from `src-tauri/` unless noted otherwise.
   the only loop that applies the Content Security Policy.**
 - `npm run tauri build` (from the repo root) — produce a release bundle.
 
+Rust unit tests are co-located with the code they exercise in inline `#[cfg(test)] mod tests`
+modules. Use `tests/` integration targets only when compiling as an external crate is itself part of
+the contract, as it is for the acceptance harness and test-support boundary.
+
 CI (`.github/workflows/ci.yml`) runs format, clippy, and tests on both macOS and Windows —
 Windows matters because `durability.rs` has a `#[cfg(windows)]` arm that only compiles and
 executes there.
