@@ -82,7 +82,8 @@ impl AcceptanceCorpus {
     }
 
     /// The two fingerprints a revision records as the observations it was built from — this
-    /// phase, the whole of what a corpus contributes to a published revision.
+    /// phase, the whole of what a corpus's *bytes* contribute to a published revision. Its mod
+    /// root and its documentation reach one by other routes; see the module comment.
     pub fn inputs(&self) -> RevisionInputs {
         RevisionInputs {
             target_mod: self.target_mod.fingerprint(),
