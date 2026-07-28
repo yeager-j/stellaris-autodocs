@@ -1,12 +1,32 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-// @ts-expect-error type error without @types/node package
 import process from "node:process";
+import { fileURLToPath, URL } from "node:url";
+import tailwindcss from "@tailwindcss/vite";
+import { tanstackRouter } from "@tanstack/router-plugin/vite";
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
+
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(() => ({
-  plugins: [react()],
+  // The router generator runs before `react()`: it rewrites the route modules the React plugin
+  // then transforms.
+  plugins: [tanstackRouter({ target: "react" }), react(), tailwindcss()],
+
+  // The alias lives here as well as in tsconfig.json because Vitest resolves through this file,
+  // and tsconfig `paths` alone would leave test imports unresolved.
+  resolve: {
+    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+  },
+
+  // `node`, stated rather than defaulted: nothing in this phase renders, so the decoder, the
+  // adapter, and the gates are all pure or filesystem-level. Component, accessibility, and
+  // responsive suites are Phase 10 (docs/implementation-plan.md, Phase 10 task 9), and installing
+  // a DOM harness now would invite render tests for pages that phase replaces.
+  test: {
+    environment: "node",
+    include: ["src/**/*.test.ts"],
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

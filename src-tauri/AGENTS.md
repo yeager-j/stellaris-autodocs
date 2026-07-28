@@ -13,12 +13,47 @@ Run these from `src-tauri/` unless noted otherwise.
   builds never enable; CI always passes this flag.
 - `cargo clippy --all-targets --features test-support -- -D warnings` — lint, matching CI.
 - `cargo fmt` — format.
-- `npm run tauri dev` (from the repo root) — run the whole desktop app with hot reload.
+- `npm run app:dev` (from the repo root) — run the desktop app with hot reload, under the
+  development identity. Prefer this over `npm run tauri dev`; see below.
+- `npm run app:verify` (from the repo root) — a debug build with the frontend embedded. **This is
+  the only loop that applies the Content Security Policy.**
 - `npm run tauri build` (from the repo root) — produce a release bundle.
 
 CI (`.github/workflows/ci.yml`) runs format, clippy, and tests on both macOS and Windows —
 Windows matters because `durability.rs` has a `#[cfg(windows)]` arm that only compiles and
 executes there.
+
+### The development identity overlay
+
+`tauri.dev.conf.json` overrides one key, `identifier`, to `com.jackson.stellaris-docs.dev`. That
+single override isolates both things that matter: the application-data directory Tauri derives from
+the identifier, and the key `tauri-plugin-single-instance` locks on. The design requires this —
+"development tools and automated tests must use explicitly separate temporary application-data
+directories and either omit the packaged plugin or use isolated application identifiers… this
+isolation is a caller precondition, not a guarantee supplied by the plugin".
+
+Three things about it that JSON cannot carry as comments:
+
+- **The overlay is inert unless passed explicitly.** Tauri auto-merges only `tauri.conf.json` and
+  `tauri.<platform>.conf.json`. The `app:dev` and `app:verify` scripts pass it with `--config`;
+  anything else you run must too, or you silently get a second application-data directory and
+  yesterday's published revision appears to have vanished.
+- **It must contain nothing but the identity.** Config merge is RFC 7386, which replaces arrays
+  wholesale, so an `app.windows` entry here would discard the base window's title and size rather
+  than adding to them. An `app` key at all could also weaken the security policy. The gate in
+  `composition::config_policy` enforces both.
+- **Switching between configurations forces a rebuild.** The CLI passes the merged config through
+  `TAURI_CONFIG`, which `tauri-build` declares as `rerun-if-env-changed`, so alternating between
+  `app:verify` and a plain `cargo build` recompiles the Tauri context each time.
+
+### Content Security Policy
+
+`npm run tauri dev` enforces **no** CSP. Tauri injects the policy only when it serves the embedded
+assets itself, and `build.devUrl` points the webview at the Vite dev server instead. `app:verify`
+builds with the frontend embedded, which is what makes `app.security.csp` apply — so a policy
+regression is invisible in the fast loop and only appears in that one. `composition::config_policy`
+checks the configured string on every `cargo test`; it does not and cannot prove the webview
+enforced it.
 
 ## Module map
 
