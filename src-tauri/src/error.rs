@@ -31,6 +31,15 @@ impl fmt::Display for CorrelationId {
 }
 
 /// An unexpected internal failure: not a member of any operation's expected-error union.
+///
+/// **This type must never become serializable.** Its `Debug` renders `message`, so a
+/// `Serialize` impl — derived or hand-written — would put source content, absolute paths, and
+/// whatever else a caller passed to [`Unexpected::new`] one `?` away from a transport. What
+/// crosses a wire instead is
+/// [`transport::envelope::Rejection`](crate::transport::envelope::Rejection), which has no
+/// field that can hold text. Orphan rules mean only this crate can add the impl, so the
+/// prohibition is enforceable here; `no_source_file_makes_unexpected_serializable` is the gate,
+/// and it is a text scan rather than a proof.
 #[derive(Debug)]
 pub struct Unexpected {
     correlation: CorrelationId,
@@ -101,6 +110,96 @@ mod tests {
         assert!(shown.contains(&failure.correlation().to_string()));
         assert!(!shown.contains("secret"));
         assert!(failure.log_detail().contains("secret"));
+    }
+
+    /// Drops whole-line comments, so prose *about* the prohibition — including this module's
+    /// own — is not mistaken for a violation of it. Attribute lines survive, which is what the
+    /// derive check below reads. Line-count is preserved so nothing above an item drifts.
+    fn code_only(source: &str) -> String {
+        source
+            .lines()
+            .map(|line| {
+                if line.trim_start().starts_with("//") {
+                    ""
+                } else {
+                    line
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    /// Every `.rs` file under this crate's `src`, so the scan cannot be defeated by adding
+    /// the impl in a module the test forgot to name.
+    fn crate_sources() -> Vec<(String, String)> {
+        fn walk(dir: &std::path::Path, found: &mut Vec<(String, String)>) {
+            for entry in std::fs::read_dir(dir)
+                .expect("read a source directory")
+                .flatten()
+            {
+                let path = entry.path();
+                if path.is_dir() {
+                    walk(&path, found);
+                } else if path.extension().is_some_and(|extension| extension == "rs") {
+                    let source = std::fs::read_to_string(&path).expect("read a source file");
+                    found.push((path.display().to_string(), code_only(&source)));
+                }
+            }
+        }
+        let mut found = Vec::new();
+        walk(
+            &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),
+            &mut found,
+        );
+        assert!(!found.is_empty(), "the scan found no sources to read");
+        found
+    }
+
+    /// Returns whether `source` derives `Serialize` on the item declared by `declaration`,
+    /// by reading the attributes immediately above it.
+    fn derives_serialize(source: &str, declaration: &str) -> bool {
+        let item = source
+            .find(declaration)
+            .unwrap_or_else(|| panic!("{declaration} is declared in this file"));
+        source[..item]
+            .rsplit("\n\n")
+            .next()
+            .expect("an item has text above it")
+            .contains("Serialize")
+    }
+
+    #[test]
+    fn no_source_file_makes_unexpected_serializable() {
+        // A convention gate over text, not a proof: an unusual spelling would defeat it, and
+        // the *structural* half of the guarantee — that a type without `Serialize` cannot be
+        // handed to Tauri, and that `Rejection` has no field able to hold a message — is a
+        // compile-time fact with no runtime red to demonstrate. What this catches is the
+        // plausible mistake: somebody adding the derive to make an error "just work".
+        let sources = crate_sources();
+        // Assembled rather than written out, because this file is one of the files scanned and
+        // a literal here would match itself.
+        let forbidden = format!("{} for {}", "Serialize", "Unexpected");
+
+        for (path, source) in &sources {
+            assert!(
+                !source.contains(&forbidden),
+                "{path} implements {forbidden}"
+            );
+        }
+
+        let this_file = sources
+            .iter()
+            .find(|(path, _)| path.ends_with("error.rs"))
+            .expect("this file is among the crate's sources");
+        assert!(!derives_serialize(&this_file.1, "pub struct Unexpected {"));
+
+        // Negative control: the same reader must find a derive where one genuinely exists, or
+        // the assertions above would pass against a scanner that sees nothing at all.
+        let model = sources
+            .iter()
+            .find(|(path, _)| path.ends_with("state/model.rs"))
+            .expect("the state model is among the crate's sources");
+        assert!(derives_serialize(&model.1, "pub struct AppState {"));
     }
 
     #[test]

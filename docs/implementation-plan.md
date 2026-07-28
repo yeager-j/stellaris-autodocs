@@ -2,7 +2,7 @@
 
 Status: Outline for review
 
-Last updated: 2026-07-26
+Last updated: 2026-07-27
 
 > **For agentic workers:** This is the master outline and the durable planning document.
 > Each phase gets a deep pass before execution that pins contracts, public surfaces, test
@@ -111,8 +111,8 @@ Blocking relations encode the dependency DAG so parallelizable work is visible. 
 1. Minimal revision bundle: manifest with real canonical Revision identifier, one trivial "entry list" document, schema validation, required-entry hashes. (implemented)
 2. `revisions` publication protocol: staging on same filesystem, validation, atomic move, state pointer commit via the Phase 1 capability, crash-point injection. (implemented)
 3. Minimal Revision Reader with handle pinning. (implemented)
-4. Test-only candidate provider: the build coordinator accepts a Revision Candidate provider seam; the skeleton supplies hand-authored candidates from test support, exercising application coordination and publication without pretending to analyze Stellaris source. No false analysis behavior enters the production `analysis` module; deleting this provider is an explicit Phase 6 entry condition.
-5. One awaited Tauri build command + one read command using the Result envelope and vendored Result package boundary. Includes a negative test that a serialized failure cannot contain `Unexpected` message detail — `error::Unexpected` derives `Debug` including the message, so redaction must be enforced structurally at the transport seam, not by convention (Phase 0 review finding).
+4. Test-only candidate provider: the build coordinator accepts a Revision Candidate provider seam; the skeleton supplies hand-authored candidates from test support, exercising application coordination and publication without pretending to analyze Stellaris source. No false analysis behavior enters the production `analysis` module; deleting this provider is an explicit Phase 6 entry condition. (implemented)
+5. One awaited Tauri build command + one read command using the Result envelope and vendored Result package boundary. Includes a negative test that a serialized failure cannot contain `Unexpected` message detail — `error::Unexpected` derives `Debug` including the message, so redaction must be enforced structurally at the transport seam, not by convention (Phase 0 review finding). (implemented)
 6. Frontend bootstrap: Vite + TanStack Router + Tailwind + shadcn shell; documentation-client interface with the desktop (Tauri) adapter; one page listing entries.
 7. `tauri-plugin-single-instance` registered first in the composition root; development tools and tests use isolated application-data directories and identifiers per the design's caller precondition. (Packaged platform validation stays in Phase 12.)
 8. Baseline desktop CSP enabled with the React shell: same-origin defaults, no remote origins, no `unsafe-eval`. Later phases extend it (asset protocol in Phase 10, Companion policy in Phase 11); the production-artifact release gate stays in Phase 12.
@@ -156,6 +156,15 @@ Blocking relations encode the dependency DAG so parallelizable work is visible. 
 **Deliverable:** The real `analysis` pipeline: Analysis Draft → finalize → Revision Candidate.
 
 **Entry conditions:** the Phase 3 test-only candidate provider is deleted from the build path (its hand-authored candidates may survive only as `revisions`-module test fixtures), and the Phase 4 resolver-support checklist is closed for every category this phase documents.
+
+What Phase 3 actually built, so the deletion has a checklist rather than an intention:
+
+- `src-tauri/src/testsupport/candidates.rs` — `HandAuthoredCandidates` and `seed_skeleton_thread`, the hand-authored source and the Discovery Location it seeds under `test-support`.
+- `src-tauri/src/application/candidates.rs` — the `RevisionCandidateSource` seam itself, its `CandidateUnavailable` union, and `NoAnalysisSource`, the production implementation whose whole job is to refuse.
+- `composition::candidate_source` — the `#[cfg(feature = "test-support")]` pair that chooses between them, and the only reason a shipped binary cannot publish a revision documenting nothing real.
+- `application::publish::publish_provided_candidate`'s `candidates` parameter, and its guard that a candidate documents the target it was asked for — a check that exists only because a seam can return somebody else's candidate.
+
+Phase 9's Ensure/Rebuild coordinator is what replaces the caller: `application` calls `analysis`, assembles the Revision Candidate itself (D-120), and no seam remains for a test to substitute at. The `application::BuildTarget` and the `AnalysisFailed` build-error variant survive the deletion; `CandidateUnavailable::NoAnalysis` does not, because after this phase no build can honestly report it.
 
 1. Technology entry generation: prerequisites, eligibility (All of/Any of/negated groups), blockers, Base Draw Weight, Weight Modifiers with `×0` prominence, unlocked content, Resolved Base Values via exact numerics, runtime/ambiguous labeling.
 2. Grant Site discovery: enclosing-action model, Unlock Effect normalization (add option / add progress / complete / weight change), one route card per Grant Site with combined co-located effects, Player-Facing Anchors, Route Summaries, technical trace.
