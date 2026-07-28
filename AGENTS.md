@@ -35,6 +35,9 @@ representation explicitly; hide the resulting complexity behind the smallest use
 
 ### Working method
 
+- Branch before implementing; never commit to `main`. When the work comes from a Linear ticket, use
+  the branch name the ticket supplies, so the ticket and the branch stay linked without a convention
+  to remember.
 - Before editing, define the intended outcome and how it will be verified. State assumptions when
   ambiguity could materially change the result; otherwise make a reasonable choice and proceed.
 - Read the nearest project instructions, source of truth, enforcement gate, and existing code before
