@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deepen Plan to Linear"
+  short_description: "Turn implementation phases into Linear tickets"
+  default_prompt: "Use $deepen-plan-to-linear to deepen the next implementation phase into approved Linear tickets."
