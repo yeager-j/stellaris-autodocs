@@ -1776,6 +1776,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "jomini"
+version = "0.35.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f4c61579587088dfada0b4aab19b4117a916964998e2bbc1f84363976145433"
+
+[[package]]
 name = "js-sys"
 version = "0.3.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3193,6 +3199,7 @@ checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 name = "stellaris-docs"
 version = "0.1.0"
 dependencies = [
+ "jomini",
  "num-bigint",
  "num-rational",
  "num-traits",
