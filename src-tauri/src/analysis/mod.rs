@@ -5,4 +5,6 @@
 
 #[allow(dead_code)]
 mod parser;
+#[allow(dead_code)]
+mod resolver;
 pub mod version;

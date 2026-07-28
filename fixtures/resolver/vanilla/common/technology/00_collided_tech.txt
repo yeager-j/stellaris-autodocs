@@ -1,0 +1,15 @@
+# Stand-in Vanilla Content. Original work; no Stellaris file is reproduced.
+#
+# The file `path-collision/` lands on. Both keys here must disappear when it does, including
+# the one the winning file never mentions — that is the whole of the r6 result, and the one
+# assertion a merge-by-key implementation fails.
+
+tech_first_lost = {
+	tier = 3
+	cost = 3000
+}
+
+tech_second_lost = {
+	tier = 4
+	cost = 4000
+}

@@ -1,0 +1,10 @@
+# Original work; no Stellaris file is reproduced.
+#
+# Same early-sorting filename convention as the technology file beside it, against a
+# reject-on-repeat registry. Here sorting first is what wins: the later vanilla registration
+# is the one rejected.
+
+notice_contested = {
+	title = "early mod notice"
+	is_triggered_only = yes
+}
