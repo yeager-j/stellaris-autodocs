@@ -213,7 +213,7 @@ pub(in crate::analysis) enum ParseFaultKind {
 pub(in crate::analysis) struct ParseFault {
     pub kind: ParseFaultKind,
     pub position: u64,
-    /// Always `None` until STE-23 adds layout-heuristic resynchronization.
+    /// Absolute byte position where parsing resumed, or `None` when no later boundary exists.
     pub recovery_boundary: Option<u64>,
 }
 

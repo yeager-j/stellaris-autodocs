@@ -144,7 +144,7 @@ fn write_fault(digest: &mut CanonicalDigest, fault: &ParseFault) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::analysis::parser::{Item, SourceIdentity, parse};
+    use crate::analysis::parser::{EvidenceQuality, Item, SourceIdentity, parse};
     use crate::canonical::path::LogicalPath;
     use crate::source::SourceKind;
     use std::fs;
@@ -165,6 +165,29 @@ mod tests {
         field.key.range.start += 1;
 
         assert_ne!(parsed_file(&file), before);
+    }
+
+    #[test]
+    fn recovered_evidence_and_recovery_boundaries_participate_in_the_file_digest() {
+        let source = b"first = { cost = 100 } }\nsecond = { cost = 200 }\n";
+        let file = parse(identity("recovered.txt"), source);
+        assert_eq!(file.faults.len(), 1);
+        assert!(file.faults[0].recovery_boundary.is_some());
+        assert_eq!(file.items[1].evidence, EvidenceQuality::Recovered);
+
+        let expected = parsed_file(&file);
+        assert_eq!(
+            parsed_file(&parse(identity("recovered.txt"), source)),
+            expected
+        );
+
+        let mut clean_evidence = file.clone();
+        clean_evidence.items[1].evidence = EvidenceQuality::Clean;
+        assert_ne!(parsed_file(&clean_evidence), expected);
+
+        let mut no_boundary = file;
+        no_boundary.faults[0].recovery_boundary = None;
+        assert_ne!(parsed_file(&no_boundary), expected);
     }
 
     #[test]

@@ -10,8 +10,8 @@ Two directories, because they answer opposite questions.
 
 | Directory | Claim | Used by |
 | --- | --- | --- |
-| `valid/` | Every file parses cleanly through **both** adapters and yields the same model | `p1-coverage`, `p6-semantics` |
-| `malformed/` | Every file contains **exactly one** deliberate fault | `p3-blast` |
+| `valid/` | Every file parses cleanly through **both** adapters and yields the same model | `p1-coverage`, `p6-semantics`, production parser tests |
+| `malformed/` | Every file contains **exactly one** deliberate fault | `p3-blast`, production recovery tests |
 
 One fault per file is the whole discipline of `malformed/`. The resolver spike learned this
 the expensive way: when two risky scripted constants shared a file, the first failure
