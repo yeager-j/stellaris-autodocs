@@ -11,6 +11,7 @@ Run these from `src-tauri/` unless noted otherwise.
 - `cargo test --features test-support` — run the Rust test suite. `test-support` enables
   fixture and temp-directory helpers (`testsupport`, `source::fixture`) that production
   builds never enable; CI always passes this flag.
+- `cargo test --features test-support --test acceptance` — the acceptance harness alone.
 - `cargo clippy --all-targets --features test-support -- -D warnings` — lint, matching CI.
 - `cargo fmt` — format.
 - `npm run app:dev` (from the repo root) — run the desktop app with hot reload, under the
@@ -22,6 +23,17 @@ Run these from `src-tauri/` unless noted otherwise.
 CI (`.github/workflows/ci.yml`) runs format, clippy, and tests on both macOS and Windows —
 Windows matters because `durability.rs` has a `#[cfg(windows)]` arm that only compiles and
 executes there.
+
+### The acceptance harness
+
+`tests/acceptance/` is the golden-case vehicle (docs/technical-design.md, "Verification
+architecture"): fixture Source Snapshots → the build use case → a published revision → the
+desktop read, headless, booted through `composition::open_stores` exactly as the composition
+root boots. Its `main.rs` doc comment is the contract — read it before widening the harness,
+because two things about the layout are not guessable. It is **one** target whose sibling files
+are modules of it, so a new `tests/*.rs` file beside it is a separate crate and cannot reach the
+harness; and it sees only the crate's `pub` surface, which is why it asserts on application DTOs
+rather than on the private projections a Tauri command returns.
 
 ### The development identity overlay
 
