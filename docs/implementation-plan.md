@@ -2,7 +2,7 @@
 
 Status: Outline for review
 
-Last updated: 2026-07-27
+Last updated: 2026-07-28
 
 > **For agentic workers:** This is the master outline and the durable planning document.
 > Each phase gets a deep pass before execution that pins contracts, public surfaces, test
@@ -104,7 +104,7 @@ Blocking relations encode the dependency DAG so parallelizable work is visible. 
 
 **Exit:** Behavioral tests for edits/additions/deletions/renames/ordering/rejection/mid-build change; fingerprint determinism across enumeration order and parallelism.
 
-## Phase 3 — Walking skeleton
+## Phase 3 — Walking skeleton (implemented)
 
 **Deliverable:** The smallest honest end-to-end thread: hand-authored Revision Candidate → real bundle → real atomic publication → real Tauri read → minimal React page.
 
@@ -113,9 +113,9 @@ Blocking relations encode the dependency DAG so parallelizable work is visible. 
 3. Minimal Revision Reader with handle pinning. (implemented)
 4. Test-only candidate provider: the build coordinator accepts a Revision Candidate provider seam; the skeleton supplies hand-authored candidates from test support, exercising application coordination and publication without pretending to analyze Stellaris source. No false analysis behavior enters the production `analysis` module; deleting this provider is an explicit Phase 6 entry condition. (implemented)
 5. One awaited Tauri build command + one read command using the Result envelope and vendored Result package boundary. Includes a negative test that a serialized failure cannot contain `Unexpected` message detail — `error::Unexpected` derives `Debug` including the message, so redaction must be enforced structurally at the transport seam, not by convention (Phase 0 review finding). (implemented)
-6. Frontend bootstrap: Vite + TanStack Router + Tailwind + shadcn shell; documentation-client interface with the desktop (Tauri) adapter; one page listing entries.
-7. `tauri-plugin-single-instance` registered first in the composition root; development tools and tests use isolated application-data directories and identifiers per the design's caller precondition. (Packaged platform validation stays in Phase 12.)
-8. Baseline desktop CSP enabled with the React shell: same-origin defaults, no remote origins, no `unsafe-eval`. Later phases extend it (asset protocol in Phase 10, Companion policy in Phase 11); the production-artifact release gate stays in Phase 12.
+6. Frontend bootstrap: Vite + TanStack Router + Tailwind + shadcn shell; documentation-client interface with the desktop (Tauri) adapter; one page listing entries. (implemented)
+7. `tauri-plugin-single-instance` registered first in the composition root; development tools and tests use isolated application-data directories and identifiers per the design's caller precondition. (Packaged platform validation stays in Phase 12.) (implemented)
+8. Baseline desktop CSP enabled with the React shell: same-origin defaults, no remote origins, no `unsafe-eval`. Later phases extend it (asset protocol in Phase 10, Companion policy in Phase 11); the production-artifact release gate stays in Phase 12. (implemented)
 9. Acceptance-harness skeleton: fixture snapshots → build use case → published revision → desktop read, in the shape the golden tests will keep. (implemented)
 
 **Exit:** The thread runs in the real app window under the baseline CSP and in the headless harness; publication crash-injection suite passes; the harness shape is reviewed as the golden-case vehicle.
