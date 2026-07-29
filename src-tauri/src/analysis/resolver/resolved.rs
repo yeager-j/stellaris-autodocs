@@ -314,6 +314,17 @@ pub(in crate::analysis) enum UnresolvedInline {
     /// spliced fields would even be fields *of*. Settled by a capture placing an inclusion
     /// directly under a definition.
     RootPlacementUnmeasured,
+    /// This definition has already expanded as many sites as the expander will spend on one
+    /// definition, so the remaining inclusions were omitted.
+    ///
+    /// The only variant here that names no oracle gap, because no oracle record is implicated:
+    /// this is a resolver-owned resource bound on untrusted input, not a claim about anything
+    /// the game does. Cycle detection guards the ancestor chain, which is not the same as
+    /// bounding the work — a fragment that includes the next one *twice*, nested `k` deep, is
+    /// perfectly acyclic and describes 2^k sites in a handful of tiny files. A capture would
+    /// settle nothing, since the game's own behaviour on such a corpus is not the question;
+    /// the question is that a mod is untrusted input and a build must terminate.
+    ExpansionBudgetExceeded,
 }
 
 /// What happened at one inline-script expansion site.

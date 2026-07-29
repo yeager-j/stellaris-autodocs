@@ -69,6 +69,25 @@ pub(super) const SCOPE: FileScope = FileScope {
 /// The field naming the script inside a block-form call: `inline_script = { script = path … }`.
 const SCRIPT_KEY: &str = "script";
 
+/// How many inclusion sites [`expand`] will spend on one definition.
+///
+/// **A resolver-owned resource bound on untrusted input, not a game-measured shape.** No
+/// oracle record says anything about it and none could: a mod is arbitrary input, and the
+/// build has to terminate whatever it contains.
+///
+/// The cycle stack guards the ancestor chain, which is a different question from bounding the
+/// work. A fragment that includes the next one *twice*, nested `k` deep, is entirely acyclic
+/// and describes 2^k sites — thirteen tiny files are enough to ask for four thousand
+/// expansions, and a few more for a build that never finishes. Bounding sites is what bounds
+/// everything downstream of a site: the cloned fragment items (sites × largest fragment) and
+/// the recorded facts alongside them.
+///
+/// Deliberately far above any legitimate use. Vanilla's heaviest known file uses 31 inclusions
+/// across every definition in it, so a single definition reaching 1024 is evidence of a
+/// pathological corpus rather than a limit real content can meet — which is why exceeding it
+/// is a typed fact about *that* corpus and not a policy about inline scripts.
+const EXPANSION_BUDGET: usize = 1024;
+
 /// One fragment: the whole file's items, and where the file sits.
 ///
 /// The file's **items**, not its definitions. A fragment is content spliced into a call site,
@@ -155,6 +174,7 @@ pub(super) fn expand(library: &Library, definition: &mut ResolvedDefinition) {
         field: String::new(),
         facts: Vec::new(),
         stack: Vec::new(),
+        spent: 0,
     };
     let mut kept = Vec::with_capacity(definition.fields.len());
     for mut field in std::mem::take(&mut definition.fields) {
@@ -184,6 +204,10 @@ struct Expansion<'a> {
     facts: Vec<InlineScriptFact>,
     /// The script paths currently being expanded, outermost first. A repeat is a cycle.
     stack: Vec<String>,
+    /// Sites expanded so far, against [`EXPANSION_BUDGET`]. Homed here rather than on the
+    /// library because the bound is per definition: one pathological technology must not
+    /// spend the budget every other definition in the row still needs.
+    spent: usize,
 }
 
 impl Expansion<'_> {
@@ -234,6 +258,17 @@ impl Expansion<'_> {
             self.record(None, site, UnresolvedInline::CallShapeUnmeasured);
             return Vec::new();
         };
+        // Before the lookup, so a corpus cannot spend unbounded work on paths that do not even
+        // resolve. Charged per site rather than per level, because depth is not what grows: a
+        // chain that includes the next fragment twice is shallow and still exponential.
+        if self.spent == EXPANSION_BUDGET {
+            self.record(
+                Some(call.path),
+                site,
+                UnresolvedInline::ExpansionBudgetExceeded,
+            );
+            return Vec::new();
+        }
         // Copied out so the borrow follows the library's own lifetime rather than `self`'s,
         // which is what lets a fact be recorded while a fragment is in hand.
         let library = self.library;
@@ -281,6 +316,10 @@ impl Expansion<'_> {
                     .collect(),
             },
         });
+        // Charged only once the site has actually expanded, so the budget measures work done
+        // rather than calls attempted — a corpus of a thousand unknown paths costs nothing and
+        // is refused one fact at a time on its own merits.
+        self.spent += 1;
         // Recorded before recursing, so the facts read outermost-first — the order the sites
         // are written in, once the fragments are laid out flat.
         let nested_site = script.site.clone();
@@ -715,6 +754,91 @@ mod tests {
             nested.field, "weight_modifier",
             "attributed to the effective field a consumer reads"
         );
+    }
+
+    /// A fragment chain where every level includes the next one **twice**, so `depth + 1` tiny
+    /// files describe 2^depth leaf sites. Entirely acyclic: no path ever repeats on the
+    /// ancestor chain, which is exactly why the cycle stack does not bound this.
+    fn doubling_chain(depth: usize) -> Vec<(String, String)> {
+        let mut files: Vec<(String, String)> = (0..depth)
+            .map(|level| {
+                let next = level + 1;
+                (
+                    format!("common/inline_scripts/oracle/level_{level}.txt"),
+                    format!(
+                        "inline_script = \"oracle/level_{next}\"\n\
+                         inline_script = \"oracle/level_{next}\"\n"
+                    ),
+                )
+            })
+            .collect();
+        files.push((
+            format!("common/inline_scripts/oracle/level_{depth}.txt"),
+            "modifier = {\n\tfactor = 1\n}\n".to_owned(),
+        ));
+        files.push((
+            "common/technology/zz_subject.txt".to_owned(),
+            "tech_subject = {\n\tweight_modifier = {\n\t\tinline_script = \"oracle/level_0\"\n\t}\n}\n"
+                .to_owned(),
+        ));
+        files
+    }
+
+    #[test]
+    fn a_doubling_chain_stops_at_the_expansion_budget() {
+        // Thirteen files asking for 2^13 - 1 expansions. Mod content is untrusted input and
+        // nothing about a corpus's size bounds the work it describes, so the budget is what
+        // bounds it — and it says so, rather than stopping quietly.
+        let definition = subject(&borrowed(&doubling_chain(12)));
+
+        assert!(
+            definition.inline_expansions.iter().any(|fact| fact.outcome
+                == InlineOutcome::Unresolved(UnresolvedInline::ExpansionBudgetExceeded)),
+            "an exhausted budget must be a typed outcome like every other per-site failure, \
+             not a silent truncation"
+        );
+        let expanded = definition
+            .inline_expansions
+            .iter()
+            .filter(|fact| matches!(fact.outcome, InlineOutcome::Expanded { .. }))
+            .count();
+        assert_eq!(
+            expanded, EXPANSION_BUDGET,
+            "the budget is spent on sites that actually expanded"
+        );
+        // Every expanded site splices at most two further sites, so the sites left to refuse
+        // are bounded by twice the budget. Without the bound this corpus records 8191 facts.
+        assert!(
+            definition.inline_expansions.len() <= 3 * EXPANSION_BUDGET,
+            "the facts vector must be bounded alongside the work: {}",
+            definition.inline_expansions.len()
+        );
+    }
+
+    #[test]
+    fn legitimate_nesting_stays_far_below_the_expansion_budget() {
+        // The control that keeps the budget from being a policy about real content: `r11`'s
+        // own nesting shape spends two sites out of 1024, so the bound above is evidence of a
+        // pathological corpus rather than a limit inline scripts routinely meet.
+        let files = [
+            (
+                "common/inline_scripts/oracle/outer.txt",
+                "inline_script = \"oracle/inner\"\n",
+            ),
+            ("common/inline_scripts/oracle/inner.txt", FACTOR_FRAGMENT),
+            (
+                "common/technology/zz_subject.txt",
+                "tech_subject = {\n\tweight_modifier = {\n\t\tinline_script = \"oracle/outer\"\n\t}\n}\n",
+            ),
+        ];
+        let definition = subject(&files);
+        assert_eq!(definition.inline_expansions.len(), 2);
+        assert!(
+            definition.inline_expansions.iter().all(|fact| fact.outcome
+                != InlineOutcome::Unresolved(UnresolvedInline::ExpansionBudgetExceeded)),
+            "ordinary nesting must never reach the bound"
+        );
+        assert_eq!(modifier_blocks(&definition), expanded());
     }
 
     #[test]

@@ -284,6 +284,27 @@
 //!   `r12-inline-missing` are named in `EXPECTATIONS`, so
 //!   `every_consumed_record_matches_the_profile_s_pinned_build` covers them mechanically,
 //!   exactly as it already does for the records earlier phases consumed.
+//!
+//! A Codex review of the shipped Phase 4G code (PR #16) found one more fault — not a cell and
+//! not a row's declared policy, so no `RESOLUTION_PROFILE_VERSION` bump accompanies it; it
+//! makes the engine honour what version 4 already declares on input version 4 never
+//! contemplated. Broken by hand once against the fixed shipped code and the named test
+//! observed failing, then restored:
+//!
+//! - **The expansion site budget removed** (`inline_scripts::Expansion::include`). Cycle
+//!   detection guards the ancestor chain, which is not the same as bounding the work: a
+//!   fragment that includes the next one *twice*, nested `k` deep, is entirely acyclic and
+//!   describes 2^k sites, so thirteen tiny files ask for 8191 expansions and a few more never
+//!   finish. Mod content is untrusted input. Deleting the budget check failed exactly the
+//!   pathological case and left the legitimate-nesting control green, which is what says the
+//!   bound discriminates a pathological corpus rather than limiting real content:
+//!
+//! ```text
+//! inline_scripts::tests::a_doubling_chain_stops_at_the_expansion_budget
+//! ```
+//!
+//!   `inline_scripts::tests::legitimate_nesting_stays_far_below_the_expansion_budget` stayed
+//!   green under the same break, and `r11_nested_inclusion_expands_recursively` with it.
 
 mod record;
 
