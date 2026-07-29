@@ -1,0 +1,7 @@
+interface:
+  display_name: "Develop with Subagents"
+  short_description: "Plan deeply, delegate implementation, review fully"
+  default_prompt: "Use $develop-with-subagents to plan this change, delegate implementation to a smaller model, and review the result."
+
+policy:
+  allow_implicit_invocation: false
