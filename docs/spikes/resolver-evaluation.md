@@ -850,16 +850,25 @@ The resolver module must consume the resolved policies, reproduce the captured o
 | --- | --- |
 | Pre-implementation evidence collection | **Complete.** Every row has been investigated as far as the current external observables permit. |
 | Complete Resolution Profile | **Partial.** Named open cells include megastructure field behavior, ship-component duplicate selection, scripted trigger and effect parameter behavior, and scripted-constant cross-source behavior. |
-| Controlled resolver reproduces every oracle result | **Partial.** The Phase 4D core reproduces `r3`, `r6`, and `r10` — file selection, the one global path order, and both repeat rules — as machine-checked expectations over restated license-clean fixtures. Row-specific records (`r0`, `r1`, `r4`, `r8`, `r9`, `r11`–`r18`) are consumed by their own row tickets. |
+| Controlled resolver reproduces every oracle result | **Partial.** The Phase 4D core reproduces `r3`, `r6`, and `r10` — file selection, the one global path order, and both repeat rules. Phase 4E's technologies row adds `r0`, `r1`, and `r4`, including golden case 5 at the resolver seam: whole-object replacement, the omitted-`potential` case, and per-field provenance naming both definitions. All six are machine-checked expectations over restated license-clean fixtures. The remaining row-specific records (`r8`, `r9`, `r11`–`r18`) are consumed by their own row tickets. |
 | Provenance distinguishes fact kinds and semantic order | **Implemented.** Contributed, inherited, defaulted, duplicate, and shadowed, each carrying stream position, source identity, logical path, and definition ordinal; a file removed by selection records the mechanism that removed it rather than a fabricated position. |
 | Deterministic enumeration | **Evidence established, and implemented for the core.** Streams are built from normalized logical paths, never from filesystem enumeration order. |
 | Unsupported content types fail visibly | **Implemented.** An undeclared registry and an unresolved policy cell are typed refusals naming the cell and the observation that would settle it. A cell may be open conditionally: a row measured within one source resolves same-source collisions and refuses cross-source ones. |
 | Stellaris-update comparison | **Automated for the consumed records.** The Resolution Profile pins the build every record was captured against and compares it, plus each record's artifact digests, on every ordinary test run. A re-capture blocks until the profile version and expectations are revised together. |
 
 The evidence-collection spike is complete. The Resolution Profile is not globally complete:
-the core exists and declares **no registry rows yet**, so every registry still refuses.
-Resolved rows are implementation inputs; unresolved cells remain unsupported without a
+the core exists and declares **one registry row**, technologies, so every other registry still
+refuses. Resolved rows are implementation inputs; unresolved cells remain unsupported without a
 fallback.
+
+One refinement Phase 4E made to how a row states its references cell, since it changes what
+`Pending` means in this matrix (`docs/decision-log.md`, D-130). A cell is `Pending` when nobody
+knows the policy — no record settles what the game does. It is *not* the way a row says a known
+policy is unimplemented: the technologies row declares that it detects `@` constant and
+`inline_script` references and does not resolve them, so an effective value carrying one is
+marked as unfinished rather than published as a literal. The rows that resolve those references
+are still their own tickets, and the scripted-constant cross-source cell above stays `Pending`
+for the reason it always did — the cross-source behaviour is unmeasured.
 
 ## Captured records
 

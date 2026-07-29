@@ -33,13 +33,13 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use super::resolved::{
-    DefinitionKey, EffectiveField, FactKind, FactProvenance, FactSite, ResolvedDefinition,
-    ResolvedRegistry, StreamPosition, body_fields,
+    DefinitionKey, EffectiveField, FactKind, FactProvenance, FactSite, ReferenceFact,
+    ReferenceKind, ResolvedDefinition, ResolvedRegistry, StreamPosition, body_fields,
 };
 use super::selection::FileSelection;
 use super::stream::{ContentFamily, FileScope, StreamEntry};
 
-use super::super::parser::{ParsedFile, SourceIdentity, Value};
+use super::super::parser::{Field, Item, ParsedFile, Scalar, ScalarKind, SourceIdentity, Value};
 
 /// The eight policies D-098 requires of every row.
 ///
@@ -114,6 +114,16 @@ pub(in crate::analysis) enum Refusal {
         registry: &'static str,
         kind: FactKind,
     },
+    /// A definition carries a kind of reference the row's references cell does not name. The
+    /// same contradiction as [`Self::UndeclaredFactKind`], read the other way round: the row
+    /// claimed its definitions never carry this, and one does. Skipping it silently would
+    /// publish a definition whose value is not final while nothing said so.
+    UndeclaredReferenceKind {
+        registry: &'static str,
+        kind: ReferenceKind,
+        key: String,
+        field: String,
+    },
 }
 
 impl fmt::Display for Refusal {
@@ -143,6 +153,16 @@ impl fmt::Display for Refusal {
                 "registry `{registry}` produced a {kind:?} fact its provenance cell does not \
                  declare"
             ),
+            Self::UndeclaredReferenceKind {
+                registry,
+                kind,
+                key,
+                field,
+            } => write!(
+                f,
+                "registry `{registry}` claims its definitions carry no {kind:?} reference, but \
+                 `{key}` carries one in `{field}`"
+            ),
         }
     }
 }
@@ -151,7 +171,10 @@ impl fmt::Display for Refusal {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct ReadDefinition {
     pub key: DefinitionKey,
-    /// Ordinal within the file, in the order the reader yields definitions.
+    /// Position within the file, as the parse produced it. Not the index in this vector: a
+    /// reader that skips something — [`top_level_definitions`] skips file-local constant
+    /// declarations — leaves a gap rather than renumbering, because provenance and Source
+    /// Excerpts mean the position in the source.
     pub ordinal: u32,
     pub body: Value,
 }
@@ -164,15 +187,44 @@ pub(super) struct ReadDefinition {
 pub(super) type DefinitionReader = fn(&ParsedFile) -> Vec<ReadDefinition>;
 
 /// Top-level `key = value` definitions, in source order. What most script registries use.
+///
+/// **A file-local scripted-constant declaration is not a definition of the enclosing
+/// registry.** `@EnigmaticEngineeringDraw = 0.025` opens vanilla's
+/// `common/technology/00_fallen_empire_tech.txt`, and `00_soc_tech.txt` declares two more
+/// mid-file; the evaluation records the construct as "declared in the consuming script file —
+/// a file-local declaration overrides the global for that file"
+/// (`docs/spikes/resolver-evaluation.md`, "Scripted constants"). A reader that took every
+/// top-level field would publish `@EnigmaticEngineeringDraw` as a technology — a definition
+/// the game does not have, in a shipped vanilla file, and a silent one: its body is a bare
+/// scalar, so it states no effective fields and no reference fact would mark it either.
+///
+/// Recognized by the key's [`ScalarKind`] rather than by a `@` prefix here, for the reason
+/// reference detection reads the same field: the dialect lexer is the authority on what an
+/// `@` token is, and a second rule would disagree with it the first time either changed.
+///
+/// The complement — a reader yielding *only* these declarations — is what the scripted-
+/// constants row needs, and it belongs to that row's ticket rather than being pre-built here.
+///
+/// Ordinals are the position in the parse, so they are assigned before the skip. A technology
+/// following a declaration keeps the ordinal its file gives it; provenance and Source Excerpts
+/// mean the position in the source, not the index in this vector.
 pub(super) fn top_level_definitions(file: &ParsedFile) -> Vec<ReadDefinition> {
     file.definitions()
         .enumerate()
+        .filter(|(_, (field, _))| !is_constant_declaration(field))
         .map(|(ordinal, (field, _))| ReadDefinition {
             key: DefinitionKey::new(field.key.text().into_owned()),
             ordinal: ordinal as u32,
             body: field.value.clone(),
         })
         .collect()
+}
+
+fn is_constant_declaration(field: &Field) -> bool {
+    matches!(
+        field.key.kind,
+        ScalarKind::VariableRef | ScalarKind::VariableExpr
+    )
 }
 
 /// The unit at which a row's definitions are shadowed.
@@ -262,19 +314,37 @@ pub(super) enum OrderingRule {
     SourceOrderPreserved,
 }
 
-/// What a row does with a reference it cannot resolve.
+/// What a row does with one kind of reference its definitions carry.
 ///
-/// One variant, because the engine resolves no references. A row whose definitions carry
-/// them — scripted constants, inline scripts, localization references — must leave this cell
-/// `Pending` until the ticket that implements reference resolution adds the variant that
-/// describes it. Offering a `VisiblyUnresolved` the engine did not honour would be a name
-/// that lies: a row could select it and get exactly `NoReferences` behaviour, publishing
-/// incomplete definitions with a cell that claimed otherwise.
+/// One variant, and it is one the engine honours: a name is offered here only once the code
+/// behind it exists. A `Resolved` or `Expanded` the engine did not implement would be a name
+/// that lies — a row could select it and get exactly detection, publishing incomplete
+/// definitions with a cell that claimed otherwise.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum ReferenceRule {
-    /// The row's definitions reference nothing that has to resolve here.
-    NoReferences,
+pub(super) enum ReferenceHandling {
+    /// Found and recorded as a [`ReferenceFact`]; not expanded. The effective value keeps the
+    /// reference text, and the fact is what tells a consumer the value is not final.
+    ///
+    /// The ticket that implements expansion for a kind changes **that kind's** entry, which
+    /// is why this cell is per-kind rather than one verdict for the row: scripted variables
+    /// and inline scripts are separate tickets with separate evidence.
+    DetectedNotResolved,
 }
+
+/// What a row does with the references its definitions carry.
+///
+/// Per kind, and the list is a claim in both directions. A kind named here is handled as
+/// stated. A kind *not* named is the row's claim that its definitions never carry it — and
+/// the engine holds the row to that claim, because a reference nobody declared and nobody
+/// recorded is exactly the silent incompleteness this cell exists to prevent
+/// ([`Refusal::UndeclaredReferenceKind`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct ReferenceRule {
+    pub kinds: &'static [(ReferenceKind, ReferenceHandling)],
+}
+
+/// A row whose definitions reference nothing that has to resolve here.
+pub(super) const NO_REFERENCES: ReferenceRule = ReferenceRule { kinds: &[] };
 
 /// The provenance kinds a row claims to produce.
 ///
@@ -344,10 +414,10 @@ where
     let repeat = policy.consult(PolicyCell::DuplicateWithinStream, &policy.duplicates)?;
     let fields = policy.consult(PolicyCell::FieldRule, &policy.fields)?;
     let provenance = policy.consult(PolicyCell::Provenance, &policy.provenance)?;
-    // Consulted but not branched on: both have exactly one resolved meaning today, and a row
-    // that has not established them must still refuse rather than inherit the default.
+    let references = policy.consult(PolicyCell::UnresolvedReferences, &policy.references)?;
+    // Consulted but not branched on: it has exactly one resolved meaning today, and a row that
+    // has not established it must still refuse rather than inherit the default.
     policy.consult(PolicyCell::Ordering, &policy.ordering)?;
-    policy.consult(PolicyCell::UnresolvedReferences, &policy.references)?;
     debug_assert!(matches!(key.shadow, ShadowUnit::CommonFileSelection));
 
     let stream = super::stream::build(selection, scope.family, scope.scope);
@@ -390,13 +460,19 @@ where
         }
     }
 
-    let definitions = winners
+    let mut definitions = winners
         .into_iter()
         .map(|(key, winner)| {
             let definition = winner.into_definition(key.clone(), fields, policy.name);
             (key, definition)
         })
         .collect::<BTreeMap<_, _>>();
+    // After the effective fields are settled, not during the walk: a reference in a definition
+    // that went on to lose is not a fact about the answer, and recording one would tell a
+    // consumer the effective value is unfinished when the value it names never survived.
+    for definition in definitions.values_mut() {
+        definition.references = detect_references(definition, references, policy.name)?;
+    }
 
     let registry = ResolvedRegistry {
         registry: policy.name,
@@ -507,6 +583,133 @@ impl Winner {
             body: self.body,
             fields: self.fields,
             displaced: self.displaced,
+            // Attached by `detect_references` once the effective fields are final.
+            references: Vec::new(),
+        }
+    }
+}
+
+/// The field name that carries an inline-script inclusion, at any depth.
+const INLINE_SCRIPT: &str = "inline_script";
+
+/// Every reference one effective definition carries, or the refusal its row earned.
+///
+/// One walk decides both. A reference of a declared kind becomes a [`ReferenceFact`]; a
+/// reference of a kind the row did not name is [`Refusal::UndeclaredReferenceKind`], because
+/// "this row's definitions never carry an inline script" is a claim, and a claim the engine
+/// does not check is a comment.
+///
+/// The walk recurses through containers, tagged values, and conditional blocks, because that
+/// is where the references actually are: `r11` found `inline_script` inside `weight_modifier`,
+/// not at the top level. Each fact is attributed to the *effective* field it was found under,
+/// which is the unit a consumer reads.
+///
+/// One shape it does not reach, stated because the row that will meet it is already scheduled:
+/// a definition whose whole body is a scalar states no fields, so `@foo = @bar` — the
+/// scripted-constant shape — produces nothing here. Detection is over effective fields because
+/// that is what the technologies row has. A constants row needs its own answer, not a silent
+/// zero from this one.
+fn detect_references(
+    definition: &ResolvedDefinition,
+    rule: ReferenceRule,
+    registry: &'static str,
+) -> Result<Vec<ReferenceFact>, Refusal> {
+    let mut scan = Scan {
+        definition,
+        rule,
+        registry,
+        found: Vec::new(),
+    };
+    for field in &definition.fields {
+        if field.field == INLINE_SCRIPT {
+            scan.record(ReferenceKind::InlineScript, field)?;
+        }
+        scan.walk_value(&field.value, field)?;
+    }
+    Ok(scan.found)
+}
+
+/// One definition's walk. The definition, the row's rule, and the registry name are constant
+/// for the whole traversal, so they are held once rather than threaded through every frame.
+struct Scan<'a> {
+    definition: &'a ResolvedDefinition,
+    rule: ReferenceRule,
+    registry: &'static str,
+    found: Vec<ReferenceFact>,
+}
+
+impl Scan<'_> {
+    fn walk_value(&mut self, value: &Value, field: &EffectiveField) -> Result<(), Refusal> {
+        match value {
+            // The parser already decided which tokens are variable references (`ScalarKind`),
+            // so nothing here re-derives it from the raw bytes. A second rule for "what is an
+            // `@`" would disagree with the lexer the first time one of them changed.
+            Value::Scalar(scalar) => self.walk_scalar(scalar, field)?,
+            Value::Container(container) => self.walk_items(&container.items, field)?,
+            // The tag is walked too. `rgb { … }` is the shape this exists for and a tag is
+            // never a reference today, but skipping a scalar because it is currently
+            // uninteresting is how a detector acquires a blind spot.
+            Value::Tagged { tag, container, .. } => {
+                self.walk_scalar(tag, field)?;
+                self.walk_items(&container.items, field)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn walk_scalar(&mut self, scalar: &Scalar, field: &EffectiveField) -> Result<(), Refusal> {
+        if matches!(
+            scalar.kind,
+            ScalarKind::VariableRef | ScalarKind::VariableExpr
+        ) {
+            self.record(ReferenceKind::ScriptedConstant, field)?;
+        }
+        Ok(())
+    }
+
+    fn walk_items(&mut self, items: &[Item], field: &EffectiveField) -> Result<(), Refusal> {
+        for item in items {
+            match item {
+                Item::Field(nested) => {
+                    if nested.key.text() == INLINE_SCRIPT {
+                        self.record(ReferenceKind::InlineScript, field)?;
+                    }
+                    self.walk_value(&nested.value, field)?;
+                }
+                Item::Element(value) => self.walk_value(value, field)?,
+                Item::Conditional(conditional) => self.walk_items(&conditional.items, field)?,
+            }
+        }
+        Ok(())
+    }
+
+    /// Records one detected reference, or refuses because the row did not declare its kind.
+    ///
+    /// The match over [`ReferenceHandling`] is exhaustive on purpose: the ticket that teaches
+    /// the engine to expand one of these kinds adds a variant, and this is where it must
+    /// decide what to do instead of recording.
+    fn record(&mut self, kind: ReferenceKind, field: &EffectiveField) -> Result<(), Refusal> {
+        let declared = self
+            .rule
+            .kinds
+            .iter()
+            .find(|(declared, _)| *declared == kind)
+            .map(|(_, handling)| *handling);
+        match declared {
+            None => Err(Refusal::UndeclaredReferenceKind {
+                registry: self.registry,
+                kind,
+                key: self.definition.key.as_str().to_owned(),
+                field: field.field.clone(),
+            }),
+            Some(ReferenceHandling::DetectedNotResolved) => {
+                self.found.push(ReferenceFact {
+                    kind,
+                    field: field.field.clone(),
+                    site: field.site.clone(),
+                });
+                Ok(())
+            }
         }
     }
 }
@@ -1051,6 +1254,158 @@ mod tests {
                 kind: FactKind::Duplicate,
             })
         );
+    }
+
+    /// A row that says its definitions carry no references, over one that does.
+    ///
+    /// The claim `kinds: &[]` makes is "never carries this", and the engine holds the row to
+    /// it. Skipping the reference quietly would publish `cost = @tier5cost3` as though the
+    /// value were literal — confidently wrong documentation, produced by a row that never
+    /// claimed to handle it.
+    #[test]
+    fn a_reference_kind_the_row_did_not_declare_refuses() {
+        let carries = late_mod("tech_contested = {\n\tcost = @tier5cost3\n}\n");
+        assert_eq!(
+            resolve_with(&REPLACE_ON_REPEAT, &carries),
+            Err(Refusal::UndeclaredReferenceKind {
+                registry: "trial-replace-on-repeat",
+                kind: ReferenceKind::ScriptedConstant,
+                key: "tech_contested".to_owned(),
+                field: "cost".to_owned(),
+            })
+        );
+
+        let inline = late_mod(
+            "tech_contested = {\n\tweight_modifier = {\n\t\tinline_script = \"a/b\"\n\t}\n}\n",
+        );
+        assert_eq!(
+            resolve_with(&REPLACE_ON_REPEAT, &inline),
+            Err(Refusal::UndeclaredReferenceKind {
+                registry: "trial-replace-on-repeat",
+                kind: ReferenceKind::InlineScript,
+                key: "tech_contested".to_owned(),
+                // The nested inclusion is attributed to the effective field a consumer reads,
+                // not to the container it happens to sit in.
+                field: "weight_modifier".to_owned(),
+            })
+        );
+    }
+
+    /// The control for the refusal above: it must fire on the reference, not on the corpus.
+    ///
+    /// `@` inside a token is not a variable reference, and the parser already says so — this
+    /// asserts the resolver reads that decision rather than re-deriving one from the bytes. A
+    /// detector matching "contains `@`" would refuse here, and the two bodies are one
+    /// character apart.
+    #[test]
+    fn a_definition_carrying_no_reference_resolves_under_the_same_row() {
+        let plain = late_mod("tech_contested = {\n\tcost = 20\n\ttag = not@aref\n}\n");
+        let resolved = resolve_with(&REPLACE_ON_REPEAT, &plain).expect("no reference, no refusal");
+        let definition = resolved.get("tech_contested").expect("the key resolves");
+        assert!(definition.references.is_empty());
+        assert!(definition.states("tag"));
+    }
+
+    /// A file-local constant declaration is not a technology, and does not become one.
+    ///
+    /// The shape is vanilla's, not invented: `common/technology/00_fallen_empire_tech.txt`
+    /// opens with `@EnigmaticEngineeringDraw = 0.025` and a later technology reads it, and
+    /// `00_soc_tech.txt` declares two more mid-file. A reader taking every top-level field
+    /// publishes `@EnigmaticEngineeringDraw` as a technology the game does not have.
+    ///
+    /// Three assertions, because the failure is quiet in three different ways: the declaration
+    /// must not appear as a key, the technologies around it must still resolve, and the
+    /// technology *consuming* it must still carry its reference fact — skipping the
+    /// declaration must not also skip the consumption.
+    #[test]
+    fn a_file_local_constant_declaration_is_not_read_as_a_definition() {
+        let declaring = late_mod(concat!(
+            "@late_draw = 0.025\n",
+            "tech_contested = {\n\tcost = 20\n\tweight = @late_draw\n}\n",
+            "tech_after_declaration = {\n\tcost = 30\n}\n",
+        ));
+        let resolved = resolve_with(&trial::TECHNOLOGY_DETECTING_REFERENCES, &declaring)
+            .expect("a declaration is skipped, not refused");
+
+        assert!(
+            !resolved.keys().contains(&"@late_draw"),
+            "a scripted-constant declaration was published as a technology: {:?}",
+            resolved.keys()
+        );
+        assert!(resolved.get("tech_after_declaration").is_some());
+
+        let contested = resolved.get("tech_contested").expect("the key resolves");
+        assert_eq!(contested.position.source, SourceKind::TargetMod);
+        assert_eq!(
+            contested
+                .references
+                .iter()
+                .map(|fact| (fact.kind, fact.field.as_str()))
+                .collect::<Vec<_>>(),
+            [(ReferenceKind::ScriptedConstant, "weight")],
+            "the declaration is skipped; the consumption is still recorded"
+        );
+    }
+
+    /// The ordinal is the position in the file, not the index among what the reader kept.
+    ///
+    /// Stated on its own because it is invisible in every other assertion: renumbering would
+    /// give `tech_contested` ordinal 0 here and 0 in a file with no declaration, so two
+    /// different source positions would report the same provenance.
+    #[test]
+    fn skipping_a_declaration_leaves_a_gap_rather_than_renumbering() {
+        let declaring = late_mod(concat!(
+            "@late_draw = 0.025\n",
+            "tech_contested = {\n\tcost = 20\n}\n",
+        ));
+        let resolved = resolve_with(&REPLACE_ON_REPEAT, &declaring).expect("resolves");
+        assert_eq!(
+            resolved
+                .get("tech_contested")
+                .expect("the key resolves")
+                .position
+                .ordinal,
+            1,
+            "the technology is the file's second top-level field and says so"
+        );
+    }
+
+    /// The walk reaches every shape a value can take, not only nested objects.
+    ///
+    /// A tagged container (`rgb { … }`) and a bare array element are both places a reference
+    /// can sit, and neither is a field. A walk that only recursed through `Item::Field` would
+    /// report nothing here while the definition plainly carries one.
+    #[test]
+    fn a_reference_inside_a_tagged_container_is_found() {
+        let tagged = late_mod("tech_contested = {\n\ticon = rgb { @oracle_red 0 0 }\n}\n");
+        assert_eq!(
+            resolve_with(&REPLACE_ON_REPEAT, &tagged),
+            Err(Refusal::UndeclaredReferenceKind {
+                registry: "trial-replace-on-repeat",
+                kind: ReferenceKind::ScriptedConstant,
+                key: "tech_contested".to_owned(),
+                field: "icon".to_owned(),
+            })
+        );
+    }
+
+    /// A definition that lost does not make the answer unfinished.
+    ///
+    /// Detection runs over effective fields, after the repeat rule has decided. A reference in
+    /// a shadowed body names a value that never reached the answer, so recording it would tell
+    /// a consumer the effective definition is incomplete when it is not — and here it would
+    /// refuse a row whose surviving definitions are entirely literal.
+    #[test]
+    fn a_reference_in_a_definition_that_lost_is_not_a_fact_about_the_winner() {
+        // `tech_contested` is defined by vanilla's `00_…` file with literal values; this
+        // late-sorting file both loses that key to nothing and wins it, so instead invert the
+        // rule: the mod's `@`-carrying definition is rejected and vanilla's literal one holds.
+        let carries = late_mod("tech_contested = {\n\tcost = @tier5cost3\n}\n");
+        let resolved = resolve_with(&trial::REPLACE_SCOPE_REJECTING, &carries)
+            .expect("the winning definition carries no reference");
+        let definition = resolved.get("tech_contested").expect("the key resolves");
+        assert_eq!(definition.position.source, SourceKind::VanillaContent);
+        assert!(definition.references.is_empty());
     }
 
     #[test]

@@ -24,9 +24,11 @@
 //!
 //! # Negative controls
 //!
-//! Three run in ordinary CI as tests of their own:
+//! Four run in ordinary CI as tests of their own:
 //! [`the_pair_fails_when_either_repeat_rule_is_inverted`],
-//! [`merge_by_key_would_keep_the_shadowed_file_s_other_keys`], and `record::tests`.
+//! [`merge_by_key_would_keep_the_shadowed_file_s_other_keys`],
+//! [`golden_case_5_fails_when_either_the_repeat_rule_or_the_field_rule_is_inverted`], and
+//! `record::tests`.
 //!
 //! Those show the *assertions* discriminate. What they cannot show is that the assertions
 //! catch a wrong **implementation**, because each varies a policy rather than the engine. So
@@ -62,15 +64,60 @@
 //! - **The version coupling.** Bumping `RESOLUTION_PROFILE_VERSION` failed
 //!   `analysis::version::tests::pinned_current_digest`, which is the re-pin protocol working
 //!   rather than a nuisance.
+//!
+//! Phase 4E added five more, each broken in the *shipped* row or engine rather than on a copy:
+//!
+//! - **A first-wins technologies row.** Forcing `RepeatRule::RejectOnRepeat` in the declared
+//!   row failed both halves of the golden slice, and nothing else:
+//!
+//! ```text
+//! r1_a_redefinition_that_omits_potential_leaves_the_field_absent
+//! r4_the_winner_follows_position_and_not_content
+//! ```
+//!
+//! - **An inheriting technologies row.** Forcing `Replacement::InheritAbsentFields` failed
+//!   exactly one test — `r1_…_leaves_the_field_absent` — because every other assertion in the
+//!   golden slice passes under both field rules. That is the omitted-`potential` case earning
+//!   its place as the design's first mandatory oracle case, measured rather than asserted.
+//! - **Reference detection skipped.** Returning no references from `registry::detect_references`
+//!   failed the two deferred pins and the undeclared-kind refusal:
+//!
+//! ```text
+//! profile::tests::a_scripted_constant_reference_is_detected_and_left_unresolved
+//! profile::tests::an_inline_script_reference_is_detected_and_left_unexpanded
+//! registry::tests::a_reference_kind_the_row_did_not_declare_refuses
+//! ```
+//!
+//! - **A reader that took every top-level field.** Dropping the constant-declaration skip from
+//!   `registry::top_level_definitions` failed
+//!   `a_file_local_constant_declaration_is_not_read_as_a_definition`, and filtering *before*
+//!   assigning ordinals — renumbering rather than leaving a gap — failed
+//!   `skipping_a_declaration_leaves_a_gap_rather_than_renumbering`. Two faults, two tests, one
+//!   for each.
+//! - **A walk with a blind spot.** Dropping the tagged container from
+//!   `registry::Scan::walk_value` failed `a_reference_inside_a_tagged_container_is_found`,
+//!   which is what says that test exercises the tagged path rather than passing through some
+//!   other one.
+//! - **A flip that was not a flip.** Renaming the `redefinition-flipped` corpus's file to sort
+//!   *after* vanilla failed `r4_the_winner_follows_position_and_not_content` alone, which is
+//!   what makes that test a position experiment rather than a restatement of `r1`.
+//! - **A re-captured game build, over the newly consumed records.** Pinning `v4.5.0` named
+//!   `r0-baseline`, `r1-target`, and `r4-reordered` alongside the three the core already
+//!   consumed, so the three records this row rests on are under the same gate.
 
 mod record;
 
 use super::registry::Refusal;
-use super::resolved::{FactKind, FactSite, Removal, ResolvedRegistry};
-use super::trial::{self, EARLY_MOD, PATH_COLLISION, REPLACE_PATH, corpus, vanilla};
+use super::resolved::{FactKind, FactSite, Removal, ResolvedDefinition, ResolvedRegistry};
+use super::trial::{
+    self, EARLY_MOD, NO_REDEFINITION, PATH_COLLISION, REDEFINITION, REDEFINITION_BODY,
+    REDEFINITION_FLIPPED, REDEFINITION_FLIPPED_BODY, REPLACE_PATH, corpus, redefinition_vanilla,
+    vanilla,
+};
 use super::{Resolution, profile, resolve};
+use crate::analysis::parser::Value;
 use crate::canonical::path::LogicalPath;
-use crate::source::SourceKind;
+use crate::source::{SourceKind, SourceSnapshot};
 
 /// One captured run this suite holds the resolver to.
 struct Expectation {
@@ -79,7 +126,11 @@ struct Expectation {
     rule: &'static str,
 }
 
-/// The records the Phase 4D core consumes. Row tickets add their own.
+/// The records consumed so far: the Phase 4D core's three, then the technologies row's.
+///
+/// Each row ticket appends its own. A record listed here is under the drift gate whether or
+/// not an expectation below reads it in detail — `r0-baseline` is the clearest case, since its
+/// value is the measured *absence* the r1 result is a delta against.
 const EXPECTATIONS: &[Expectation] = &[
     Expectation {
         run: "r3-replace-path",
@@ -96,6 +147,23 @@ const EXPECTATIONS: &[Expectation] = &[
         rule: "there is no layer precedence — one global path order, and each registry \
                either replaces or rejects a repeat",
     },
+    Expectation {
+        run: "r0-baseline",
+        rule: "without the Target Mod the subject technology is absent from the draw pool, \
+               which is what makes the r1 result a delta rather than a reading",
+    },
+    Expectation {
+        run: "r1-target",
+        rule: "technology redefinition is whole-object replacement: the subject omitting \
+               `potential` was drawn, the matched control retaining it stayed absent, so an \
+               omitted field is genuinely absent rather than inherited",
+    },
+    Expectation {
+        run: "r4-reordered",
+        rule: "byte-identical content under swapped filenames moves the winner, and the \
+               technology result — whose file was not renamed — is unchanged, so r1 was not \
+               a naming artifact",
+    },
 ];
 
 fn against(
@@ -108,6 +176,43 @@ fn row(resolution: &Resolution<'_>, policy: &super::registry::RegistryPolicy) ->
     resolution
         .resolve_row(policy)
         .unwrap_or_else(|refusal| panic!("a fully settled trial row resolves: {refusal}"))
+}
+
+/// The golden-case-5 corpus pair: the stand-in base game, and one Target Mod over it.
+fn redefining(files: &[(&str, &[u8])]) -> (SourceSnapshot, SourceSnapshot) {
+    (redefinition_vanilla(), corpus(SourceKind::TargetMod, files))
+}
+
+/// The declared technologies row, asked for the way a consumer asks — by name, through the
+/// public seam. Golden case 5 is a claim about that surface, so `resolve_row` would prove a
+/// weaker thing: that the policy works when handed directly to the engine, rather than that
+/// the profile declares it and the registry answers to its name.
+fn technologies(resolution: &Resolution<'_>) -> ResolvedRegistry {
+    resolution
+        .registry("technologies")
+        .unwrap_or_else(|refusal| panic!("the declared technologies row resolves: {refusal}"))
+}
+
+/// Effective field names in order. The full field-by-field comparison, for the fields whose
+/// values are scalars, is [`scalar_fields`]; this is the shape check that comes first because
+/// a missing field and a wrong value are different failures.
+fn field_names(definition: &ResolvedDefinition) -> Vec<&str> {
+    definition
+        .fields
+        .iter()
+        .map(|field| field.field.as_str())
+        .collect()
+}
+
+fn scalar_fields(definition: &ResolvedDefinition) -> Vec<(&str, String)> {
+    definition
+        .fields
+        .iter()
+        .filter_map(|field| match &field.value {
+            Value::Scalar(scalar) => Some((field.field.as_str(), scalar.text().into_owned())),
+            Value::Container(_) | Value::Tagged { .. } => None,
+        })
+        .collect()
 }
 
 /// The gate that makes every expectation below blocking.
@@ -394,16 +499,307 @@ fn r10_provenance_records_a_position_rather_than_a_layer() {
     );
 }
 
+/// **Golden case 5**, at the resolver seam. `r1-target`.
+///
+/// The phase's named exit condition, and the design's first mandatory oracle case: "the
+/// fixture includes a redefinition that omits `potential`, so the resolver cannot pass by
+/// assuming unconditional whole-object replacement" (`docs/mvp-acceptance.md`, "Technology
+/// redefinition").
+///
+/// Three claims held together, because each alone is satisfied by a wrong rule. One effective
+/// entry per Entry Key rules out duplicate documents; the field-by-field match rules out a
+/// resolver that picked the right winner and mangled it; the provenance rules out one that got
+/// the answer right without being able to say where it came from.
+#[test]
+fn r1_a_redefinition_that_omits_potential_leaves_the_field_absent() {
+    let (vanilla, target) = redefining(REDEFINITION);
+    let resolution = resolve(&vanilla, &target);
+    let registry = technologies(&resolution);
+
+    // One effective entry per Entry Key. Four keys from two files that between them registered
+    // six definitions — "search and browse expose one Entry Key rather than duplicate
+    // documents".
+    assert_eq!(
+        registry.keys(),
+        [
+            "tech_matched_control",
+            "tech_matched_subject",
+            "tech_mod_only",
+            "tech_untouched_baseline",
+        ]
+    );
+
+    let subject = registry
+        .get("tech_matched_subject")
+        .expect("the subject resolves");
+
+    // The late-sorting mod file won, which is the r1 half of the cross-source cell.
+    assert_eq!(subject.position.source, SourceKind::TargetMod);
+    assert_eq!(
+        subject.position.logical.as_str(),
+        "common/technology/zz_redefinition_tech.txt"
+    );
+
+    // Field by field, against the redefinition and nothing else. `category` is a container, so
+    // it is checked by name in the shape assertion and not by value here.
+    assert_eq!(
+        field_names(subject),
+        ["area", "cost", "tier", "category", "weight"]
+    );
+    assert_eq!(
+        scalar_fields(subject),
+        [
+            ("area", "society".to_owned()),
+            ("cost", "1000".to_owned()),
+            ("tier", "0".to_owned()),
+            ("weight", "1000000".to_owned()),
+        ]
+    );
+
+    // The headline. Both fields the vanilla definition stated and the redefinition omitted are
+    // absent, not inherited — `potential` because it is the recorded case, `prerequisites`
+    // because one absent field could be a coincidence of how the fixture was written.
+    assert!(!subject.states("potential"));
+    assert!(!subject.states("prerequisites"));
+
+    // Every effective field came from the winner. Stated over the whole registry rather than
+    // the subject alone: `Inherited` appearing anywhere would mean the field rule is not the
+    // one this row declares, and the row does not declare that kind, so it would refuse — this
+    // assertion is what says so at the point a reader is looking for it.
+    for fact in registry.provenance() {
+        assert_ne!(fact.kind, FactKind::Inherited, "{fact:?}");
+    }
+    for field in &subject.fields {
+        assert_eq!(field.kind, FactKind::Contributed);
+        assert_eq!(field.site, FactSite::Stream(subject.position.clone()));
+    }
+
+    // Provenance identifies both definitions: that there were two registrations, and which one
+    // lost, naming its position rather than its layer.
+    let displaced: Vec<FactKind> = subject
+        .displaced
+        .iter()
+        .filter(|fact| fact.field.is_none())
+        .map(|fact| fact.kind)
+        .collect();
+    assert_eq!(displaced, [FactKind::Duplicate, FactKind::Shadowed]);
+    let FactSite::Stream(shadowed) = &subject.displaced[1].site else {
+        panic!("a displaced definition has a stream position");
+    };
+    assert_eq!(shadowed.source, SourceKind::VanillaContent);
+    assert_eq!(
+        shadowed.logical.as_str(),
+        "common/technology/00_redefinition_tech.txt"
+    );
+
+    // And which facts the shadowed definition contributed — the field-level record that lets
+    // documentation say *what* the redefinition removed rather than only that it removed
+    // something. `potential` is in this list precisely because it is not in the effective one.
+    let lost: Vec<&str> = subject
+        .displaced
+        .iter()
+        .filter(|fact| fact.kind == FactKind::Shadowed)
+        .filter_map(|fact| fact.field.as_deref())
+        .collect();
+    assert_eq!(
+        lost,
+        [
+            "area",
+            "cost",
+            "tier",
+            "category",
+            "weight",
+            "prerequisites",
+            "potential",
+        ]
+    );
+
+    // The matched control: same treatment, differing in exactly one field, so a failure names
+    // the field rather than the fixture. It kept `potential`, and it is still there.
+    let control = registry
+        .get("tech_matched_control")
+        .expect("the control resolves");
+    assert_eq!(control.position.source, SourceKind::TargetMod);
+    assert!(control.states("potential"));
+
+    // The scoping control and the positive control. Without the first, "resolution broke"
+    // reads exactly like "this definition was displaced"; without the second, a mod file that
+    // contributed nothing at all would pass every assertion above.
+    let untouched = registry
+        .get("tech_untouched_baseline")
+        .expect("the untouched key resolves");
+    assert_eq!(untouched.position.source, SourceKind::VanillaContent);
+    assert!(untouched.displaced.is_empty());
+    assert_eq!(
+        registry
+            .get("tech_mod_only")
+            .expect("the mod-only key resolves")
+            .position
+            .source,
+        SourceKind::TargetMod
+    );
+
+    // Golden case 5's fields are compared against a pinned record, so none of them may be a
+    // value the resolver deliberately left unresolved.
+    for definition in registry.definitions.values() {
+        assert!(definition.references.is_empty(), "{:?}", definition.key);
+    }
+}
+
+/// The negative controls for golden case 5: invert either cell and the expectation must fail.
+///
+/// Two cells, because golden case 5 rests on two rules and each alone is a plausible wrong
+/// implementation. Inverted on copies rather than by editing the shipped row, so a control
+/// cannot be left switched on.
+///
+/// The second is the sharper one. A first-wins technologies row produces an obviously
+/// different winner; an *inheriting* one produces the same winner, the same position, the same
+/// provenance, and the right answer to every assertion in golden case 5 but one — `potential`
+/// comes back. That single field is the whole of the recorded result, which is why the oracle
+/// fixture was built as a matched pair around it.
+#[test]
+fn golden_case_5_fails_when_either_the_repeat_rule_or_the_field_rule_is_inverted() {
+    let (vanilla, target) = redefining(REDEFINITION);
+    let resolution = resolve(&vanilla, &target);
+
+    let rejecting = row(&resolution, &trial::REPLACE_SCOPE_REJECTING);
+    let subject = rejecting
+        .get("tech_matched_subject")
+        .expect("the subject resolves");
+    assert_eq!(
+        subject.position.source,
+        SourceKind::VanillaContent,
+        "inverting the row's duplicate direction to first-wins did not change the winner, so \
+         the r1 and r4 assertions are not testing the rule they claim to"
+    );
+
+    let inheriting = row(&resolution, &trial::TECHNOLOGY_SCOPE_INHERITING);
+    let subject = inheriting
+        .get("tech_matched_subject")
+        .expect("the subject resolves");
+    assert_eq!(
+        subject.position.source,
+        SourceKind::TargetMod,
+        "the field rule must not change which definition wins — if it did, the control below \
+         would be measuring the repeat rule a second time"
+    );
+    let potential = subject
+        .fields
+        .iter()
+        .find(|field| field.field == "potential")
+        .expect(
+            "inheriting absent fields brings `potential` back; if it does not, the \
+             omitted-`potential` assertion would pass under both field rules and prove nothing",
+        );
+    assert_eq!(potential.kind, FactKind::Inherited);
+    assert_eq!(
+        potential.site.source(),
+        Some(SourceKind::VanillaContent),
+        "an inherited field must name where the value actually came from"
+    );
+}
+
+/// `r0-baseline`, restated: the same corpus with nothing redefining it.
+///
+/// The baseline is not decoration. `r0`'s draw pool contains neither the subject nor the
+/// control, so `r1`'s membership is a *delta* against a measured absence rather than a reading
+/// of one run. Here the same role: `potential` is present when nothing displaces the vanilla
+/// definition, so its absence above is the redefinition's doing and not the fixture's.
+#[test]
+fn r0_the_subject_states_potential_when_nothing_redefines_it() {
+    let (vanilla, target) = redefining(NO_REDEFINITION);
+    let resolution = resolve(&vanilla, &target);
+    let registry = technologies(&resolution);
+
+    let subject = registry
+        .get("tech_matched_subject")
+        .expect("the subject resolves");
+    assert_eq!(subject.position.source, SourceKind::VanillaContent);
+    assert!(subject.states("potential"));
+    assert!(subject.states("prerequisites"));
+    assert!(
+        subject.displaced.is_empty(),
+        "nothing contested this key, so there is no duplicate to record"
+    );
+    assert!(registry.get("tech_mod_only").is_none());
+}
+
+/// `r4-reordered`'s method, applied to the technologies row: the winner follows position.
+///
+/// What `r4` itself did needs stating, or this test claims more than the record supports. `r4`
+/// swapped the scripted-trigger and scripted-variable filenames and left
+/// `common/technology/zz_oracle_tech.txt` alone — identical digest in both runs, and both
+/// normalized logs name the same survivor at the same line. So for *technologies* `r4` is the
+/// control its manifest says it is ("an unchanged winner means the r1 result was not a naming
+/// artifact"), and the flip itself is `r1` (a late-sorting name wins) against `r10` (an early
+/// one loses).
+///
+/// This corpus pair restates that flip directly, by `r4`'s method: the same bytes under both
+/// names. The byte identity is asserted rather than trusted, because a header that drifted
+/// between the two copies would quietly turn a position experiment into a content one.
+#[test]
+fn r4_the_winner_follows_position_and_not_content() {
+    assert_eq!(
+        REDEFINITION_BODY, REDEFINITION_FLIPPED_BODY,
+        "the flip must vary the filename and nothing else"
+    );
+
+    let (vanilla, target) = redefining(REDEFINITION_FLIPPED);
+    let resolution = resolve(&vanilla, &target);
+    let registry = technologies(&resolution);
+
+    let subject = registry
+        .get("tech_matched_subject")
+        .expect("the subject resolves");
+    assert_eq!(
+        subject.position.source,
+        SourceKind::VanillaContent,
+        "the same bytes that won from a late-sorting name lost from an early-sorting one, so \
+         the winner is decided by position"
+    );
+    assert!(
+        subject.states("potential"),
+        "vanilla's definition won whole, and it states `potential` — the field is back because \
+         a different definition won, not because anything was inherited"
+    );
+
+    // The mod file still contributed: it lost one key and won another from the same file, in
+    // one enumeration. A corpus that failed to load would also produce a vanilla winner.
+    assert_eq!(
+        registry
+            .get("tech_mod_only")
+            .expect("the mod-only key resolves")
+            .position
+            .source,
+        SourceKind::TargetMod
+    );
+    let FactSite::Stream(shadowed) = &subject.displaced[1].site else {
+        panic!("a displaced definition has a stream position");
+    };
+    assert_eq!(
+        (shadowed.order, shadowed.source),
+        (0, SourceKind::TargetMod),
+        "the mod's file is at stream position 0 and vanilla's at 1 — an ordering a layer model \
+         cannot produce at all"
+    );
+    assert_eq!(
+        (subject.position.order, subject.position.source),
+        (1, SourceKind::VanillaContent)
+    );
+}
+
 /// An undeclared registry refuses; it does not fall back to a neighbour's policy.
 #[test]
 fn an_undeclared_registry_is_a_typed_refusal() {
     let (vanilla, target) = against(EARLY_MOD);
     let resolution = resolve(&vanilla, &target);
     assert_eq!(
-        resolution.registry("technologies"),
+        resolution.registry("megastructures"),
         Err(Refusal::UndeclaredRegistry {
-            registry: "technologies".to_owned()
+            registry: "megastructures".to_owned()
         }),
-        "the profile declares no rows yet, so every registry must refuse by name"
+        "technologies is declared and megastructures is not, and the difference must be the \
+         declaration rather than which registry the corpus happens to hold definitions for — \
+         this corpus's technology files would resolve under either row's stream"
     );
 }

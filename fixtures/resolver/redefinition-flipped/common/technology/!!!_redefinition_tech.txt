@@ -1,0 +1,57 @@
+# Original work; no Stellaris file is reproduced.
+#
+# Golden case 5's redefinition, and the enumeration-order control for it. This file is shipped
+# **byte for byte twice**: once here as `zz_redefinition_tech.txt`, and once in
+# `../redefinition-flipped/` as `!!!_redefinition_tech.txt`. Nothing but the filename differs,
+# and `r4_the_winner_follows_position_and_not_content` asserts that byte identity rather than
+# trusting it — a header that drifted between the two copies would turn a position experiment
+# into a content experiment without anyone noticing.
+#
+# That is `r4-reordered`'s method: ship identical content under swapped names and see whether
+# the winner moves. Technologies replace on repeat, so:
+#
+#   zz_… sorts AFTER the vanilla 00_… file  -> this file wins  (restates r1-target)
+#   !!!_ sorts BEFORE it                    -> vanilla wins    (restates r10-loadorder)
+#
+# One note on what `r4` itself did, so the restatement is not read as more than it is: `r4`
+# swapped the scripted-trigger and scripted-variable filenames and left the technology file
+# alone, which is why the technology winner was *unchanged* there. For technologies, `r4` is
+# the control saying the `r1` result was not a naming artifact, and the flip itself is `r1`
+# against `r10`. This corpus pair restates that flip directly, by `r4`'s method.
+#
+# The redefinitions carry literal values only — no `@constant`, no `inline_script`. Golden
+# case 5 compares effective fields against a pinned oracle record, and a value that the
+# resolver deliberately does not resolve yet has no business inside that comparison.
+#
+# Expected, when this file sorts last:
+#   tech_matched_subject     wins here, states NO `potential` and NO `prerequisites`
+#   tech_matched_control     wins here, states `potential` — the one field the pair differs in
+#   tech_untouched_baseline  untouched, still vanilla's
+#   tech_mod_only            resolves from here alone, proving this file contributed at all
+
+tech_matched_subject = {
+	area = society
+	cost = 1000
+	tier = 0
+	category = { trial_military_theory }
+	weight = 1000000
+}
+
+tech_matched_control = {
+	area = society
+	cost = 1000
+	tier = 0
+	category = { trial_military_theory }
+	weight = 1000000
+	potential = {
+		always = yes
+	}
+}
+
+tech_mod_only = {
+	area = engineering
+	cost = 250
+	tier = 1
+	category = { trial_industry }
+	weight = 20
+}

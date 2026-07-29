@@ -1153,6 +1153,22 @@ A preliminary local measurement hashed a broad set of script, localization, and 
 
 This is a directional filesystem-and-SHA-256 measurement rather than the final Rust implementation benchmark. It excludes large unrelated binary assets and includes a deliberately broad Vanilla file set. It suggests that a second Target Mod verification pass is subsecond on the current machine, while a complete Vanilla pass is noticeable but modest and should benefit from the separately validated Vanilla cache.
 
+**D-130 — Reference visibility is fact-scoped; registry `Pending` stays reserved for policy-unknown cells**
+
+Recorded 2026-07-28 on completion of Phase 4E (STE-26), the technologies row and golden case 5. It refines the references cell D-098 requires of every row; nothing else in D-098 changes.
+
+**The problem the row surfaced.** Technology bodies carry `@` constant references and `inline_script` inclusions — `r1-target` proves the game resolves a vanilla `@tier5cost3` read from a mod file — while the rows that own those references (scripted constants, inline scripts) are separate tickets with separate evidence. The references cell had one variant, `NoReferences`, whose contract is that a row carrying references states `Pending` instead. But an unresolved cell refuses the whole registry, so under that reading the technologies row could not resolve at all, and the phase's named exit condition could not be met by any implementation that was also honest.
+
+**The distinction that resolves it.** A `Pending` cell means *nobody knows the policy*: no oracle record settles what the game does, so the resolver must refuse rather than guess. That is not this situation. The policy here is known — the game resolves these references — and what is missing is the implementation, in a ticket that already exists. Those are different failures and they deserve different mechanisms. Conflating them would make `Pending` mean "unimplemented" as well as "unknown", and the cell would stop being able to say which.
+
+So the references cell became per reference kind, each kind carrying its own handling, and `DetectedNotResolved` is the handling the engine implements now: the reference is found and recorded as a fact against the effective field, and the value keeps its reference text. Per kind rather than one verdict per row so that Phase 4F and Phase 4G are each a one-kind status change rather than a rewrite of the vocabulary. `ReferenceRule`'s existing rule is upheld rather than weakened: a name is offered only once the engine honours it, and `DetectedNotResolved` exists because detection exists.
+
+**A kind the row did not declare refuses.** The kinds list is a claim in both directions, so an undeclared kind found in a body is `Refusal::UndeclaredReferenceKind` — the mirror of `UndeclaredFactKind`. Without it, `kinds: &[]` would mean both "carries none" and "carries some, unnoticed", and the second is exactly the silent incompleteness the cell exists to prevent: a `cost` of `@tier5cost3` published as though it were a literal value.
+
+**Detection reads the parser's decision rather than making one.** `ScalarKind::VariableRef` and `VariableExpr` are assigned by the dialect lexer. The resolver matches on them instead of re-deriving "what is an `@`" from raw bytes, so there is one authority for what a reference token is. Detection runs over effective fields after the repeat rule has decided, because a reference in a definition that lost never reached the answer.
+
+**What this does not do.** It does not resolve a reference, does not pull Phase 4F or 4G forward, and does not reorder tickets. The two deferred behaviours are pinned by tests scheduled to go red in STE-27 and STE-28, so the flip is a decision somebody makes rather than a behaviour that quietly arrives.
+
 ## Open decisions
 
 **Q-002 — Project identity**

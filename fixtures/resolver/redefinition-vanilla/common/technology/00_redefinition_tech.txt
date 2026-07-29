@@ -1,0 +1,57 @@
+# Stand-in Vanilla Content. Original work; no Stellaris file is reproduced.
+#
+# The definitions golden case 5 redefines. Restates `r1-target`, whose subject was a vanilla
+# technology stating a `potential` block that the Target Mod's redefinition omitted.
+#
+# A separate stand-in corpus from `../vanilla/` on purpose: that one is shaped by what the r6
+# and r3 expectations need, and its exact key list is asserted there. Golden case 5's field
+# set has to be shaped by `r1` instead, and a shared corpus would make one ticket's fixture
+# edit the other ticket's evidence.
+#
+# The control discipline is `fixtures/oracle/README.md`'s, restated here:
+#
+#   tech_matched_subject     SUBJECT  - redefined WITHOUT `potential`
+#   tech_matched_control     CONTROL  - redefined WITH `potential`, otherwise identical
+#   tech_untouched_baseline  CONTROL  - never redefined
+#
+# The matched pair is what makes the result readable. Subject and control differ in exactly
+# one field, so "the redefinition dropped `potential`" and "resolution mangled the file" are
+# distinguishable outcomes rather than the same red test.
+#
+# Expected: all three keys resolve from this file when no mod redefines them, each stating
+# `potential`.
+
+tech_matched_subject = {
+	area = society
+	cost = 500
+	tier = 2
+	category = { trial_military_theory }
+	weight = 10
+	prerequisites = { "tech_matched_prerequisite" }
+	potential = {
+		always = yes
+	}
+}
+
+tech_matched_control = {
+	area = society
+	cost = 500
+	tier = 2
+	category = { trial_military_theory }
+	weight = 10
+	prerequisites = { "tech_matched_prerequisite" }
+	potential = {
+		always = yes
+	}
+}
+
+tech_untouched_baseline = {
+	area = physics
+	cost = 100
+	tier = 1
+	category = { trial_computing }
+	weight = 5
+	potential = {
+		always = yes
+	}
+}
