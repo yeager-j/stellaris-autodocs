@@ -4,7 +4,7 @@ The MVP is accepted when one end-to-end technology-documentation slice handles a
 
 ## Ordinary drawable technology
 
-A representative vanilla technology with a nonzero Draw Weight must prove the ordinary path:
+`tech_xeno_relations` must prove the ordinary path, with its nonzero Draw Weight:
 
 - Multi-language localization with defined fallbacks.
 - Technology icon rendering.
@@ -15,7 +15,7 @@ A representative vanilla technology with a nonzero Draw Weight must prove the or
 - Content unlocked by the technology.
 - Bounded Source Excerpts.
 
-The exact fixture will be pinned when implementation begins.
+Pinned on the installed `Pegasus v4.4.6`, with the selection rationale recorded as `D-132` in the [decision log](./decision-log.md). It deliberately carries no `×0` Weight Modifier, so that distinction belongs to the next case alone. Because these are properties of the installed build rather than of a committed fixture, this case is reached through the drift-checked local-corpus run rather than through `fixtures/resolver/`.
 
 ## Conditional zero-weight vanilla technology
 

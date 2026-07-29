@@ -1,0 +1,20 @@
+# Stand-in Vanilla Content. Original work; no Stellaris file is reproduced.
+#
+# The base-game constants the Enigmalith-shaped technology reads across sources. Golden case 3
+# requires that "scripted constants resolve to meaningful base values where applicable", and the
+# value that matters most is the zero: a technology whose base Draw Weight is zero because a
+# constant says so is a different fact from one that states `weight = 0` inline, and only the
+# first is what the modded content actually does.
+#
+#   @enigmalith_zero_draw   the zero base Draw Weight, read by the subject
+#   @enigmalith_drawn_draw  a nonzero weight, read by the control
+#   @enigmalith_base_cost   the resolved base cost, read by both
+#
+# Declared here rather than in the mod so the read is genuinely cross-source — the clean half of
+# the scripted-constants row, the same shape `registration-vanilla/`'s `@base_cost` establishes.
+# Nothing here is redeclared by the Target Mod, so the row's open cross-source *collision* cell
+# is not reached and no consumer is refused.
+
+@enigmalith_zero_draw = 0
+@enigmalith_drawn_draw = 25
+@enigmalith_base_cost = 4000

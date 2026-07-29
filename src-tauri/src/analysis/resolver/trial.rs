@@ -20,7 +20,7 @@ use super::registry::{
     ProvenanceRule, ReferenceHandling, ReferenceRule, RegistryPolicy, RepeatRule, Replacement,
     ShadowUnit, StreamScope,
 };
-use super::resolved::{FactKind, ReferenceKind};
+use super::resolved::{FactKind, ReferenceKind, ResolvedRegistry};
 use super::stream::{ContentFamily, FileScope};
 
 macro_rules! fixture {
@@ -122,6 +122,18 @@ pub(super) const REDEFINITION_BODY: &[u8] =
     fixture!("redefinition/common/technology/zz_redefinition_tech.txt");
 pub(super) const REDEFINITION_FLIPPED_BODY: &[u8] =
     fixture!("redefinition-flipped/common/technology/!!!_redefinition_tech.txt");
+
+/// A declared row resolved by name, panicking with the refusal on the caller's behalf.
+///
+/// Asking by name rather than through `resolve_row` is deliberate wherever a suite's claim is
+/// about the *declared* profile: `resolve_row` would prove the weaker thing, that a policy works
+/// when handed straight to the engine. Both [`super::oracle`] and [`super::golden`] make claims
+/// of the stronger kind, which is why this lives here rather than in either of them.
+pub(super) fn named(resolution: &super::Resolution<'_>, registry: &str) -> ResolvedRegistry {
+    resolution
+        .registry(registry)
+        .unwrap_or_else(|refusal| panic!("the declared {registry} row resolves: {refusal}"))
+}
 
 pub(super) fn corpus(kind: SourceKind, files: &[(&str, &[u8])]) -> SourceSnapshot {
     files
@@ -489,6 +501,102 @@ pub(super) const INLINE_MISSING: &[(&str, &[u8])] = &[
 
 pub(super) fn inline_vanilla() -> SourceSnapshot {
     corpus(SourceKind::VanillaContent, INLINE_VANILLA)
+}
+
+// --- Phase 4K: the golden-case fixture shapes ---
+//
+// Unlike every corpus above, these three restate a *golden case* rather than an oracle record.
+// Their expectations live in [`super::golden`] for that reason: `oracle` is where a claim rests
+// on a captured observation of the game, and none of these has one. What they can honestly
+// carry today is stated case by case there.
+
+/// The base side of [`MALFORMED`]: one key a faulted mod file never contests.
+pub(super) const MALFORMED_VANILLA: &[(&str, &[u8])] = &[(
+    "common/technology/00_malformed_baseline_tech.txt",
+    fixture!("malformed-vanilla/common/technology/00_malformed_baseline_tech.txt"),
+)];
+
+/// Golden case 4's shape: one fault that costs a definition, one that costs only evidence
+/// quality, and one wholly clean file in the same corpus.
+pub(super) const MALFORMED: &[(&str, &[u8])] = &[
+    ("descriptor.mod", fixture!("malformed/descriptor.mod")),
+    (
+        "common/technology/malformed_intact.txt",
+        fixture!("malformed/common/technology/malformed_intact.txt"),
+    ),
+    (
+        "common/technology/malformed_recovery.txt",
+        MALFORMED_RECOVERY_BODY,
+    ),
+    (
+        "common/technology/malformed_stray_brace.txt",
+        MALFORMED_STRAY_BODY,
+    ),
+];
+
+/// Named separately so the parser-seam expectations can read the same bytes the corpus does.
+/// A second `include_bytes!` of the same path would compile just as well and would be a second
+/// place to edit when the fixture changes.
+pub(super) const MALFORMED_RECOVERY_BODY: &[u8] =
+    fixture!("malformed/common/technology/malformed_recovery.txt");
+pub(super) const MALFORMED_STRAY_BODY: &[u8] =
+    fixture!("malformed/common/technology/malformed_stray_brace.txt");
+
+/// The base side of [`ZERO_WEIGHT`]: one uncontested key with no `weight_modifier` at all.
+pub(super) const ZERO_WEIGHT_VANILLA: &[(&str, &[u8])] = &[(
+    "common/technology/00_zero_weight_baseline_tech.txt",
+    fixture!("zero-weight-vanilla/common/technology/00_zero_weight_baseline_tech.txt"),
+)];
+
+/// Golden case 2's shape: a `factor = 0` modifier on a technology whose base weight is nonzero,
+/// its matched control, and the prerequisite decoy `D-008` names.
+pub(super) const ZERO_WEIGHT: &[(&str, &[u8])] = &[
+    ("descriptor.mod", fixture!("zero-weight/descriptor.mod")),
+    (
+        "common/technology/zz_zero_weight_tech.txt",
+        fixture!("zero-weight/common/technology/zz_zero_weight_tech.txt"),
+    ),
+];
+
+/// The base side of [`ENIGMALITH`]: the constants its technologies read across sources.
+pub(super) const ENIGMALITH_VANILLA: &[(&str, &[u8])] = &[(
+    "common/scripted_variables/00_enigmalith_constants.txt",
+    fixture!("enigmalith-vanilla/common/scripted_variables/00_enigmalith_constants.txt"),
+)];
+
+/// Golden case 3's shape: a zero base Draw Weight fed by a constant, two enclosing actions
+/// granting that technology, and a megastructure entry the row cannot yet interpret.
+pub(super) const ENIGMALITH: &[(&str, &[u8])] = &[
+    ("descriptor.mod", fixture!("enigmalith/descriptor.mod")),
+    (
+        "common/megastructures/zz_enigmalith_megastructures.txt",
+        ENIGMALITH_MEGASTRUCTURE_BODY,
+    ),
+    (
+        "common/technology/zz_enigmalith_tech.txt",
+        fixture!("enigmalith/common/technology/zz_enigmalith_tech.txt"),
+    ),
+    (
+        "events/zz_enigmalith_events.txt",
+        fixture!("enigmalith/events/zz_enigmalith_events.txt"),
+    ),
+];
+
+/// Named separately because the megastructures row refuses before reading a file, so the only
+/// way to show the corpus contains the entry at all is to parse these bytes directly.
+pub(super) const ENIGMALITH_MEGASTRUCTURE_BODY: &[u8] =
+    fixture!("enigmalith/common/megastructures/zz_enigmalith_megastructures.txt");
+
+pub(super) fn malformed_vanilla() -> SourceSnapshot {
+    corpus(SourceKind::VanillaContent, MALFORMED_VANILLA)
+}
+
+pub(super) fn zero_weight_vanilla() -> SourceSnapshot {
+    corpus(SourceKind::VanillaContent, ZERO_WEIGHT_VANILLA)
+}
+
+pub(super) fn enigmalith_vanilla() -> SourceSnapshot {
+    corpus(SourceKind::VanillaContent, ENIGMALITH_VANILLA)
 }
 
 const TECHNOLOGY_SCOPE: FileScope = FileScope {

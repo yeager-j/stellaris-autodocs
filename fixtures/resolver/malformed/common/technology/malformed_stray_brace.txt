@@ -1,0 +1,31 @@
+# Original work; no Stellaris file is reproduced.
+#
+# The other bound on what a fault costs: a file where nothing is lost and the evidence quality
+# still drops.
+#
+# One close brace too many, on its own line between two complete definitions. Both definitions
+# survive, so this file separates two claims golden case 4 must not merge — "a fault made
+# content disappear" and "a fault made content less trustworthy". Only the second happens here.
+#
+#   tech_stray_clean      CONTROL  - before the fault, Clean
+#   tech_stray_recovered  SUBJECT  - after resynchronization, Recovered, content intact
+#
+# Paired with `malformed_recovery.txt`, whose fault does cost a definition. A completeness
+# warning that could not tell these two files apart would be reporting the wrong thing.
+
+tech_stray_clean = {
+	area = physics
+	cost = 150
+	tier = 1
+	category = { trial_computing }
+	weight = 15
+}
+}
+
+tech_stray_recovered = {
+	area = society
+	cost = 250
+	tier = 2
+	category = { trial_military_theory }
+	weight = 25
+}

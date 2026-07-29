@@ -108,6 +108,96 @@ fn a_published_revision_survives_a_restart() {
     );
 }
 
+/// The three golden-case fixture mods, each through the same thread.
+///
+/// **What this asserts is deliberately thin, and the thinness is the honest part.** A corpus is a
+/// distinct observation, its build publishes, and the read serves the revision back. It does not
+/// assert that the malformed corpus faulted, that the zero-weight subject kept its `×0` clause, or
+/// that the Enigmalith megastructure row refused — none of which this target can ask, because
+/// `analysis::parser` and `analysis::resolver` are crate-private and, as
+/// `the_fixture_bytes_reach_the_revision_and_nothing_a_reader_can_see` asserts below, nothing here
+/// parses a fixture byte. Those claims are made over the same committed bytes by
+/// `analysis::resolver::golden`.
+///
+/// Parameterised over the three because the claim really is identical for each; the corpus name
+/// travels into the failure message so a red run says which one.
+///
+/// The served identifiers are asserted rather than just counted, and that is the causation half:
+/// three corpora serving three *different* identifiers is what rules out a read answering from a
+/// shared default. It is not a derivation claim — each identifier below was typed by hand into the
+/// corpus definition, which is exactly why the same three strings appear here.
+///
+/// **Phase 6 must change this case.** When bytes stop being inert these entries come from the
+/// fixture files instead, and this becomes the three golden cases end to end rather than three
+/// proofs that publication carries whatever a corpus hands it.
+#[test]
+fn each_golden_case_corpus_publishes_and_reads_back() {
+    let mut served_identifiers = Vec::new();
+
+    for corpus in [
+        corpora::malformed(),
+        corpora::zero_weight(),
+        corpora::enigmalith(),
+    ] {
+        let name = corpus.name().to_owned();
+        let thread = AcceptanceThread::boot(corpus);
+
+        let published = thread
+            .build()
+            .unwrap_or_else(|error| panic!("the {name} corpus publishes: {error:?}"));
+        let served = thread
+            .desktop_entries()
+            .unwrap_or_else(|error| panic!("the {name} revision serves its entry list: {error:?}"));
+
+        assert_eq!(served.installation, published.installation, "{name}");
+        for entry in &served.entries {
+            assert_eq!(entry.category, "technology", "{name}");
+            served_identifiers.push(entry.identifier.clone());
+        }
+    }
+
+    assert_eq!(
+        served_identifiers,
+        [
+            "tech_malformed_clean",
+            "tech_zero_weight_subject",
+            "tech_enigmalith_subject",
+        ],
+        "each read serves the entry list of the corpus its own thread was booted with",
+    );
+}
+
+/// The precondition that keeps the case above from being vacuous, and the one thing this target
+/// *can* say about golden-case fixture bytes: the three corpora are three different observations.
+///
+/// Without it, three corpora that had silently collapsed to identical bytes — a `fixture!` path
+/// typo resolving to the same file, say — would publish and read back exactly as well.
+#[test]
+fn the_three_golden_case_corpora_are_distinct_observations() {
+    let fingerprints: Vec<_> = [
+        corpora::malformed(),
+        corpora::zero_weight(),
+        corpora::enigmalith(),
+    ]
+    .iter()
+    .map(|corpus| {
+        (
+            corpus.target_mod().fingerprint(),
+            corpus.vanilla_content().fingerprint(),
+        )
+    })
+    .collect();
+
+    let mut unique = fingerprints.clone();
+    unique.sort();
+    unique.dedup();
+    assert_eq!(
+        unique.len(),
+        fingerprints.len(),
+        "two golden-case corpora observe the same bytes on both sides",
+    );
+}
+
 /// The honesty control, and the only case here that observes the fixture bytes at all: without
 /// it, a harness that ignored its corpus entirely would pass every other case in this target.
 ///

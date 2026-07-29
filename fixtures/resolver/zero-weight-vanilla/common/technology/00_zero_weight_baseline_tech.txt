@@ -1,0 +1,25 @@
+# Stand-in Vanilla Content. Original work; no Stellaris file is reproduced.
+#
+# The base side of the zero-weight corpus. One key, contested by nothing, carrying an ordinary
+# nonzero weight and no `weight_modifier` at all.
+#
+#   tech_zero_weight_untouched  CONTROL  - Vanilla only, no modifiers, weight stays as stated
+#
+# The scoping control for the `×0` result: it proves the zero belongs to one modifier of one
+# definition rather than to the corpus. A resolution that reported this key's weight as anything
+# other than what this file states would mean the subject's clause reached past its own
+# definition.
+#
+# Separate from `../vanilla/` because that corpus's exact key list is asserted by the r6 and r3
+# expectations.
+
+tech_zero_weight_untouched = {
+	area = society
+	cost = 500
+	tier = 2
+	category = { trial_military_theory }
+	weight = 60
+	potential = {
+		always = yes
+	}
+}

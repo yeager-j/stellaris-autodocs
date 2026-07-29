@@ -1,0 +1,23 @@
+# Stand-in Vanilla Content. Original work; no Stellaris file is reproduced.
+#
+# The base side of the malformed corpus, and the one control the Target Mod cannot reach: this
+# key is defined here and contested by nothing.
+#
+#   tech_malformed_baseline  CONTROL  - Vanilla only, never contested by a faulted mod file
+#
+# Golden case 4 claims that successfully analyzed content remains searchable and documented.
+# Most of that content is Vanilla's, so the claim needs a definition on this side of the corpus
+# whose evidence a mod-side fault never touched. A completeness warning that reached this key
+# would be propagating along something other than a recorded dependency edge
+# (`docs/technical-design.md`, "Impact propagation follows recorded dependency edges only").
+#
+# Separate from `../vanilla/` because that corpus's exact key list is asserted by the r6 and r3
+# expectations; a key added here for golden case 4 would be an edit to their evidence.
+
+tech_malformed_baseline = {
+	area = physics
+	cost = 50
+	tier = 1
+	category = { trial_computing }
+	weight = 5
+}

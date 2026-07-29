@@ -285,7 +285,7 @@ The following are outside this MVP PRD:
 ### Open decisions
 
 1. The project name and copyright-holder wording remain undecided.
-2. The representative ordinary drawable vanilla technology for the golden acceptance set will be pinned when implementation begins.
+2. ~~The representative ordinary drawable vanilla technology for the golden acceptance set will be pinned when implementation begins.~~ Resolved: `tech_xeno_relations`, recorded as `D-132` in the [decision log](./decision-log.md).
 3. Pre-implementation resolver evidence collection is complete. The first Resolution Profile remains partial until resolver-backed tests close its named open cells; unresolved cells fail visibly and block only the content types that require them.
 
 ### Validated feasibility

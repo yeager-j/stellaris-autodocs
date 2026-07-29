@@ -53,10 +53,19 @@
 //! target is laid out this way.
 //!
 //! - **A second corpus:** one named constructor in [`corpora`], passed to `boot`. Demonstrated
-//!   rather than promised — this target already runs the same thread over four of them. Phase 4
-//!   task 8's drift-checked run over an installed Vanilla and ACOT arrives the same way, through
+//!   rather than promised — this target already runs the same thread over seven of them, the last
+//!   three being Phase 4K's golden-case fixture mods, which is also the first time a constructor
+//!   here reads committed bytes from `fixtures/` rather than inline literals. Phase 4 task 8's
+//!   drift-checked run over an installed Vanilla and ACOT arrives the same way, through
 //!   `source::snapshot::establish`; the constructor is also where its drift record and its
 //!   skip-when-not-installed decision live.
+//!
+//!   What Phase 4K also settled is where a *golden case* is asserted, because the two are not the
+//!   same question. A corpus reaches this thread and proves the thread runs over it; the semantic
+//!   claims about those same bytes — parse faults, evidence quality, a row refusing on a named open
+//!   cell — are made in-crate by `analysis::resolver::golden`, because `analysis` is private and no
+//!   integration target can reach it. Until Phase 6 that division is permanent, and a case here
+//!   that appeared to assert more than publication would be claiming a seam it cannot see.
 //! - **A language** (Phase 5 generates `display_name` rather than having it typed):
 //!   [`harness::AcceptanceThread::boot`], in the window before the `StateStore` is moved into
 //!   the host, because only the explicit override is durable state. It belongs there and not on
