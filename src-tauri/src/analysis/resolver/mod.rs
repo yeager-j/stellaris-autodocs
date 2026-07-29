@@ -81,9 +81,10 @@ pub(in crate::analysis) use registry::Refusal;
 #[allow(unused_imports)]
 pub(in crate::analysis) use resolved::{
     ConstantFact, ConstantOutcome, FactKind, FactProvenance, FactSite, InlineOutcome,
-    InlineScriptFact, ReferenceFact, ReferenceKind, ResolvedDefinition, ResolvedRegistry,
-    ResolvedSpriteTexture, SpriteReferenceEdge, SpriteResolution, SpriteTextureOutcome,
-    StreamPosition, UnresolvedConstant, UnresolvedInline,
+    InlineScriptFact, LocalizationFile, LocalizationFileStream, ReferenceFact, ReferenceKind,
+    ResolvedDefinition, ResolvedRegistry, ResolvedSpriteTexture, ShadowedLocalizationFile,
+    SpriteReferenceEdge, SpriteResolution, SpriteTextureOutcome, StreamPosition,
+    UnresolvedConstant, UnresolvedInline,
 };
 
 use crate::source::{SourceKind, SourceSnapshot};
@@ -118,6 +119,59 @@ pub(in crate::analysis) fn resolve<'a>(
 }
 
 impl Resolution<'_> {
+    /// Localization files in the exact order Phase 5 must ingest them.
+    ///
+    /// This stops before `.yml` interpretation. In particular it does not merge keys, resolve
+    /// `$key$` references, or infer which keys a shadowed file lost; those decisions belong to
+    /// the localization module that consumes this byte stream.
+    pub fn localization_files(&self) -> Result<LocalizationFileStream, Refusal> {
+        if let Some(declaration) = self.selection.unusable_declarations().first() {
+            return Err(Refusal::UnusableReplacePath {
+                declaration: declaration.clone(),
+            });
+        }
+
+        let entries = stream::build(
+            &self.selection,
+            stream::ContentFamily::Localization,
+            stream::LOCALIZATION_SCOPE,
+        );
+        let files = entries
+            .into_iter()
+            .map(|entry| {
+                let bytes = self
+                    .read(&entry)
+                    .expect("a selected file remains readable from its immutable snapshot");
+                LocalizationFile {
+                    order: entry.order,
+                    source: entry.source,
+                    logical: entry.logical,
+                    bytes,
+                }
+            })
+            .collect();
+        let shadowed_files = stream::shadowed_files(&self.selection, stream::LOCALIZATION_SCOPE)
+            .into_iter()
+            .map(|provenance| {
+                let FactSite::RemovedBySelection {
+                    source, logical, ..
+                } = &provenance.site
+                else {
+                    unreachable!("the file-shadow projection produced a non-file fact");
+                };
+                let bytes = self
+                    .read_source(*source, logical)
+                    .expect("a removed file remains readable from its immutable snapshot");
+                ShadowedLocalizationFile { provenance, bytes }
+            })
+            .collect();
+
+        Ok(LocalizationFileStream {
+            files,
+            shadowed_files,
+        })
+    }
+
     /// The effective content of one declared registry.
     ///
     /// Files are parsed on demand, per call. Deliberately not cached: no consumer asks for
@@ -137,12 +191,24 @@ impl Resolution<'_> {
         registry::resolve(policy, &self.selection, |entry| self.parse(entry))
     }
 
-    fn parse(&self, entry: &StreamEntry) -> Option<ParsedFile> {
-        let snapshot = match entry.source {
+    fn read(&self, entry: &StreamEntry) -> Option<crate::source::SourceBytes> {
+        self.read_source(entry.source, &entry.logical)
+    }
+
+    fn read_source(
+        &self,
+        source: SourceKind,
+        logical: &crate::canonical::path::LogicalPath,
+    ) -> Option<crate::source::SourceBytes> {
+        let snapshot = match source {
             SourceKind::VanillaContent => self.vanilla,
             SourceKind::TargetMod => self.target,
         };
-        let bytes = snapshot.read(&entry.logical)?;
+        snapshot.read(logical)
+    }
+
+    fn parse(&self, entry: &StreamEntry) -> Option<ParsedFile> {
+        let bytes = self.read(entry)?;
         let identity = SourceIdentity::new(entry.source, entry.logical.clone());
         Some(parser::parse(identity, bytes.as_slice()))
     }
@@ -155,8 +221,9 @@ mod tests {
 
     #[test]
     fn an_undeclared_registry_refuses_by_name() {
-        // Localization remains a future row. A content type may be claimed as supported only
-        // when every policy it requires is explicit and oracle-backed.
+        // Phase 4J declares localization file selection, not the `.yml` key registry Phase 5
+        // will build from it. Asking for a registry must therefore keep refusing rather than
+        // turning the file-level support into a false per-key claim.
         let vanilla = FixtureCorpus::new(SourceKind::VanillaContent)
             .with_file("common/technology/00_vanilla.txt", b"tech_a = {}")
             .build()
@@ -173,5 +240,29 @@ mod tests {
                 registry: "localization".to_owned()
             })
         );
+    }
+
+    #[test]
+    fn localization_files_refuse_an_unusable_replace_path() {
+        let vanilla = FixtureCorpus::new(SourceKind::VanillaContent)
+            .with_file(
+                "localisation/english/base_l_english.yml",
+                b"l_english:\n base:0 \"Base\"",
+            )
+            .build()
+            .expect("a fixture corpus");
+        let target = FixtureCorpus::new(SourceKind::TargetMod)
+            .with_file("descriptor.mod", b"replace_path = { invalid }")
+            .with_file(
+                "localisation/english/mod_l_english.yml",
+                b"l_english:\n mod:0 \"Mod\"",
+            )
+            .build()
+            .expect("a fixture corpus");
+
+        assert!(matches!(
+            resolve(&vanilla, &target).localization_files(),
+            Err(Refusal::UnusableReplacePath { .. })
+        ));
     }
 }

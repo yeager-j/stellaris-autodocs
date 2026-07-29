@@ -53,6 +53,9 @@ Stellaris installed.
 | `sprites-vanilla/` | the base-game side of `r17-sprites` and `r18-sprites-early` | One sheet sprite with two Vanilla dependents whose `sprite_sheet_sprite_type` edges make the sheet winner observable. |
 | `sprites/` | `r17-sprites` | Same-file, cross-file, and late cross-source replacements plus reference chains and typed missing/cyclic controls. Block labels deliberately vary so `name`, not `spriteType`, is the registry key. |
 | `sprites-early/` | `r18-sprites-early` | The same sheet override under a filename sorting before Vanilla's `alerts.gfx`, so the Target Mod definition is read and then displaced. |
+| `localization-vanilla/` | the base-game side of `r13-loc-methods` and `r14-loc-samepath` | Two localization files: one a mod collides with and one untouched control proving shadowing stays scoped to the losing file. |
+| `localization-methods/` | `r13-loc-methods`, plus `r15-loc-modvmod`'s `replace/` phase | An early ordinary file, a late ordinary file, and an early-named `replace/` file prove source phase and replacement phase outrank filename order. |
+| `localization-samepath/` | `r14-loc-samepath` | One Target Mod file at the Vanilla technology-localization path. The resolver stops at whole-file selection, before interpreting which keys the loser contained. |
 
 ## Reading them
 

@@ -21,12 +21,21 @@
 use crate::canonical::path::LogicalPath;
 use crate::source::SourceKind;
 
+use super::resolved::{FactKind, FactProvenance, FactSite};
 use super::selection::FileSelection;
 
 /// The `localisation/<language>/replace/` component. Not a source and not a layer: a
 /// directory whose files load last within the localization stream, from any position in
 /// mod order (`r15-loc-modvmod`).
 const LOCALIZATION_REPLACE_COMPONENT: &str = "replace";
+
+/// Every localization file the source policy admitted. Phase 5, not the resolver, decides
+/// language identity and whether a `.yml` document is well formed.
+pub(super) const LOCALIZATION_SCOPE: FileScope = FileScope {
+    directory: "localisation",
+    extensions: &["yml"],
+    recursive: true,
+};
 
 /// A content family, which is to say a stream-ordering rule and the rows that share it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -98,6 +107,23 @@ pub(super) struct StreamEntry {
     pub logical: LogicalPath,
 }
 
+#[derive(Debug)]
+struct LocalizationCandidate<T> {
+    value: T,
+    phase: LocalizationPhase,
+    /// Position among enabled mods. The two-contributor MVP has one Target Mod at zero;
+    /// retaining the rank here makes the measured r15 rule explicit without widening
+    /// `SourceKind` or pretending the production resolver accepts a Playset.
+    enabled_mod_order: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum LocalizationPhase {
+    Vanilla,
+    OrdinaryMod,
+    Replace,
+}
+
 /// The surviving files of `scope`, in `family`'s order.
 pub(super) fn build(
     selection: &FileSelection,
@@ -114,12 +140,11 @@ pub(super) fn build(
     let ordered: Vec<(&LogicalPath, SourceKind)> = match family.order() {
         StreamOrder::GlobalPath => admitted.collect(),
         StreamOrder::LocalizationLayered => {
-            let mut segments: [Vec<(&LogicalPath, SourceKind)>; 3] =
-                [Vec::new(), Vec::new(), Vec::new()];
-            for (logical, source) in admitted {
-                segments[localization_segment(logical, source)].push((logical, source));
-            }
-            segments.into_iter().flatten().collect()
+            order_localization(admitted.map(|(logical, source)| LocalizationCandidate {
+                value: (logical, source),
+                phase: localization_phase(logical, source),
+                enabled_mod_order: 0,
+            }))
         }
     };
 
@@ -134,23 +159,53 @@ pub(super) fn build(
         .collect()
 }
 
-/// Which of the three localization segments a file belongs to.
+/// Files removed by common selection that this stream would otherwise have read.
+///
+/// Registry rows and the Phase 5 localization handoff both use this one projection, so a
+/// path collision cannot become `Shadowed` in one output and silently disappear in another.
+pub(super) fn shadowed_files(selection: &FileSelection, scope: FileScope) -> Vec<FactProvenance> {
+    selection
+        .removed()
+        .iter()
+        .filter(|removed| scope.admits(&removed.logical))
+        .map(|removed| FactProvenance {
+            kind: FactKind::Shadowed,
+            field: None,
+            site: FactSite::RemovedBySelection {
+                source: removed.source,
+                logical: removed.logical.clone(),
+                removal: removed.removal.clone(),
+            },
+        })
+        .collect()
+}
+
+fn order_localization<T>(candidates: impl IntoIterator<Item = LocalizationCandidate<T>>) -> Vec<T> {
+    let mut candidates: Vec<LocalizationCandidate<T>> = candidates.into_iter().collect();
+    candidates.sort_by_key(|candidate| (candidate.phase, candidate.enabled_mod_order));
+    candidates
+        .into_iter()
+        .map(|candidate| candidate.value)
+        .collect()
+}
+
+/// Which localization phase a file belongs to.
 ///
 /// The middle segment is "mod files in `enabled_mods` order", which in the MVP's
 /// two-contributor scope is one mod — so within it, and within the other two, files keep
 /// normalized logical-path order. That is the deterministic choice rather than a measured
 /// one: no oracle record distinguishes two ordinary files of one source, and reading the
 /// filesystem's order instead would make the answer depend on the host.
-fn localization_segment(logical: &LogicalPath, source: SourceKind) -> usize {
+fn localization_phase(logical: &LogicalPath, source: SourceKind) -> LocalizationPhase {
     if logical
         .components()
         .any(|component| component == LOCALIZATION_REPLACE_COMPONENT)
     {
-        return 2;
+        return LocalizationPhase::Replace;
     }
     match source {
-        SourceKind::VanillaContent => 0,
-        SourceKind::TargetMod => 1,
+        SourceKind::VanillaContent => LocalizationPhase::Vanilla,
+        SourceKind::TargetMod => LocalizationPhase::OrdinaryMod,
     }
 }
 
@@ -164,12 +219,6 @@ mod tests {
         directory: "common/technology",
         extensions: &["txt"],
         recursive: false,
-    };
-
-    const LOCALIZATION: FileScope = FileScope {
-        directory: "localisation",
-        extensions: &["yml"],
-        recursive: true,
     };
 
     fn corpus(kind: SourceKind, files: &[&str]) -> SourceSnapshot {
@@ -278,7 +327,7 @@ mod tests {
                     "localisation/english/replace/00_oracle_replace_l_english.yml",
                 ],
                 ContentFamily::Localization,
-                LOCALIZATION,
+                LOCALIZATION_SCOPE,
             )
             .into_iter()
             .map(|(logical, _)| logical)
@@ -319,5 +368,41 @@ mod tests {
             .map(|entry| entry.order)
             .collect();
         assert_eq!(orders, vec![0, 1]);
+    }
+
+    #[test]
+    fn r15_preserves_enabled_mod_order_and_moves_every_replace_file_last() {
+        let ordered = order_localization([
+            LocalizationCandidate {
+                value: "later ordinary",
+                phase: LocalizationPhase::OrdinaryMod,
+                enabled_mod_order: 1,
+            },
+            LocalizationCandidate {
+                value: "later replace",
+                phase: LocalizationPhase::Replace,
+                enabled_mod_order: 1,
+            },
+            LocalizationCandidate {
+                value: "earlier replace",
+                phase: LocalizationPhase::Replace,
+                enabled_mod_order: 0,
+            },
+            LocalizationCandidate {
+                value: "earlier ordinary",
+                phase: LocalizationPhase::OrdinaryMod,
+                enabled_mod_order: 0,
+            },
+        ]);
+
+        assert_eq!(
+            ordered,
+            [
+                "earlier ordinary",
+                "later ordinary",
+                "earlier replace",
+                "later replace",
+            ]
+        );
     }
 }

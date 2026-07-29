@@ -141,7 +141,10 @@ Blocking relations encode the dependency DAG so parallelizable work is visible. 
 
 **Deliverable:** The localization deep module, build-side and read-side.
 
-1. Localization-file ingestion, locale identity, and per-language tables.
+1. Localization-file ingestion, locale identity, and per-language tables, consuming Phase
+   4J's ordered localization byte stream and file-shadowing facts. This step closes
+   `r16-loc-reference` and the key-level portions of `r13-loc-methods`,
+   `r14-loc-samepath`, and `r15-loc-modvmod`; Phase 4 pins only their file-level facts.
 2. Markup tokenization into application-owned display tokens; style/color markers, known inline icons, visibly raw runtime tokens and unknown markup.
 3. Selected-language → English → raw-key fallback.
 4. Static Localization Reference resolution with cycle detection.

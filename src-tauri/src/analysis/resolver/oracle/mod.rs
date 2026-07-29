@@ -329,6 +329,23 @@
 //! and proves the same dependent assertion goes false. That isolates winner lookup from
 //! registration direction: a row can select the right winner and still attribute every
 //! dependent to the wrong source if its references consult the loser.
+//!
+//! Phase 4J (STE-31) adds the localization stream's controls:
+//!
+//! - `global_path_order_fails_the_r13_early_sorting_case` runs the same selected files
+//!   through the script-family order and proves the early Target Mod filename moves ahead of
+//!   Vanilla. The shipped `ContentFamily::Localization` arm was also changed to
+//!   `GlobalPath` by hand once; `r13_localization_orders_vanilla_then_mod_then_replace_
+//!   regardless_of_filename` failed with the exact wrong order, then the arm was restored.
+//! - `r14_localization_collision_shadows_one_whole_file_and_leaves_others_untouched` reads
+//!   both sides of the file-selection contract: the colliding Vanilla file is named in
+//!   provenance, while the uncollided Vanilla file remains in the stream.
+//! - `r15_preserves_enabled_mod_order_and_moves_every_replace_file_last` exercises two
+//!   ordered mod ranks through the same stable phase sorter production uses. Production
+//!   still supplies only the MVP's one Target Mod rank.
+//! - The drift gate consumes `r13`, `r14`, and `r15`. It deliberately does not consume
+//!   `r16-loc-reference`, whose reference-resolution claim stays with Phase 5 `.yml`
+//!   interpretation.
 
 mod record;
 
@@ -340,12 +357,13 @@ use super::resolved::{
 use super::trial::{
     self, BUILDINGS, COMPONENTS, COMPONENTS_REPEAT, CONSTANTS_A_BODY, CONSTANTS_A_FLIPPED_BODY,
     CONSTANTS_B_BODY, CONSTANTS_B_FLIPPED_BODY, CONSTANTS_COLLISION, EARLY_MOD, EVENTS,
-    EVENTS_EARLY, INLINE, INLINE_MISSING, NO_REDEFINITION, PARAMETERIZED, PATH_COLLISION,
-    REDEFINITION, REDEFINITION_BODY, REDEFINITION_FLIPPED, REDEFINITION_FLIPPED_BODY, REGISTRATION,
+    EVENTS_EARLY, INLINE, INLINE_MISSING, LOCALIZATION_METHODS, LOCALIZATION_SAME_PATH,
+    LOCALIZATION_VANILLA, NO_REDEFINITION, PARAMETERIZED, PATH_COLLISION, REDEFINITION,
+    REDEFINITION_BODY, REDEFINITION_FLIPPED, REDEFINITION_FLIPPED_BODY, REGISTRATION,
     REGISTRATION_FLIPPED, REPLACE_PATH, RISKY_CONSTANTS, SPRITES, SPRITES_EARLY, TRIGGERS_A_BODY,
     TRIGGERS_A_FLIPPED_BODY, TRIGGERS_B_BODY, TRIGGERS_B_FLIPPED_BODY, buildings_vanilla, corpus,
-    events_vanilla, inline_vanilla, redefinition_vanilla, registration_vanilla, sprites_vanilla,
-    vanilla,
+    events_vanilla, inline_vanilla, localization_vanilla, redefinition_vanilla,
+    registration_vanilla, sprites_vanilla, vanilla,
 };
 use super::{Resolution, profile, resolve};
 use crate::analysis::parser::{ScalarKind, Value};
@@ -366,6 +384,21 @@ struct Expectation {
 /// not an expectation below reads it in detail — `r0-baseline` is the clearest case, since its
 /// value is the measured *absence* the r1 result is a delta against.
 const EXPECTATIONS: &[Expectation] = &[
+    Expectation {
+        run: "r13-loc-methods",
+        rule: "ordinary Target Mod localization files load after every surviving Vanilla file \
+               regardless of filename, and replace files load in the final phase",
+    },
+    Expectation {
+        run: "r14-loc-samepath",
+        rule: "an exact-path localization collision removes the whole losing Vanilla file \
+               while an uncollided Vanilla localization file remains in the stream",
+    },
+    Expectation {
+        run: "r15-loc-modvmod",
+        rule: "ordinary mod localization files follow enabled-mod order, then every replace \
+               file loads in a final phase regardless of its mod's position",
+    },
     Expectation {
         run: "r17-sprites",
         rule: "sprite names replace on repeat within and across files; a late-sorting Target \
@@ -1392,6 +1425,149 @@ fn phase_4h_row_copy_controls_flip_the_claimed_cells() {
             .get("mega_phase4h")
             .is_some(),
         "closing the copied field cell must read and resolve the non-empty megastructure corpus"
+    );
+}
+
+// --- Phase 4J (STE-31): localization file stream ---
+
+#[test]
+fn r13_localization_orders_vanilla_then_mod_then_replace_regardless_of_filename() {
+    let vanilla = localization_vanilla();
+    let target = corpus(SourceKind::TargetMod, LOCALIZATION_METHODS);
+    let stream = resolve(&vanilla, &target)
+        .localization_files()
+        .expect("the file-level localization row resolves");
+
+    assert_eq!(
+        stream
+            .files
+            .iter()
+            .map(|file| file.logical.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "localisation/english/main_2_l_english.yml",
+            "localisation/english/technology_l_english.yml",
+            "localisation/english/00_early_l_english.yml",
+            "localisation/english/zz_plain_l_english.yml",
+            "localisation/english/replace/00_replace_l_english.yml",
+        ]
+    );
+    assert_eq!(
+        stream
+            .files
+            .iter()
+            .map(|file| file.order)
+            .collect::<Vec<_>>(),
+        [0, 1, 2, 3, 4]
+    );
+    assert_eq!(
+        stream.files[2].bytes.as_slice(),
+        LOCALIZATION_METHODS[1].1,
+        "the Phase 5 handoff carries the exact selected snapshot bytes"
+    );
+    assert!(stream.shadowed_files.is_empty());
+}
+
+#[test]
+fn global_path_order_fails_the_r13_early_sorting_case() {
+    let vanilla = localization_vanilla();
+    let target = corpus(SourceKind::TargetMod, LOCALIZATION_METHODS);
+    let selection = super::selection::select(&vanilla, &target);
+    let wrong = super::stream::build(
+        &selection,
+        super::stream::ContentFamily::Script,
+        super::stream::LOCALIZATION_SCOPE,
+    );
+
+    assert_eq!(
+        wrong.first().map(|entry| entry.source),
+        Some(SourceKind::TargetMod),
+        "the early mod filename sorts first under the script rule"
+    );
+    assert_ne!(
+        wrong
+            .iter()
+            .map(|entry| entry.logical.as_str())
+            .collect::<Vec<_>>(),
+        resolve(&vanilla, &target)
+            .localization_files()
+            .expect("the localization rule resolves")
+            .files
+            .iter()
+            .map(|file| file.logical.as_str())
+            .collect::<Vec<_>>(),
+        "the negative control must disagree with the r13 expectation"
+    );
+}
+
+#[test]
+fn r14_localization_collision_shadows_one_whole_file_and_leaves_others_untouched() {
+    let vanilla = localization_vanilla();
+    let target = corpus(SourceKind::TargetMod, LOCALIZATION_SAME_PATH);
+    let stream = resolve(&vanilla, &target)
+        .localization_files()
+        .expect("the file-level localization row resolves");
+
+    assert_eq!(
+        stream
+            .files
+            .iter()
+            .map(|file| (file.logical.as_str(), file.source))
+            .collect::<Vec<_>>(),
+        [
+            (
+                "localisation/english/main_2_l_english.yml",
+                SourceKind::VanillaContent,
+            ),
+            (
+                "localisation/english/technology_l_english.yml",
+                SourceKind::TargetMod,
+            ),
+        ],
+        "the uncollided Vanilla file survives and the exact-path Target Mod file wins"
+    );
+    assert_eq!(stream.shadowed_files.len(), 1);
+    assert_eq!(
+        stream.shadowed_files[0].provenance,
+        super::resolved::FactProvenance {
+            kind: FactKind::Shadowed,
+            field: None,
+            site: FactSite::RemovedBySelection {
+                source: SourceKind::VanillaContent,
+                logical: LogicalPath::parse("localisation/english/technology_l_english.yml")
+                    .expect("a fixture path"),
+                removal: Removal::ShadowedByPathCollision {
+                    winner: SourceKind::TargetMod,
+                },
+            },
+        }
+    );
+    assert_eq!(
+        stream.shadowed_files[0].bytes.as_slice(),
+        LOCALIZATION_VANILLA[1].1,
+        "Phase 5 receives the exact losing Vanilla file so it can enumerate every lost key"
+    );
+}
+
+#[test]
+fn localization_file_selection_returns_uninterpreted_bytes() {
+    let vanilla = corpus(SourceKind::VanillaContent, &[]);
+    let target = FixtureCorpus::new(SourceKind::TargetMod)
+        .with_file("descriptor.mod", b"name=\"uninterpreted\"")
+        .with_file(
+            "localisation/english/not_yaml_l_english.yml",
+            b"\xff\0not Clausewitz and not YAML",
+        )
+        .build()
+        .expect("a fixture corpus accepts arbitrary source bytes");
+
+    let stream = resolve(&vanilla, &target)
+        .localization_files()
+        .expect("file selection does not interpret localization bytes");
+    assert_eq!(stream.files.len(), 1);
+    assert_eq!(
+        stream.files[0].bytes.as_slice(),
+        b"\xff\0not Clausewitz and not YAML"
     );
 }
 

@@ -57,7 +57,11 @@ use super::stream::{ContentFamily, FileScope};
 ///   `name`, replace on repeat in the global sprite path stream, and follow
 ///   `sprite_sheet_sprite_type` only after final winners are known, recording the effective
 ///   primary texture and every reference edge.
-pub(in crate::analysis) const RESOLUTION_PROFILE_VERSION: u32 = 6;
+/// - 7 (Phase 4J, STE-31): the localization family's file-level row is declared as a Phase
+///   5-ready byte stream. Surviving files load Vanilla, ordinary Target Mod, then `replace/`;
+///   whole-file selection losses carry shadow provenance. Per-key LIOS and references remain
+///   localization-module work.
+pub(in crate::analysis) const RESOLUTION_PROFILE_VERSION: u32 = 7;
 
 /// The Stellaris build every oracle record behind this profile was captured against.
 ///

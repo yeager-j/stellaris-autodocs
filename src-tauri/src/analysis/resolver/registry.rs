@@ -721,7 +721,7 @@ where
     let registry = ResolvedRegistry {
         registry: policy.name,
         definitions,
-        removed_files: removed_in_scope(selection, scope),
+        removed_files: super::stream::shadowed_files(selection, scope.scope),
     };
     check_declared_kinds(policy.name, &registry, provenance)?;
     Ok(registry)
@@ -1188,27 +1188,6 @@ fn parse_default(default: &DefaultField) -> Option<Value> {
         .definitions()
         .next()
         .map(|(field, _)| field.value.clone())
-}
-
-/// Files removed by common file selection that this registry would otherwise have read.
-///
-/// This is the r6 and r3 evidence in provenance form: the losing file contributes nothing,
-/// and the record of it does not depend on any surviving key mentioning it.
-fn removed_in_scope(selection: &FileSelection, scope: StreamScope) -> Vec<FactProvenance> {
-    selection
-        .removed()
-        .iter()
-        .filter(|removed| scope.scope.admits(&removed.logical))
-        .map(|removed| FactProvenance {
-            kind: FactKind::Shadowed,
-            field: None,
-            site: FactSite::RemovedBySelection {
-                source: removed.source,
-                logical: removed.logical.clone(),
-                removal: removed.removal.clone(),
-            },
-        })
-        .collect()
 }
 
 fn check_declared_kinds(

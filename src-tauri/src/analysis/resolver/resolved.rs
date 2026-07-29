@@ -18,7 +18,7 @@
 
 use crate::canonical::numeric::SourceNumber;
 use crate::canonical::path::LogicalPath;
-use crate::source::SourceKind;
+use crate::source::{SourceBytes, SourceKind};
 use std::collections::BTreeMap;
 
 use super::super::parser::{Container, Value};
@@ -204,6 +204,42 @@ pub(in crate::analysis) struct FactProvenance {
     /// displaced duplicate, or a file shadowed before any key was read.
     pub field: Option<String>,
     pub site: FactSite,
+}
+
+/// One localization file selected for Phase 5 ingestion.
+///
+/// This is deliberately a file, not a parsed localization document. The resolver decides
+/// which bytes exist and in what order the game reads them; the `localization` module owns
+/// interpreting those bytes as `.yml`, merging keys LIOS, and resolving references.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::analysis) struct LocalizationFile {
+    /// Position in the localization family's semantic stream, from zero.
+    pub order: u32,
+    pub source: SourceKind,
+    pub logical: LogicalPath,
+    /// The exact snapshot bytes that source identity and path selected.
+    pub bytes: SourceBytes,
+}
+
+/// One localization file removed before the effective stream, with its original bytes.
+///
+/// Phase 5 needs both halves: `provenance` explains why the file lost, while `bytes` let the
+/// localization parser enumerate the keys that disappeared with it. Keeping only the path
+/// would make those key-level casualties unknowable after file selection.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::analysis) struct ShadowedLocalizationFile {
+    pub provenance: FactProvenance,
+    pub bytes: SourceBytes,
+}
+
+/// The complete file-level handoff from Phase 4 resolution to Phase 5 localization.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::analysis) struct LocalizationFileStream {
+    /// Surviving files in game load order.
+    pub files: Vec<LocalizationFile>,
+    /// Whole-file selection losses in the localization scope, including the losing bytes
+    /// Phase 5 must interpret to identify key-level casualties.
+    pub shadowed_files: Vec<ShadowedLocalizationFile>,
 }
 
 /// Why a scripted-constant symbol does not have a resolved value.

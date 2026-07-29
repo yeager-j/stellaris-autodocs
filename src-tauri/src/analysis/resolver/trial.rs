@@ -381,6 +381,53 @@ pub(super) fn sprites_vanilla() -> SourceSnapshot {
     corpus(SourceKind::VanillaContent, SPRITES_VANILLA)
 }
 
+// --- Phase 4J: localization file stream ---
+
+pub(super) const LOCALIZATION_VANILLA: &[(&str, &[u8])] = &[
+    (
+        "localisation/english/main_2_l_english.yml",
+        fixture!("localization-vanilla/localisation/english/main_2_l_english.yml"),
+    ),
+    (
+        "localisation/english/technology_l_english.yml",
+        fixture!("localization-vanilla/localisation/english/technology_l_english.yml"),
+    ),
+];
+
+pub(super) const LOCALIZATION_METHODS: &[(&str, &[u8])] = &[
+    (
+        "descriptor.mod",
+        fixture!("localization-methods/descriptor.mod"),
+    ),
+    (
+        "localisation/english/00_early_l_english.yml",
+        fixture!("localization-methods/localisation/english/00_early_l_english.yml"),
+    ),
+    (
+        "localisation/english/zz_plain_l_english.yml",
+        fixture!("localization-methods/localisation/english/zz_plain_l_english.yml"),
+    ),
+    (
+        "localisation/english/replace/00_replace_l_english.yml",
+        fixture!("localization-methods/localisation/english/replace/00_replace_l_english.yml"),
+    ),
+];
+
+pub(super) const LOCALIZATION_SAME_PATH: &[(&str, &[u8])] = &[
+    (
+        "descriptor.mod",
+        fixture!("localization-samepath/descriptor.mod"),
+    ),
+    (
+        "localisation/english/technology_l_english.yml",
+        fixture!("localization-samepath/localisation/english/technology_l_english.yml"),
+    ),
+];
+
+pub(super) fn localization_vanilla() -> SourceSnapshot {
+    corpus(SourceKind::VanillaContent, LOCALIZATION_VANILLA)
+}
+
 // --- Phase 4G: inline scripts ---
 
 /// The base-game side [`INLINE`] expands against: the inline script whose path the mod
