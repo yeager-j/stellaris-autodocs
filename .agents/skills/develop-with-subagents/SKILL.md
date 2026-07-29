@@ -117,8 +117,14 @@ After the implementation agent finishes:
 5. If the changed behavior has an executable user interface in the current environment, verify it
    through that interface.
 
-Do not edit implementation faults yourself while the original implementation agent can be resumed.
-The coordinator diagnoses; the context-bearing implementation agent repairs.
+The coordinator diagnoses; the context-bearing implementation agent repairs. One narrow exception:
+the coordinator may directly fix a change that is behavior-preserving and embeds no decision —
+comment wording, doc typos, a misleading name, formatting — because the existing gates already
+review such a fix and there is nothing to get subtly wrong. Any change to observable behavior,
+types, or tests goes to the implementation agent regardless of size; one-line behavioral fixes are
+exactly where wrong quick fixes hide, and routing them through the agent preserves the
+failing-test-first discipline. Report every direct coordinator edit to the implementing agent at its
+next resume, so its model of the code never silently diverges from the code.
 
 ### 6. Return Faults to the Same Agent
 
@@ -139,9 +145,10 @@ replacement retained the original context.
 
 Codex automatically reviews opened pull requests; the harness notifies the coordinator of its
 comments, so do not poll or listen for them. Treat each Codex finding like any other review lead:
-confirm it against the source, investigate whether it is a real fault, and — when it is — send fix
-instructions to the same implementation agent through this section's fault-return loop rather than
-editing the fix in directly.
+confirm it against the source, investigate whether it is a real fault, and — when it is — handle it
+under section 5's division of labor: behavior-preserving, decision-free fixes may be made directly
+and reported to the implementing agent; everything else goes to that agent through this section's
+fault-return loop.
 
 ### 7. Close the Loop
 
