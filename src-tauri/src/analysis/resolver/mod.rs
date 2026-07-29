@@ -82,8 +82,9 @@ pub(in crate::analysis) use registry::Refusal;
 pub(in crate::analysis) use resolved::{
     ConstantFact, ConstantOutcome, FactKind, FactProvenance, FactSite, InlineOutcome,
     InlineScriptFact, LocalizationFile, LocalizationFileStream, ReferenceFact, ReferenceKind,
-    ResolvedDefinition, ResolvedRegistry, ResolvedSpriteTexture, SpriteReferenceEdge,
-    SpriteResolution, SpriteTextureOutcome, StreamPosition, UnresolvedConstant, UnresolvedInline,
+    ResolvedDefinition, ResolvedRegistry, ResolvedSpriteTexture, ShadowedLocalizationFile,
+    SpriteReferenceEdge, SpriteResolution, SpriteTextureOutcome, StreamPosition,
+    UnresolvedConstant, UnresolvedInline,
 };
 
 use crate::source::{SourceKind, SourceSnapshot};
@@ -149,10 +150,25 @@ impl Resolution<'_> {
                 }
             })
             .collect();
+        let shadowed_files = stream::shadowed_files(&self.selection, stream::LOCALIZATION_SCOPE)
+            .into_iter()
+            .map(|provenance| {
+                let FactSite::RemovedBySelection {
+                    source, logical, ..
+                } = &provenance.site
+                else {
+                    unreachable!("the file-shadow projection produced a non-file fact");
+                };
+                let bytes = self
+                    .read_source(*source, logical)
+                    .expect("a removed file remains readable from its immutable snapshot");
+                ShadowedLocalizationFile { provenance, bytes }
+            })
+            .collect();
 
         Ok(LocalizationFileStream {
             files,
-            shadowed_files: stream::shadowed_files(&self.selection, stream::LOCALIZATION_SCOPE),
+            shadowed_files,
         })
     }
 
@@ -176,11 +192,19 @@ impl Resolution<'_> {
     }
 
     fn read(&self, entry: &StreamEntry) -> Option<crate::source::SourceBytes> {
-        let snapshot = match entry.source {
+        self.read_source(entry.source, &entry.logical)
+    }
+
+    fn read_source(
+        &self,
+        source: SourceKind,
+        logical: &crate::canonical::path::LogicalPath,
+    ) -> Option<crate::source::SourceBytes> {
+        let snapshot = match source {
             SourceKind::VanillaContent => self.vanilla,
             SourceKind::TargetMod => self.target,
         };
-        snapshot.read(&entry.logical)
+        snapshot.read(logical)
     }
 
     fn parse(&self, entry: &StreamEntry) -> Option<ParsedFile> {

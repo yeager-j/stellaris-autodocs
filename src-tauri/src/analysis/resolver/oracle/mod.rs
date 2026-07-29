@@ -358,9 +358,9 @@ use super::trial::{
     self, BUILDINGS, COMPONENTS, COMPONENTS_REPEAT, CONSTANTS_A_BODY, CONSTANTS_A_FLIPPED_BODY,
     CONSTANTS_B_BODY, CONSTANTS_B_FLIPPED_BODY, CONSTANTS_COLLISION, EARLY_MOD, EVENTS,
     EVENTS_EARLY, INLINE, INLINE_MISSING, LOCALIZATION_METHODS, LOCALIZATION_SAME_PATH,
-    NO_REDEFINITION, PARAMETERIZED, PATH_COLLISION, REDEFINITION, REDEFINITION_BODY,
-    REDEFINITION_FLIPPED, REDEFINITION_FLIPPED_BODY, REGISTRATION, REGISTRATION_FLIPPED,
-    REPLACE_PATH, RISKY_CONSTANTS, SPRITES, SPRITES_EARLY, TRIGGERS_A_BODY,
+    LOCALIZATION_VANILLA, NO_REDEFINITION, PARAMETERIZED, PATH_COLLISION, REDEFINITION,
+    REDEFINITION_BODY, REDEFINITION_FLIPPED, REDEFINITION_FLIPPED_BODY, REGISTRATION,
+    REGISTRATION_FLIPPED, REPLACE_PATH, RISKY_CONSTANTS, SPRITES, SPRITES_EARLY, TRIGGERS_A_BODY,
     TRIGGERS_A_FLIPPED_BODY, TRIGGERS_B_BODY, TRIGGERS_B_FLIPPED_BODY, buildings_vanilla, corpus,
     events_vanilla, inline_vanilla, localization_vanilla, redefinition_vanilla,
     registration_vanilla, sprites_vanilla, vanilla,
@@ -1526,9 +1526,10 @@ fn r14_localization_collision_shadows_one_whole_file_and_leaves_others_untouched
         ],
         "the uncollided Vanilla file survives and the exact-path Target Mod file wins"
     );
+    assert_eq!(stream.shadowed_files.len(), 1);
     assert_eq!(
-        stream.shadowed_files,
-        [super::resolved::FactProvenance {
+        stream.shadowed_files[0].provenance,
+        super::resolved::FactProvenance {
             kind: FactKind::Shadowed,
             field: None,
             site: FactSite::RemovedBySelection {
@@ -1539,7 +1540,12 @@ fn r14_localization_collision_shadows_one_whole_file_and_leaves_others_untouched
                     winner: SourceKind::TargetMod,
                 },
             },
-        }]
+        }
+    );
+    assert_eq!(
+        stream.shadowed_files[0].bytes.as_slice(),
+        LOCALIZATION_VANILLA[1].1,
+        "Phase 5 receives the exact losing Vanilla file so it can enumerate every lost key"
     );
 }
 

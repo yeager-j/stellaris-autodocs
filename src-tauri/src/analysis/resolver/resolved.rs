@@ -221,14 +221,25 @@ pub(in crate::analysis) struct LocalizationFile {
     pub bytes: SourceBytes,
 }
 
+/// One localization file removed before the effective stream, with its original bytes.
+///
+/// Phase 5 needs both halves: `provenance` explains why the file lost, while `bytes` let the
+/// localization parser enumerate the keys that disappeared with it. Keeping only the path
+/// would make those key-level casualties unknowable after file selection.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::analysis) struct ShadowedLocalizationFile {
+    pub provenance: FactProvenance,
+    pub bytes: SourceBytes,
+}
+
 /// The complete file-level handoff from Phase 4 resolution to Phase 5 localization.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::analysis) struct LocalizationFileStream {
     /// Surviving files in game load order.
     pub files: Vec<LocalizationFile>,
-    /// Whole-file selection losses in the localization scope. Key-level casualties are not
-    /// knowable until Phase 5 interprets the losing file.
-    pub shadowed_files: Vec<FactProvenance>,
+    /// Whole-file selection losses in the localization scope, including the losing bytes
+    /// Phase 5 must interpret to identify key-level casualties.
+    pub shadowed_files: Vec<ShadowedLocalizationFile>,
 }
 
 /// Why a scripted-constant symbol does not have a resolved value.
