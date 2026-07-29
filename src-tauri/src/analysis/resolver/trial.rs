@@ -15,10 +15,11 @@ use crate::source::SourceKind;
 use crate::source::fixture::FixtureCorpus;
 use crate::source::snapshot::SourceSnapshot;
 
+use super::constants;
 use super::registry::{
-    CellStatus, CrossSourceRule, FieldRule, KeyRule, NO_REFERENCES, OrderingRule, ProvenanceRule,
-    ReferenceHandling, ReferenceRule, RegistryPolicy, RepeatRule, Replacement, ShadowUnit,
-    StreamScope, top_level_definitions,
+    CellStatus, CrossSourceRule, DefinitionReader, FieldRule, KeyRule, NO_REFERENCES, OrderingRule,
+    ProvenanceRule, ReferenceHandling, ReferenceRule, RegistryPolicy, RepeatRule, Replacement,
+    ShadowUnit, StreamScope,
 };
 use super::resolved::{FactKind, ReferenceKind};
 use super::stream::{ContentFamily, FileScope};
@@ -141,6 +142,152 @@ pub(super) fn redefinition_vanilla() -> SourceSnapshot {
     corpus(SourceKind::VanillaContent, REDEFINITION_VANILLA)
 }
 
+// --- Phase 4F: scripted triggers, effects, and constants ---
+
+/// The base-game scripted constants Phase 4F's corpora consume: `@base_cost` (a clean,
+/// cross-source read) and `@shared_symbol` (redeclared by [`CONSTANTS_COLLISION`]).
+pub(super) const REGISTRATION_VANILLA: &[(&str, &[u8])] = &[(
+    "common/scripted_variables/00_base_constants.txt",
+    fixture!("registration-vanilla/common/scripted_variables/00_base_constants.txt"),
+)];
+
+/// `r1-target`'s trigger, effect, and constant registration cases, restated: same-file and
+/// cross-file duplicates for each of the three rows, plus one technology file consuming a
+/// locally-overridden constant, a vanilla one, and a cross-file-won one.
+pub(super) const REGISTRATION: &[(&str, &[u8])] = &[
+    ("descriptor.mod", fixture!("registration/descriptor.mod")),
+    (
+        "common/scripted_triggers/zz_dup_triggers_a.txt",
+        TRIGGERS_A_BODY,
+    ),
+    (
+        "common/scripted_triggers/zz_dup_triggers_b.txt",
+        TRIGGERS_B_BODY,
+    ),
+    (
+        "common/scripted_effects/zz_dup_effects.txt",
+        fixture!("registration/common/scripted_effects/zz_dup_effects.txt"),
+    ),
+    (
+        "common/scripted_variables/zz_dup_constants_a.txt",
+        CONSTANTS_A_BODY,
+    ),
+    (
+        "common/scripted_variables/zz_dup_constants_b.txt",
+        CONSTANTS_B_BODY,
+    ),
+    ("common/technology/zz_consumer_tech.txt", CONSUMER_TECH_BODY),
+];
+
+/// `r4-reordered`'s method, applied to the trigger pair and the constant pair: their two file
+/// names are exchanged with each other, byte for byte. `r4_the_winner_follows_position_and_
+/// not_content` asserts the swap is genuine before trusting what moves.
+pub(super) const REGISTRATION_FLIPPED: &[(&str, &[u8])] = &[
+    (
+        "descriptor.mod",
+        fixture!("registration-flipped/descriptor.mod"),
+    ),
+    (
+        "common/scripted_triggers/zz_dup_triggers_a.txt",
+        TRIGGERS_A_FLIPPED_BODY,
+    ),
+    (
+        "common/scripted_triggers/zz_dup_triggers_b.txt",
+        TRIGGERS_B_FLIPPED_BODY,
+    ),
+    (
+        "common/scripted_effects/zz_dup_effects.txt",
+        fixture!("registration-flipped/common/scripted_effects/zz_dup_effects.txt"),
+    ),
+    (
+        "common/scripted_variables/zz_dup_constants_a.txt",
+        CONSTANTS_A_FLIPPED_BODY,
+    ),
+    (
+        "common/scripted_variables/zz_dup_constants_b.txt",
+        CONSTANTS_B_FLIPPED_BODY,
+    ),
+    (
+        "common/technology/zz_consumer_tech.txt",
+        fixture!("registration-flipped/common/technology/zz_consumer_tech.txt"),
+    ),
+];
+
+pub(super) const TRIGGERS_A_BODY: &[u8] =
+    fixture!("registration/common/scripted_triggers/zz_dup_triggers_a.txt");
+pub(super) const TRIGGERS_B_BODY: &[u8] =
+    fixture!("registration/common/scripted_triggers/zz_dup_triggers_b.txt");
+pub(super) const TRIGGERS_A_FLIPPED_BODY: &[u8] =
+    fixture!("registration-flipped/common/scripted_triggers/zz_dup_triggers_a.txt");
+pub(super) const TRIGGERS_B_FLIPPED_BODY: &[u8] =
+    fixture!("registration-flipped/common/scripted_triggers/zz_dup_triggers_b.txt");
+
+pub(super) const CONSTANTS_A_BODY: &[u8] =
+    fixture!("registration/common/scripted_variables/zz_dup_constants_a.txt");
+pub(super) const CONSTANTS_B_BODY: &[u8] =
+    fixture!("registration/common/scripted_variables/zz_dup_constants_b.txt");
+pub(super) const CONSTANTS_A_FLIPPED_BODY: &[u8] =
+    fixture!("registration-flipped/common/scripted_variables/zz_dup_constants_a.txt");
+pub(super) const CONSTANTS_B_FLIPPED_BODY: &[u8] =
+    fixture!("registration-flipped/common/scripted_variables/zz_dup_constants_b.txt");
+
+pub(super) const CONSUMER_TECH_BODY: &[u8] =
+    fixture!("registration/common/technology/zz_consumer_tech.txt");
+
+/// `r5-risky-constants` and `r7-risky-consumed`: a forward reference and a two-symbol cycle,
+/// each consumed from its own technology file so one broken reference's blast radius cannot
+/// be confused with another's.
+pub(super) const RISKY_CONSTANTS: &[(&str, &[u8])] = &[
+    ("descriptor.mod", fixture!("risky-constants/descriptor.mod")),
+    (
+        "common/scripted_variables/zz_risky.txt",
+        fixture!("risky-constants/common/scripted_variables/zz_risky.txt"),
+    ),
+    (
+        "common/technology/zz_fwd_consumer.txt",
+        fixture!("risky-constants/common/technology/zz_fwd_consumer.txt"),
+    ),
+    (
+        "common/technology/zz_cycle_consumer.txt",
+        fixture!("risky-constants/common/technology/zz_cycle_consumer.txt"),
+    ),
+    (
+        "common/technology/zz_undeclared_consumer.txt",
+        fixture!("risky-constants/common/technology/zz_undeclared_consumer.txt"),
+    ),
+];
+
+/// The scripted-constants cross-source open cell: `@shared_symbol` redeclared from the
+/// Target Mod, plus one consumer of the colliding symbol and one of an uncontested one.
+pub(super) const CONSTANTS_COLLISION: &[(&str, &[u8])] = &[
+    (
+        "descriptor.mod",
+        fixture!("constants-collision/descriptor.mod"),
+    ),
+    (
+        "common/scripted_variables/zz_collision.txt",
+        fixture!("constants-collision/common/scripted_variables/zz_collision.txt"),
+    ),
+    (
+        "common/technology/zz_collision_consumer.txt",
+        fixture!("constants-collision/common/technology/zz_collision_consumer.txt"),
+    ),
+];
+
+/// The `$PARAM$` reference open cell: a trigger carrying a nested `$COUNT$` substitution, one
+/// carrying a root-level `$MODE$` key, plus a parameter-free control trigger in the same file.
+pub(super) const PARAMETERIZED: &[(&str, &[u8])] = &[
+    ("descriptor.mod", fixture!("parameterized/descriptor.mod")),
+    (
+        "common/scripted_triggers/zz_param_trigger.txt",
+        fixture!("parameterized/common/scripted_triggers/zz_param_trigger.txt"),
+    ),
+];
+
+pub(super) fn registration_vanilla() -> SourceSnapshot {
+    corpus(SourceKind::VanillaContent, REGISTRATION_VANILLA)
+}
+
 const TECHNOLOGY_SCOPE: FileScope = FileScope {
     directory: "common/technology",
     extensions: &["txt"],
@@ -164,7 +311,7 @@ const fn settled(
     RegistryPolicy {
         name,
         key: CellStatus::Resolved(KeyRule {
-            reader: top_level_definitions,
+            reader: DefinitionReader::TopLevelDefinitions,
             shadow: ShadowUnit::CommonFileSelection,
         }),
         stream: CellStatus::Resolved(StreamScope {
@@ -257,11 +404,11 @@ pub(super) const TECHNOLOGY_DETECTING_REFERENCES: RegistryPolicy = RegistryPolic
         kinds: &[
             (
                 ReferenceKind::ScriptedConstant,
-                ReferenceHandling::DetectedNotResolved,
+                CellStatus::Resolved(ReferenceHandling::DetectedNotResolved),
             ),
             (
                 ReferenceKind::InlineScript,
-                ReferenceHandling::DetectedNotResolved,
+                CellStatus::Resolved(ReferenceHandling::DetectedNotResolved),
             ),
         ],
     }),
@@ -295,3 +442,149 @@ pub(super) const TECHNOLOGY_SCOPE_INHERITING: RegistryPolicy = with_fields(
         FactKind::Shadowed,
     ],
 );
+
+// --- Phase 4F engine-test rows: Parameter and ResolvedAgainstConstants ---
+
+pub(super) const TRIGGERS_SCOPE: FileScope = FileScope {
+    directory: "common/scripted_triggers",
+    extensions: &["txt"],
+    recursive: false,
+};
+
+/// A trigger row declaring every kind, `Parameter` left `Pending` — the open-cell shape:
+/// resolves a parameter-free corpus, refuses only once a definition actually carries one.
+pub(super) const TRIGGERS_DECLARING_PARAMETER: RegistryPolicy = RegistryPolicy {
+    references: CellStatus::Resolved(ReferenceRule {
+        kinds: &[
+            (
+                ReferenceKind::ScriptedConstant,
+                CellStatus::Resolved(ReferenceHandling::DetectedNotResolved),
+            ),
+            (
+                ReferenceKind::InlineScript,
+                CellStatus::Resolved(ReferenceHandling::DetectedNotResolved),
+            ),
+            (
+                ReferenceKind::Parameter,
+                CellStatus::Pending {
+                    reason: "no record measures $PARAM$ substitution in a trigger or effect \
+                             body",
+                    oracle_gap: "a capture exercising a parameterised scripted trigger/effect \
+                                 call",
+                },
+            ),
+        ],
+    }),
+    ..settled(
+        "trial-triggers-declaring-parameter",
+        TRIGGERS_SCOPE,
+        RepeatRule::ReplaceOnRepeat,
+        WHOLE_OBJECT,
+        CONTESTED_KINDS,
+    )
+};
+
+/// A trigger row declaring no reference kind at all — the control for the undeclared-kind
+/// refusal: `Parameter` is neither detected nor pending, so encountering one refuses outright
+/// rather than deferring.
+pub(super) const TRIGGERS_NO_REFERENCES: RegistryPolicy = settled(
+    "trial-triggers-no-references",
+    TRIGGERS_SCOPE,
+    RepeatRule::ReplaceOnRepeat,
+    WHOLE_OBJECT,
+    CONTESTED_KINDS,
+);
+
+/// A technology-shaped row declaring `Parameter` as `DetectedNotResolved`, for the nested-key
+/// detection test: `$PARAM$` used as a nested field's own key, not its value.
+pub(super) const TECHNOLOGY_DETECTING_PARAMETER: RegistryPolicy = RegistryPolicy {
+    references: CellStatus::Resolved(ReferenceRule {
+        kinds: &[(
+            ReferenceKind::Parameter,
+            CellStatus::Resolved(ReferenceHandling::DetectedNotResolved),
+        )],
+    }),
+    ..settled(
+        "trial-technology-detecting-parameter",
+        TECHNOLOGY_SCOPE,
+        RepeatRule::ReplaceOnRepeat,
+        WHOLE_OBJECT,
+        CONTESTED_KINDS,
+    )
+};
+
+/// A technology-shaped row that resolves `@constant` references against the constants
+/// environment, for the engine test proving `ConstantFact` — never `ReferenceFact` — is what
+/// a `ResolvedAgainstConstants` kind produces.
+pub(super) const TECHNOLOGY_RESOLVING_CONSTANTS: RegistryPolicy = RegistryPolicy {
+    references: CellStatus::Resolved(ReferenceRule {
+        kinds: &[
+            (
+                ReferenceKind::ScriptedConstant,
+                CellStatus::Resolved(ReferenceHandling::ResolvedAgainstConstants),
+            ),
+            (
+                ReferenceKind::InlineScript,
+                CellStatus::Resolved(ReferenceHandling::DetectedNotResolved),
+            ),
+        ],
+    }),
+    ..settled(
+        "trial-technology-resolving-constants",
+        TECHNOLOGY_SCOPE,
+        RepeatRule::ReplaceOnRepeat,
+        WHOLE_OBJECT,
+        CONTESTED_KINDS,
+    )
+};
+
+/// The scripted-triggers row's repeat rule inverted — the `r1`/`r4` direction negative
+/// control: declared on a copy so the control cannot be left switched on.
+pub(super) const TRIGGERS_SCOPE_REJECTING: RegistryPolicy = settled(
+    "trial-triggers-scope-rejecting",
+    TRIGGERS_SCOPE,
+    RepeatRule::RejectOnRepeat,
+    WHOLE_OBJECT,
+    CONTESTED_KINDS,
+);
+
+/// The constants row itself, shaped exactly like the shipped `scripted-constants` row but
+/// under a trial name — for engine tests that must not exercise the shipped row directly.
+pub(super) const CONSTANTS_ROW: RegistryPolicy = RegistryPolicy {
+    name: "trial-scripted-constants",
+    key: CellStatus::Resolved(KeyRule {
+        reader: DefinitionReader::ConstantDeclarations,
+        shadow: ShadowUnit::CommonFileSelection,
+    }),
+    stream: CellStatus::Resolved(StreamScope {
+        family: ContentFamily::Script,
+        scope: constants::SCOPE,
+    }),
+    duplicates: CellStatus::Resolved(RepeatRule::RejectOnRepeat),
+    cross_source: CellStatus::Pending {
+        reason: "no record measures a scripted-constant repeat spanning Vanilla and the \
+                 Target Mod",
+        oracle_gap: "the next capture, r19: a run redefining a vanilla scripted constant \
+                     from an early-sorting Target Mod file",
+    },
+    fields: CellStatus::Resolved(WHOLE_OBJECT),
+    ordering: CellStatus::Resolved(OrderingRule::SourceOrderPreserved),
+    references: CellStatus::Resolved(NO_REFERENCES),
+    provenance: CellStatus::Resolved(ProvenanceRule {
+        kinds: &[
+            FactKind::Contributed,
+            FactKind::Duplicate,
+            FactKind::Shadowed,
+        ],
+    }),
+};
+
+/// [`CONSTANTS_ROW`] with its repeat rule inverted — the other half of the `r1`/`r4`
+/// direction negative control. `cross_source` is resolved rather than left `Pending`: the
+/// `registration/` corpus this control runs over has no cross-source repeat, so the cell is
+/// never consulted, and leaving it open would test nothing about this control's purpose.
+pub(super) const CONSTANTS_ROW_REPLACING: RegistryPolicy = RegistryPolicy {
+    duplicates: CellStatus::Resolved(RepeatRule::ReplaceOnRepeat),
+    cross_source: CellStatus::Resolved(CrossSourceRule::DecidedByStreamPosition),
+    ..CONSTANTS_ROW
+};

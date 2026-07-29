@@ -104,14 +104,133 @@
 //! - **A re-captured game build, over the newly consumed records.** Pinning `v4.5.0` named
 //!   `r0-baseline`, `r1-target`, and `r4-reordered` alongside the three the core already
 //!   consumed, so the three records this row rests on are under the same gate.
+//!
+//! Phase 4F (STE-27) added ten more, each broken in the *shipped* row, the shared engine, or
+//! a committed fixture rather than on a copy — each performed by hand once against the
+//! shipped code, the named test observed failing, then restored:
+//!
+//! - **The constants direction inverted.** Forcing `RepeatRule::ReplaceOnRepeat` on the
+//!   shipped `scripted-constants` row failed its own direction tests and nothing about
+//!   triggers:
+//!
+//! ```text
+//! r1_scripted_constants_reject_on_repeat_first_wins
+//! r4_the_trigger_and_constant_winners_follow_position_and_not_content
+//! ```
+//!
+//! - **The triggers direction inverted**, the converse: forcing `RepeatRule::RejectOnRepeat`
+//!   on the shipped `scripted-triggers` row failed exactly the trigger/effect half instead —
+//!   `r1_scripted_triggers_and_effects_replace_on_repeat_last_wins` and the same combined
+//!   `r4_…` test — and left every constants test green.
+//! - **An un-swapped flip corpus.** Copying `registration/`'s trigger and constant files
+//!   over `registration-flipped/`'s (undoing the name exchange, content otherwise identical)
+//!   failed `r4_the_trigger_and_constant_winners_follow_position_and_not_content` alone,
+//!   which is what makes that test a position experiment on this row pair rather than a
+//!   restatement of `registration/`'s own same- and cross-file results.
+//! - **Two-pass/fixpoint chain evaluation.** Letting a second pass re-derive a forward
+//!   reference once every symbol has been seen once — rather than looking each declaration
+//!   up only against symbols already settled earlier in the one stream-ordered pass — failed
+//!   the forward-reference and cycle tests, plus the consuming oracle case built on them:
+//!
+//! ```text
+//! constants::tests::a_forward_reference_does_not_resolve
+//! constants::tests::a_cycle_does_not_resolve_and_the_pass_terminates
+//! r5_and_r7_a_forward_reference_and_a_cycle_never_present_a_fabricated_value
+//! ```
+//!
+//! - **Local-override fall-through to the global.** Skipping the local declaration in
+//!   `Environment::lookup` and falling straight to the global binding turned 99 back into 11
+//!   in `r1_the_technologies_row_consumes_registered_constants`, alongside the two
+//!   `constants::tests` cases exercising the same path directly.
+//! - **A silent lookup miss.** Recording a `ConstantFact` only when the outcome resolves —
+//!   dropping the fact entirely on any `Unresolved` outcome instead of recording it — failed
+//!   `r5_and_r7_a_forward_reference_and_a_cycle_never_present_a_fabricated_value` and the
+//!   rewritten profile pin,
+//!   `profile::tests::a_scripted_constant_reference_is_resolved_against_the_constants_environment`,
+//!   which is exactly the silent incompleteness a typed outcome exists to prevent.
+//! - **`f64` instead of `ExactValue`.** `0.1_f64 + 0.2_f64 == 0.3_f64` is `false` in ordinary
+//!   binary floating point (`0.1 + 0.2` renders as `0.30000000000000004`); `constants::tests::
+//!   decimal_addition_is_exact_through_exact_value` passes only because it goes through
+//!   `ExactValue::add`, never `f64` arithmetic — the control here *is* that well-known
+//!   finding, not a line to comment out.
+//! - **Each open cell closed by hand.** Resolving the scripted-constants row's cross-source
+//!   cell failed exactly `the_scripted_constants_cross_source_cell_refuses_only_on_a_
+//!   collision`; resolving `PARAMETER_OPEN` to `DetectedNotResolved` failed exactly
+//!   `the_parameter_open_cell_refuses_only_when_a_definition_carries_one`. Neither touched
+//!   the other cell's test, which is what says the two open cells are independent claims.
+//! - **Parameter detection removed from `Scan::walk_scalar`.** Failed the parameter refusal
+//!   and the undeclared-kind control, and the oracle open-cell test built on the same path:
+//!
+//! ```text
+//! registry::tests::an_open_reference_kind_cell_refuses_only_when_a_definition_carries_it
+//! registry::tests::an_undeclared_parameter_kind_refuses
+//! the_parameter_open_cell_refuses_only_when_a_definition_carries_one
+//! ```
+//!
+//!   `registry::tests::a_parameter_used_as_a_nested_field_key_is_detected` stayed green,
+//!   which is what separates the nested-key check from the scalar-value one: they are two
+//!   mechanisms, not one, and this is the control that says so.
+//! - **The drift gate, over the two newly consumed records.** `r5-risky-constants` and
+//!   `r7-risky-consumed` are named in `EXPECTATIONS` alongside the records earlier phases
+//!   consumed, so `every_consumed_record_matches_the_profile_s_pinned_build` covers them
+//!   mechanically — a re-capture under a new Stellaris build would fail that one gate for
+//!   both, the same as it already does for `r0`, `r1`, `r3`, `r4`, `r6`, and `r10`.
+//!
+//! A Codex review of the shipped Phase 4F code (PR #15) found three more faults — none a
+//! cell or a row's declared policy, so no `RESOLUTION_PROFILE_VERSION` bump accompanies
+//! them; each just makes the engine honour what version 3 already declares. Each was broken
+//! by hand once against the fixed shipped code and the named test observed failing, then
+//! restored:
+//!
+//! - **The root-key Parameter walk removed** (`registry::detect_references`). A `$PARAM$`
+//!   key used as a definition's own top-level field — not nested inside a container — escaped
+//!   detection entirely, because `EffectiveField` flattens a key to its text and erases the
+//!   `ScalarKind` that names it a parameter. Removing the walk over the winning body's own
+//!   container failed exactly the two root-level tests and nothing else:
+//!
+//! ```text
+//! registry::tests::a_root_level_parameter_key_refuses_under_an_open_cell
+//! registry::tests::a_root_level_parameter_key_is_detected_when_declared
+//! ```
+//!
+//! - **The alias-propagation pass removed** (`constants::build_environment`). Without it, a
+//!   symbol whose value was copied from another symbol during chain evaluation (`@alias =
+//!   @base`) kept that copied value even after the second pass marked `@base` itself
+//!   `CrossSourcePending` — a consumer would see a resolved number derived from a binding the
+//!   row explicitly refuses to stand behind. Failed the alias unit test and its
+//!   consuming-side twin:
+//!
+//! ```text
+//! constants::tests::cross_source_invalidation_propagates_through_an_alias
+//! registry::tests::a_consumer_reading_an_alias_of_a_contested_symbol_is_pending
+//! ```
+//!
+//! - **Global seeding restored for local bodies** (`constants::Environment::lookup`). Passing
+//!   the global environment back into a local declaration's own evaluation — the shape before
+//!   this fix — turns `@cost = @cost` into a silent read of the very global `@cost` the local
+//!   declaration exists to shadow, fabricating a value for a self-cycle. Only a literal local
+//!   override is measured (`r1`); failed both reference-bodied local tests and left the
+//!   pre-existing literal-99 tests unaffected, confirming the control isolates the reference
+//!   shape rather than breaking local overrides generally:
+//!
+//! ```text
+//! constants::tests::a_self_referencing_local_declaration_never_falls_through_to_the_global
+//! constants::tests::a_local_declaration_referencing_a_different_symbol_is_equally_unmeasured
+//! ```
 
 mod record;
 
-use super::registry::Refusal;
-use super::resolved::{FactKind, FactSite, Removal, ResolvedDefinition, ResolvedRegistry};
+use super::registry::{PolicyCell, Refusal};
+use super::resolved::{
+    ConstantOutcome, FactKind, FactSite, Removal, ResolvedDefinition, ResolvedRegistry,
+    UnresolvedConstant,
+};
 use super::trial::{
-    self, EARLY_MOD, NO_REDEFINITION, PATH_COLLISION, REDEFINITION, REDEFINITION_BODY,
-    REDEFINITION_FLIPPED, REDEFINITION_FLIPPED_BODY, REPLACE_PATH, corpus, redefinition_vanilla,
+    self, CONSTANTS_A_BODY, CONSTANTS_A_FLIPPED_BODY, CONSTANTS_B_BODY, CONSTANTS_B_FLIPPED_BODY,
+    CONSTANTS_COLLISION, EARLY_MOD, NO_REDEFINITION, PARAMETERIZED, PATH_COLLISION, REDEFINITION,
+    REDEFINITION_BODY, REDEFINITION_FLIPPED, REDEFINITION_FLIPPED_BODY, REGISTRATION,
+    REGISTRATION_FLIPPED, REPLACE_PATH, RISKY_CONSTANTS, TRIGGERS_A_BODY, TRIGGERS_A_FLIPPED_BODY,
+    TRIGGERS_B_BODY, TRIGGERS_B_FLIPPED_BODY, corpus, redefinition_vanilla, registration_vanilla,
     vanilla,
 };
 use super::{Resolution, profile, resolve};
@@ -164,6 +283,19 @@ const EXPECTATIONS: &[Expectation] = &[
                technology result — whose file was not renamed — is unchanged, so r1 was not \
                a naming artifact",
     },
+    Expectation {
+        run: "r5-risky-constants",
+        rule: "a forward reference and a two-symbol cycle are declared but never consumed, \
+               and the game produces no diagnostic at all — an unconsumed broken constant is \
+               invisible at load time, which is why detection cannot wait for the game's log",
+    },
+    Expectation {
+        run: "r7-risky-consumed",
+        rule: "consuming a forward reference corrupts the file with a diagnostic that never \
+               names the constant (`unknown command 'tier' for MTTH/script value`), so \
+               detection of an unresolved scripted constant is resolver-owned rather than \
+               read off the error log",
+    },
 ];
 
 fn against(
@@ -191,6 +323,53 @@ fn technologies(resolution: &Resolution<'_>) -> ResolvedRegistry {
     resolution
         .registry("technologies")
         .unwrap_or_else(|refusal| panic!("the declared technologies row resolves: {refusal}"))
+}
+
+/// A declared row resolved by name, panicking with the refusal on the caller's behalf. Named
+/// separately from [`technologies`] because Phase 4F's expectations ask three different rows
+/// by name, not one.
+fn named(resolution: &Resolution<'_>, registry: &str) -> ResolvedRegistry {
+    resolution
+        .registry(registry)
+        .unwrap_or_else(|refusal| panic!("the declared {registry} row resolves: {refusal}"))
+}
+
+/// `registration-vanilla/` paired with `registration/`: `r1-target`'s trigger, effect, and
+/// constant registration cases, restated.
+fn registration() -> (SourceSnapshot, SourceSnapshot) {
+    (
+        registration_vanilla(),
+        corpus(SourceKind::TargetMod, REGISTRATION),
+    )
+}
+
+/// `r4-reordered`'s method, applied to the trigger and constant pairs.
+fn registration_flipped() -> (SourceSnapshot, SourceSnapshot) {
+    (
+        registration_vanilla(),
+        corpus(SourceKind::TargetMod, REGISTRATION_FLIPPED),
+    )
+}
+
+/// `r5-risky-constants` and `r7-risky-consumed`, restated.
+fn risky_constants() -> (SourceSnapshot, SourceSnapshot) {
+    (
+        registration_vanilla(),
+        corpus(SourceKind::TargetMod, RISKY_CONSTANTS),
+    )
+}
+
+/// The scripted-constants cross-source open cell.
+fn constants_collision() -> (SourceSnapshot, SourceSnapshot) {
+    (
+        registration_vanilla(),
+        corpus(SourceKind::TargetMod, CONSTANTS_COLLISION),
+    )
+}
+
+/// The `$PARAM$` reference open cell.
+fn parameterized() -> (SourceSnapshot, SourceSnapshot) {
+    (vanilla(), corpus(SourceKind::TargetMod, PARAMETERIZED))
 }
 
 /// Effective field names in order. The full field-by-field comparison, for the fields whose
@@ -640,9 +819,13 @@ fn r1_a_redefinition_that_omits_potential_leaves_the_field_absent() {
     );
 
     // Golden case 5's fields are compared against a pinned record, so none of them may be a
-    // value the resolver deliberately left unresolved.
+    // value the resolver deliberately left unresolved — and, since Phase 4F, none may carry
+    // a scripted-constant fact either: these fixtures are all-literal, so a `ConstantFact`
+    // appearing here would mean the redefinition fixtures grew a reference nobody accounted
+    // for in the pinned comparison.
     for definition in registry.definitions.values() {
         assert!(definition.references.is_empty(), "{:?}", definition.key);
+        assert!(definition.constants.is_empty(), "{:?}", definition.key);
     }
 }
 
@@ -801,5 +984,407 @@ fn an_undeclared_registry_is_a_typed_refusal() {
         "technologies is declared and megastructures is not, and the difference must be the \
          declaration rather than which registry the corpus happens to hold definitions for — \
          this corpus's technology files would resolve under either row's stream"
+    );
+}
+
+// --- Phase 4F (STE-27): scripted triggers, effects, and constants ---
+
+/// `r1-target`'s trigger and effect half, restated: last in enumeration order wins, both
+/// within one file and across two.
+#[test]
+fn r1_scripted_triggers_and_effects_replace_on_repeat_last_wins() {
+    let (vanilla, target) = registration();
+    let resolution = resolve(&vanilla, &target);
+
+    let triggers = named(&resolution, "scripted-triggers");
+    let same_file = triggers
+        .get("trig_same_file")
+        .expect("the same-file key resolves");
+    assert_eq!(
+        same_file.position.ordinal, 2,
+        "the last registration in the file wins"
+    );
+    assert_eq!(
+        scalar_fields(same_file),
+        [("always", "no".to_owned())],
+        "the always = no body is the winner"
+    );
+    let cross_file = triggers
+        .get("trig_cross_file")
+        .expect("the cross-file key resolves");
+    assert_eq!(
+        cross_file.position.logical.as_str(),
+        "common/scripted_triggers/zz_dup_triggers_b.txt",
+        "the later-sorting file wins the cross-file repeat"
+    );
+    // Shadowed bodies never contribute effective fields — only the winner's do.
+    assert_eq!(scalar_fields(cross_file), [("always", "no".to_owned())]);
+
+    let effects = named(&resolution, "scripted-effects");
+    let eff = effects
+        .get("eff_same_file")
+        .expect("the effect key resolves");
+    assert_eq!(eff.position.ordinal, 1, "the last registration wins");
+    assert_eq!(
+        scalar_fields(eff),
+        [("set_country_flag", "flag_b".to_owned())]
+    );
+    let definition_level_shadowed = eff
+        .displaced
+        .iter()
+        .filter(|fact| fact.kind == FactKind::Shadowed && fact.field.is_none())
+        .count();
+    assert_eq!(
+        definition_level_shadowed, 1,
+        "duplicates do not accumulate: one repeat, one definition-level Shadowed fact"
+    );
+}
+
+/// `r1-target`'s constant half, restated: first in enumeration order wins — the opposite
+/// direction from triggers and effects.
+#[test]
+fn r1_scripted_constants_reject_on_repeat_first_wins() {
+    let (vanilla, target) = registration();
+    let resolution = resolve(&vanilla, &target);
+    let constants = named(&resolution, "scripted-constants");
+
+    let same_file = constants
+        .get("@const_same_file")
+        .expect("the same-file key resolves");
+    assert_eq!(
+        same_file.position.ordinal, 0,
+        "the first registration in the file wins"
+    );
+
+    let cross_file = constants
+        .get("@const_cross_file")
+        .expect("the cross-file key resolves");
+    assert_eq!(
+        cross_file.position.logical.as_str(),
+        "common/scripted_variables/zz_dup_constants_a.txt",
+        "the earlier-sorting file wins the cross-file repeat"
+    );
+
+    for key in ["@const_same_file", "@const_cross_file"] {
+        let definition = constants.get(key).expect("resolves");
+        let definition_level: Vec<FactKind> = definition
+            .displaced
+            .iter()
+            .filter(|fact| fact.field.is_none())
+            .map(|fact| fact.kind)
+            .collect();
+        assert_eq!(
+            definition_level,
+            [FactKind::Duplicate, FactKind::Shadowed],
+            "{key}"
+        );
+    }
+}
+
+/// `r1`'s consumption cases through the technologies row: a file-local override, a vanilla
+/// cross-source read, and a cross-file-won constant.
+#[test]
+fn r1_the_technologies_row_consumes_registered_constants() {
+    let (vanilla, target) = registration();
+    let resolution = resolve(&vanilla, &target);
+    let registry = technologies(&resolution);
+
+    let local = registry
+        .get("tech_local_consumer")
+        .expect("resolves")
+        .constants
+        .first()
+        .expect("a constant fact")
+        .clone();
+    let ConstantOutcome::Resolved { value, declaration } = &local.outcome else {
+        panic!(
+            "expected tech_local_consumer to resolve: {:?}",
+            local.outcome
+        );
+    };
+    assert_eq!(
+        value.value(),
+        crate::canonical::numeric::SourceNumber::parse("99").value()
+    );
+    assert_eq!(
+        declaration.source(),
+        Some(SourceKind::TargetMod),
+        "the declaration site names the consuming file's own local declaration"
+    );
+    assert_eq!(
+        declaration.logical().map(LogicalPath::as_str),
+        Some("common/technology/zz_consumer_tech.txt")
+    );
+
+    let global = registry
+        .get("tech_global_consumer")
+        .expect("resolves")
+        .constants
+        .first()
+        .expect("a constant fact")
+        .clone();
+    let ConstantOutcome::Resolved { value, .. } = &global.outcome else {
+        panic!(
+            "expected tech_global_consumer to resolve: {:?}",
+            global.outcome
+        );
+    };
+    assert_eq!(
+        value.value(),
+        crate::canonical::numeric::SourceNumber::parse("10").value(),
+        "the cross-file constant winner (the earlier-sorting file) is what this consumer sees"
+    );
+
+    let from_vanilla = registry
+        .get("tech_vanilla_consumer")
+        .expect("resolves")
+        .constants
+        .first()
+        .expect("a constant fact")
+        .clone();
+    let ConstantOutcome::Resolved { value, declaration } = &from_vanilla.outcome else {
+        panic!(
+            "expected tech_vanilla_consumer to resolve: {:?}",
+            from_vanilla.outcome
+        );
+    };
+    assert_eq!(
+        value.value(),
+        crate::canonical::numeric::SourceNumber::parse("20").value()
+    );
+    assert_eq!(
+        declaration.source(),
+        Some(SourceKind::VanillaContent),
+        "the vanilla constant read from a mod file resolves, and names Vanilla as its source"
+    );
+}
+
+/// `r4-reordered`'s method, applied to the trigger and constant pairs: the two file names in
+/// each pair are exchanged with each other, and the cross-file winner is expected to move
+/// with the name — the opposite-directions proof, restated for Phase 4F's own rows.
+#[test]
+fn r4_the_trigger_and_constant_winners_follow_position_and_not_content() {
+    // The flip must vary the filename and nothing else; assert the byte identity of the
+    // swapped pairs before trusting what moves.
+    assert_eq!(TRIGGERS_A_BODY, TRIGGERS_B_FLIPPED_BODY);
+    assert_eq!(TRIGGERS_B_BODY, TRIGGERS_A_FLIPPED_BODY);
+    assert_eq!(CONSTANTS_A_BODY, CONSTANTS_B_FLIPPED_BODY);
+    assert_eq!(CONSTANTS_B_BODY, CONSTANTS_A_FLIPPED_BODY);
+
+    let (vanilla, target) = registration_flipped();
+    let resolution = resolve(&vanilla, &target);
+
+    let triggers = named(&resolution, "scripted-triggers");
+    let same_file = triggers.get("trig_same_file").expect("resolves");
+    assert_eq!(
+        scalar_fields(same_file),
+        [("always", "no".to_owned())],
+        "same-file results are unaffected by the cross-file flip"
+    );
+    let cross_file = triggers.get("trig_cross_file").expect("resolves");
+    assert_eq!(
+        cross_file.position.logical.as_str(),
+        "common/scripted_triggers/zz_dup_triggers_b.txt",
+        "the winner is still the LAST file in stream order — its name never moved, only the \
+         content living inside it did"
+    );
+    assert_eq!(
+        scalar_fields(cross_file),
+        [("always", "yes".to_owned())],
+        "the content that swapped into the last-sorting file is now the winner's value"
+    );
+
+    let constants = named(&resolution, "scripted-constants");
+    let same_file = constants.get("@const_same_file").expect("resolves");
+    assert_eq!(
+        same_file.position.ordinal, 0,
+        "same-file results are unaffected by the flip"
+    );
+    let cross_file = constants.get("@const_cross_file").expect("resolves");
+    assert_eq!(
+        cross_file.position.logical.as_str(),
+        "common/scripted_variables/zz_dup_constants_a.txt",
+        "the winner is still the FIRST file in stream order, which now holds the other content"
+    );
+    // The constants row's own declaration facts have `field: None`.
+    let fact = cross_file.constants.first().expect("a declaration fact");
+    let ConstantOutcome::Resolved { value, .. } = &fact.outcome else {
+        panic!("expected @const_cross_file to resolve: {:?}", fact.outcome);
+    };
+    assert_eq!(
+        value.value(),
+        crate::canonical::numeric::SourceNumber::parse("20").value(),
+        "the value moved with the name, from 10 to 20"
+    );
+}
+
+/// `r5-risky-constants` and `r7-risky-consumed`, through the technologies row: a forward
+/// reference and a two-symbol cycle each carry a typed failure, never a fabricated value.
+///
+/// `r7`'s evidence is why detection is resolver-owned rather than read off the game's log:
+/// consuming `@fwd` corrupts the file with `unknown command 'tier' for MTTH/script value`,
+/// a diagnostic that never names the broken constant.
+#[test]
+fn r5_and_r7_a_forward_reference_and_a_cycle_never_present_a_fabricated_value() {
+    let (vanilla, target) = risky_constants();
+    let resolution = resolve(&vanilla, &target);
+    let registry = technologies(&resolution);
+
+    for (key, expected) in [
+        (
+            "tech_fwd_consumer",
+            UnresolvedConstant::DeclarationNeverResolves,
+        ),
+        (
+            "tech_cycle_consumer",
+            UnresolvedConstant::DeclarationNeverResolves,
+        ),
+        (
+            "tech_undeclared_consumer",
+            UnresolvedConstant::UndeclaredSymbol,
+        ),
+    ] {
+        let definition = registry.get(key).expect("resolves");
+        assert_eq!(
+            definition.constants.len(),
+            1,
+            "{key}: {:?}",
+            definition.constants
+        );
+        let fact = &definition.constants[0];
+        assert_eq!(fact.field.as_deref(), Some("cost"), "{key}");
+        assert_eq!(
+            fact.outcome,
+            ConstantOutcome::Unresolved(expected),
+            "{key} must never carry a fabricated value"
+        );
+        // The reference text is still what `cost` states — never a hole and never a number.
+        assert!(definition.states("cost"), "{key}");
+    }
+
+    // The constants row's own declarations carry the same failure, with `field: None`: the
+    // fact is about the declaration's own value, not about something that read it.
+    let constants = named(&resolution, "scripted-constants");
+    for symbol in ["@fwd", "@cycle_a", "@cycle_b"] {
+        let definition = constants.get(symbol).expect("resolves");
+        assert_eq!(definition.constants.len(), 1, "{symbol}");
+        let fact = &definition.constants[0];
+        assert_eq!(fact.field, None, "{symbol}");
+        assert_eq!(
+            fact.outcome,
+            ConstantOutcome::Unresolved(UnresolvedConstant::DeclarationNeverResolves),
+            "{symbol}"
+        );
+    }
+    // The control: `@fwd_target` is a plain literal and resolves, so the failures above are
+    // about reference direction and not about the fixture.
+    let fwd_target = constants.get("@fwd_target").expect("resolves");
+    let fact = fwd_target.constants.first().expect("a declaration fact");
+    assert!(matches!(fact.outcome, ConstantOutcome::Resolved { .. }));
+}
+
+/// The scripted-constants cross-source open cell. Asking the shipped row for itself by name
+/// refuses wholesale on the collision; the same row over a same-source corpus resolves.
+#[test]
+fn the_scripted_constants_cross_source_cell_refuses_only_on_a_collision() {
+    let (vanilla, target) = constants_collision();
+    let resolution = resolve(&vanilla, &target);
+    assert_eq!(
+        resolution.registry("scripted-constants"),
+        Err(Refusal::UnresolvedCell {
+            registry: "scripted-constants",
+            cell: PolicyCell::CrossSourceCollision,
+            reason: "no record measures a scripted-constant repeat spanning Vanilla and the \
+                     Target Mod",
+            oracle_gap: "the next capture, r19: a run redefining a vanilla scripted constant \
+                         from an early-sorting Target Mod file",
+        })
+    );
+
+    let (vanilla, target) = registration();
+    let resolution = resolve(&vanilla, &target);
+    assert!(
+        resolution.registry("scripted-constants").is_ok(),
+        "no symbol in this corpus repeats across sources, so the row resolves"
+    );
+}
+
+/// The consuming side of the same open cell: one contested symbol is pending, one clean
+/// symbol still resolves, from the same corpus and the same technologies row.
+#[test]
+fn the_technologies_row_marks_only_the_colliding_symbol_pending() {
+    let (vanilla, target) = constants_collision();
+    let resolution = resolve(&vanilla, &target);
+    let registry = technologies(&resolution);
+
+    let collision = registry.get("tech_collision_consumer").expect("resolves");
+    assert_eq!(
+        collision.constants.first().map(|fact| &fact.outcome),
+        Some(&ConstantOutcome::Unresolved(
+            UnresolvedConstant::CrossSourcePending
+        ))
+    );
+
+    let clean = registry.get("tech_clean_consumer").expect("resolves");
+    let ConstantOutcome::Resolved { .. } =
+        &clean.constants.first().expect("a constant fact").outcome
+    else {
+        panic!("a clean symbol must still resolve while a colliding one is pending");
+    };
+}
+
+/// The `$PARAM$` reference open cell: the shipped scripted-triggers row refuses only once a
+/// definition actually carries a parameter substitution.
+#[test]
+fn the_parameter_open_cell_refuses_only_when_a_definition_carries_one() {
+    let (vanilla, target) = parameterized();
+    let resolution = resolve(&vanilla, &target);
+    assert_eq!(
+        resolution.registry("scripted-triggers"),
+        Err(Refusal::UnresolvedCell {
+            registry: "scripted-triggers",
+            cell: PolicyCell::UnresolvedReferences,
+            reason: "no record measures $PARAM$ substitution in a trigger or effect body",
+            oracle_gap: "a capture exercising a parameterised scripted trigger/effect call",
+        })
+    );
+
+    let (vanilla, target) = registration();
+    let resolution = resolve(&vanilla, &target);
+    assert!(
+        resolution.registry("scripted-triggers").is_ok(),
+        "this corpus's triggers carry no $PARAM$ substitution"
+    );
+}
+
+/// Direction negative controls, on row copies rather than the shipped rows: inverting either
+/// the triggers rule or the constants rule over `registration/` produces the opposite winner.
+#[test]
+fn inverting_either_direction_produces_the_opposite_winner() {
+    let (vanilla, target) = registration();
+    let resolution = resolve(&vanilla, &target);
+
+    let triggers = row(&resolution, &trial::TRIGGERS_SCOPE_REJECTING);
+    assert_eq!(
+        triggers
+            .get("trig_cross_file")
+            .expect("resolves")
+            .position
+            .logical
+            .as_str(),
+        "common/scripted_triggers/zz_dup_triggers_a.txt",
+        "inverting the triggers row to reject-on-repeat must move the winner to the FIRST file"
+    );
+
+    let constants = row(&resolution, &trial::CONSTANTS_ROW_REPLACING);
+    assert_eq!(
+        constants
+            .get("@const_cross_file")
+            .expect("resolves")
+            .position
+            .logical
+            .as_str(),
+        "common/scripted_variables/zz_dup_constants_b.txt",
+        "inverting the constants row to replace-on-repeat must move the winner to the LAST file"
     );
 }

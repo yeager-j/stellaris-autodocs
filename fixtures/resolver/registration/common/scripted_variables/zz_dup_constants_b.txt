@@ -1,0 +1,6 @@
+# Original work; no Stellaris file is reproduced.
+#
+# The other half of the two-file pair with `zz_dup_constants_a.txt`; see that file's comment
+# for the flip this pair supports.
+
+@const_cross_file = 20

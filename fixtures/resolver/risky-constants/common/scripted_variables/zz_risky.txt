@@ -1,0 +1,17 @@
+# Original work; no Stellaris file is reproduced.
+#
+# Restates `r5-risky-constants` and `r7-risky-consumed`: a forward reference and a two-symbol
+# cycle, neither of which the game rejects outright. `@fwd` references `@fwd_target` before it
+# is declared, so it never resolves; `@fwd_target` itself is a plain literal and resolves
+# fine, which is the control proving the failure is about direction and not the fixture.
+# `@cycle_a` and `@cycle_b` reference each other and neither resolves.
+#
+# `r7`'s evidence is what makes detection resolver-owned rather than read off the game's own
+# log: consuming `@fwd` corrupts the file with a diagnostic that never names the constant —
+# `unknown command 'tier' for MTTH/script value` — so the resolver has to notice the broken
+# reference itself.
+
+@fwd = @fwd_target
+@fwd_target = 7
+@cycle_a = @cycle_b
+@cycle_b = @cycle_a

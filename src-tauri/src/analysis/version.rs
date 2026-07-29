@@ -109,7 +109,7 @@ mod tests {
         // becomes undecodable, which is the failure the no-`skip_serializing_if` rule
         // exists to prevent (docs/technical-design.md:651; precedent state/model.rs:67).
         let minimal: AnalysisVersionVector = serde_json::from_str(
-            r#"{"source_enumeration":3,"parsed_model":1,"resolution_profile":2,
+            r#"{"source_enumeration":3,"parsed_model":1,"resolution_profile":3,
                 "documentation":1,"localization_interpretation":1,"search":1,
                 "canonical_encoding":1,"hidden_route_identity":1,
                 "analysis_issue_propagation":1}"#,
@@ -136,12 +136,15 @@ mod tests {
     fn pinned_current_digest() {
         // Pinned regression value: any component bump changes this and must re-pin it,
         // which is exactly the review moment the version vector exists to force.
-        // Re-pinned for resolution_profile = 2 (Phase 4E — the technologies row, and a
-        // references cell the engine honours). Every prior pin stays reachable through this
-        // file's history; what matters is that the bump and the re-pin land together.
+        // Re-pinned for resolution_profile = 3 (Phase 4F, STE-27 — scripted-triggers,
+        // scripted-effects, and scripted-constants rows; the technologies row's
+        // `ScriptedConstant` entry resolves against the constants environment; the
+        // reference cell becomes per-kind `CellStatus`). Every prior pin stays reachable
+        // through this file's history; what matters is that the bump and the re-pin land
+        // together.
         assert_eq!(
             AnalysisVersionVector::current().digest().to_hex(),
-            "c4f5415c01d4673f7b59a4468231a0dea07dd23b8f0f568c7a532227c23dd4fc"
+            "8770c756fe6b49c860ab888799c84f5a0ecede31156d315afd97f6fbf568859d"
         );
     }
 

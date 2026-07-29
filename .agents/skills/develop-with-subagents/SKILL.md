@@ -96,7 +96,10 @@ Launch one smaller-model implementation agent. Give it:
 
 Tell the agent it is not alone in the worktree and must not revert edits it did not create. Require it
 to implement, run the assigned checks, inspect its diff, and report changed files, verification
-results, and remaining concerns.
+results, and remaining concerns. Require it to commit its work on the feature branch before
+finishing — never push or open a pull request. An uncommitted worktree is the only copy of the work,
+and the review phase that follows deliberately mutates and restores files; a commit makes every
+probe reversible and every accident recoverable.
 
 Keep the agent handle. Do not launch a fresh implementation agent for convenience, token savings, or
 a second opinion; continuity is the point of this workflow.
@@ -114,8 +117,14 @@ After the implementation agent finishes:
 5. If the changed behavior has an executable user interface in the current environment, verify it
    through that interface.
 
-Do not edit implementation faults yourself while the original implementation agent can be resumed.
-The coordinator diagnoses; the context-bearing implementation agent repairs.
+The coordinator diagnoses; the context-bearing implementation agent repairs. One narrow exception:
+the coordinator may directly fix a change that is behavior-preserving and embeds no decision —
+comment wording, doc typos, a misleading name, formatting — because the existing gates already
+review such a fix and there is nothing to get subtly wrong. Any change to observable behavior,
+types, or tests goes to the implementation agent regardless of size; one-line behavioral fixes are
+exactly where wrong quick fixes hide, and routing them through the agent preserves the
+failing-test-first discipline. Report every direct coordinator edit to the implementing agent at its
+next resume, so its model of the code never silently diverges from the code.
 
 ### 6. Return Faults to the Same Agent
 
@@ -133,6 +142,13 @@ until no actionable fault remains or progress requires new user authority.
 If the original agent becomes unavailable, report the lost context before substituting another
 agent. Reconstruct the handoff from the plan, diff, test output, and prior reports; never pretend the
 replacement retained the original context.
+
+Codex automatically reviews opened pull requests; the harness notifies the coordinator of its
+comments, so do not poll or listen for them. Treat each Codex finding like any other review lead:
+confirm it against the source, investigate whether it is a real fault, and — when it is — handle it
+under section 5's division of labor: behavior-preserving, decision-free fixes may be made directly
+and reported to the implementing agent; everything else goes to that agent through this section's
+fault-return loop.
 
 ### 7. Close the Loop
 

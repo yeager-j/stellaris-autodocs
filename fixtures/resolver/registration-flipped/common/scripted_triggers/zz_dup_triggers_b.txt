@@ -1,0 +1,22 @@
+# Original work; no Stellaris file is reproduced.
+#
+# One of a two-file pair with `zz_dup_triggers_b.txt`. Scripted triggers replace on repeat,
+# so `trig_same_file`'s last registration in this file wins, and `trig_cross_file` is decided
+# against whichever of the pair sorts later in the stream.
+#
+# `registration-flipped/` restates `r4-reordered`'s method on this pair: the two files'
+# NAMES are exchanged with each other, byte for byte, so the file holding this exact content
+# sorts differently and the cross-file winner is expected to move with it — proving the
+# winner follows stream position, not content.
+
+trig_same_file = {
+	always = yes
+}
+
+trig_cross_file = {
+	always = yes
+}
+
+trig_same_file = {
+	always = no
+}

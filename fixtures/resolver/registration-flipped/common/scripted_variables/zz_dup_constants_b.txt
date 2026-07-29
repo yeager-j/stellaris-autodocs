@@ -1,0 +1,22 @@
+# Original work; no Stellaris file is reproduced.
+#
+# One of a two-file pair with `zz_dup_constants_b.txt`. Scripted constants reject on repeat,
+# so `@const_cross_file` is decided against whichever of the pair sorts *earlier* — the
+# opposite direction from the trigger pair beside it.
+#
+# `registration-flipped/` exchanges this pair's two file NAMES with each other, byte for
+# byte, by `r4-reordered`'s method: the cross-file winner is expected to move with the name,
+# proving position rather than content decides it.
+#
+# `@const_same_file` is redeclared within this one file (first wins, same direction as
+# cross-file here). `@const_local` exists only to be shadowed by a consuming file's own
+# local declaration of the same name. `@decimal_a` and `@decimal_b` are the exact-arithmetic
+# case: `0.1 + 0.2` compares equal to `0.3` only under `ExactValue`, never under binary
+# floating point.
+
+@const_same_file = 1
+@const_same_file = 2
+@const_cross_file = 10
+@const_local = 11
+@decimal_a = 0.1
+@decimal_b = 0.2

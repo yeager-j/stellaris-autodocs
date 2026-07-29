@@ -55,6 +55,7 @@
 //! parsed value model, because re-modelling a Clausewitz value here would be a second
 //! authority on what one is.
 
+mod constants;
 mod profile;
 mod registry;
 mod resolved;
@@ -74,8 +75,8 @@ pub(in crate::analysis) use registry::Refusal;
 // following imports into submodules.
 #[allow(unused_imports)]
 pub(in crate::analysis) use resolved::{
-    FactKind, FactProvenance, FactSite, ReferenceFact, ReferenceKind, ResolvedDefinition,
-    ResolvedRegistry, StreamPosition,
+    ConstantFact, ConstantOutcome, FactKind, FactProvenance, FactSite, ReferenceFact,
+    ReferenceKind, ResolvedDefinition, ResolvedRegistry, StreamPosition, UnresolvedConstant,
 };
 
 use crate::source::{SourceKind, SourceSnapshot};

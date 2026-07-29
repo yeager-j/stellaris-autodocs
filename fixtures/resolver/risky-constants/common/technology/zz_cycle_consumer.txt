@@ -1,0 +1,9 @@
+# Original work; no Stellaris file is reproduced.
+#
+# Consumes `@cycle_a`, which never resolves. Its own file, isolated from the forward-reference
+# and undeclared-symbol consumers.
+
+tech_cycle_consumer = {
+	cost = @cycle_a
+	tier = 0
+}

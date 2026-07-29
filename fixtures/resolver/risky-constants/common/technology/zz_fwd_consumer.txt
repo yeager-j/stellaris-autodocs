@@ -1,0 +1,10 @@
+# Original work; no Stellaris file is reproduced.
+#
+# Consumes `@fwd`, which never resolves — its own file-local blast radius, separate from the
+# cycle and undeclared-symbol consumers, so one broken reference cannot make another
+# consumer's result ambiguous.
+
+tech_fwd_consumer = {
+	cost = @fwd
+	tier = 0
+}
