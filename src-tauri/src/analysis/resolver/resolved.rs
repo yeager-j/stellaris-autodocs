@@ -151,6 +151,39 @@ impl FactKind {
     ];
 }
 
+/// A kind of reference a definition body can carry.
+///
+/// Named here rather than in [`registry`](super::registry) because it is part of what leaves:
+/// a consumer reading an effective field needs to know the value is not final. The parser
+/// already decides which tokens these are — [`ScalarKind::VariableRef`] and
+/// [`ScalarKind::VariableExpr`](super::super::parser::ScalarKind) — so nothing here re-decides
+/// what a reference is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(in crate::analysis) enum ReferenceKind {
+    /// `@name` or `@[ expr ]`. Resolved by the scripted-variables row, whose cross-source
+    /// cell is still open (`docs/spikes/resolver-evaluation.md`, registry matrix).
+    ScriptedConstant,
+    /// An `inline_script` inclusion, expanded textually into the consuming definition before
+    /// it registers. Owned by the inline-scripts row (`r11`, `r12`).
+    InlineScript,
+}
+
+/// A reference found in an effective definition and deliberately not resolved here.
+///
+/// Separate from [`FactProvenance`] because it answers a different question. The five
+/// [`FactKind`]s say where a fact came from; this says the fact is **incomplete** — the
+/// effective value still holds the reference text, and the row that expands it has not run.
+/// Folding it into `FactKind` would widen the five-kind vocabulary D-098 names.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(in crate::analysis) struct ReferenceFact {
+    pub kind: ReferenceKind,
+    /// The effective field the reference was found under. Nested references are attributed to
+    /// the field a consumer reads, not to the container they happen to sit in — an
+    /// `inline_script` inside `weight_modifier` makes `weight_modifier` the unfinished value.
+    pub field: String,
+    pub site: FactSite,
+}
+
 /// One recorded fact about how a definition, or one field of it, was decided.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(in crate::analysis) struct FactProvenance {
@@ -192,6 +225,9 @@ pub(in crate::analysis) struct ResolvedDefinition {
     /// What did not survive for this key: displaced duplicates, and the definitions they
     /// shadowed.
     pub displaced: Vec<FactProvenance>,
+    /// References this definition carries that the row detected and did not resolve, in
+    /// effective-field order. Empty when the row's definitions carry none.
+    pub references: Vec<ReferenceFact>,
 }
 
 impl ResolvedDefinition {

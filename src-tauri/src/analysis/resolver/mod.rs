@@ -40,7 +40,8 @@
 //! - [`stream`] — step 2: per-family semantic streams. Script and sprite share one global
 //!   path order; localization has its own Vanilla → mod → `replace/` stream.
 //! - [`registry`] — steps 3 and 4, plus the eight-cell row vocabulary and the refusals.
-//! - [`resolved`] — what leaves: effective definitions and the five provenance kinds.
+//! - [`resolved`] — what leaves: effective definitions, the five provenance kinds, and the
+//!   references a row detected without resolving.
 //! - [`profile`] — the profile's version, its pinned game build, and its declared rows.
 //! - `oracle` (tests) — the captured oracle records, consumed as machine-checked
 //!   expectations, with the drift gate that blocks a silent game-build change.
@@ -73,7 +74,8 @@ pub(in crate::analysis) use registry::Refusal;
 // following imports into submodules.
 #[allow(unused_imports)]
 pub(in crate::analysis) use resolved::{
-    FactKind, FactProvenance, FactSite, ResolvedDefinition, ResolvedRegistry, StreamPosition,
+    FactKind, FactProvenance, FactSite, ReferenceFact, ReferenceKind, ResolvedDefinition,
+    ResolvedRegistry, StreamPosition,
 };
 
 use crate::source::{SourceKind, SourceSnapshot};
@@ -145,9 +147,11 @@ mod tests {
 
     #[test]
     fn an_undeclared_registry_refuses_by_name() {
-        // The profile declares no rows yet, so this is the whole shipped surface's answer
-        // today — and it is the right one. "A content type may be claimed as supported only
-        // when every policy it requires is explicit and oracle-backed."
+        // Megastructures, because the row is genuinely undeclared and will stay that way for
+        // a while: its field cell is *inconclusive* rather than open — the registry's
+        // diagnostics cannot detect field inheritance — so no ticket can close it without new
+        // evidence. "A content type may be claimed as supported only when every policy it
+        // requires is explicit and oracle-backed."
         let vanilla = FixtureCorpus::new(SourceKind::VanillaContent)
             .with_file("common/technology/00_vanilla.txt", b"tech_a = {}")
             .build()
@@ -159,9 +163,9 @@ mod tests {
 
         let resolution = resolve(&vanilla, &target);
         assert_eq!(
-            resolution.registry("technologies"),
+            resolution.registry("megastructures"),
             Err(Refusal::UndeclaredRegistry {
-                registry: "technologies".to_owned()
+                registry: "megastructures".to_owned()
             })
         );
     }

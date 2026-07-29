@@ -16,7 +16,7 @@ use crate::source::fixture::FixtureCorpus;
 use crate::source::snapshot::SourceSnapshot;
 
 use super::registry::{
-    CellStatus, CrossSourceRule, FieldRule, KeyRule, OrderingRule, ProvenanceRule, ReferenceRule,
+    CellStatus, CrossSourceRule, FieldRule, KeyRule, NO_REFERENCES, OrderingRule, ProvenanceRule,
     RegistryPolicy, RepeatRule, Replacement, ShadowUnit, StreamScope, top_level_definitions,
 };
 use super::resolved::FactKind;
@@ -80,6 +80,48 @@ pub(super) const REPLACE_PATH: &[(&str, &[u8])] = &[
     ),
 ];
 
+/// The stand-in base game golden case 5 redefines. Separate from [`VANILLA`], whose exact key
+/// list the r6 and r3 expectations assert.
+pub(super) const REDEFINITION_VANILLA: &[(&str, &[u8])] = &[(
+    "common/technology/00_redefinition_tech.txt",
+    fixture!("redefinition-vanilla/common/technology/00_redefinition_tech.txt"),
+)];
+
+/// `r1-target`: a late-sorting mod file redefining vanilla technologies, one of them omitting
+/// `potential`.
+pub(super) const REDEFINITION: &[(&str, &[u8])] = &[
+    ("descriptor.mod", fixture!("redefinition/descriptor.mod")),
+    (
+        "common/technology/zz_redefinition_tech.txt",
+        REDEFINITION_BODY,
+    ),
+];
+
+/// The same bytes under an early-sorting name, restating `r4-reordered`'s method: identical
+/// content, swapped filename, and the winner must move.
+pub(super) const REDEFINITION_FLIPPED: &[(&str, &[u8])] = &[
+    (
+        "descriptor.mod",
+        fixture!("redefinition-flipped/descriptor.mod"),
+    ),
+    (
+        "common/technology/!!!_redefinition_tech.txt",
+        REDEFINITION_FLIPPED_BODY,
+    ),
+];
+
+/// The `r0-baseline` shape: a Target Mod that redefines nothing, so the vanilla definitions
+/// are read with nothing contesting them. What makes the `r1` result a delta.
+pub(super) const NO_REDEFINITION: &[(&str, &[u8])] =
+    &[("descriptor.mod", fixture!("redefinition/descriptor.mod"))];
+
+/// Named separately from the tables above so the byte identity the flip depends on can be
+/// asserted rather than assumed.
+pub(super) const REDEFINITION_BODY: &[u8] =
+    fixture!("redefinition/common/technology/zz_redefinition_tech.txt");
+pub(super) const REDEFINITION_FLIPPED_BODY: &[u8] =
+    fixture!("redefinition-flipped/common/technology/!!!_redefinition_tech.txt");
+
 pub(super) fn corpus(kind: SourceKind, files: &[(&str, &[u8])]) -> SourceSnapshot {
     files
         .iter()
@@ -92,6 +134,10 @@ pub(super) fn corpus(kind: SourceKind, files: &[(&str, &[u8])]) -> SourceSnapsho
 
 pub(super) fn vanilla() -> SourceSnapshot {
     corpus(SourceKind::VanillaContent, VANILLA)
+}
+
+pub(super) fn redefinition_vanilla() -> SourceSnapshot {
+    corpus(SourceKind::VanillaContent, REDEFINITION_VANILLA)
 }
 
 const TECHNOLOGY_SCOPE: FileScope = FileScope {
@@ -128,7 +174,7 @@ const fn settled(
         cross_source: CellStatus::Resolved(CrossSourceRule::DecidedByStreamPosition),
         fields: CellStatus::Resolved(fields),
         ordering: CellStatus::Resolved(OrderingRule::SourceOrderPreserved),
-        references: CellStatus::Resolved(ReferenceRule::NoReferences),
+        references: CellStatus::Resolved(NO_REFERENCES),
         provenance: CellStatus::Resolved(ProvenanceRule { kinds }),
     }
 }
@@ -200,3 +246,25 @@ pub(super) const fn with_fields(
         kinds,
     )
 }
+
+/// The technologies row's field rule inverted, for the control that separates whole-object
+/// replacement from inheritance.
+///
+/// The two rules agree on every assertion golden case 5 makes *except* whether an omitted
+/// field comes back, which is the whole reason the omitted-`potential` case is the design's
+/// first mandatory oracle case. Declared on a copy so the control cannot be left switched on,
+/// and declaring [`FactKind::Inherited`] so the control fails on the field rule rather than on
+/// an undeclared kind — a refusal would be a pass for the wrong reason.
+pub(super) const TECHNOLOGY_SCOPE_INHERITING: RegistryPolicy = with_fields(
+    "trial-technology-scope-inheriting",
+    FieldRule {
+        replacement: Replacement::InheritAbsentFields,
+        defaults: &[],
+    },
+    &[
+        FactKind::Contributed,
+        FactKind::Inherited,
+        FactKind::Duplicate,
+        FactKind::Shadowed,
+    ],
+);

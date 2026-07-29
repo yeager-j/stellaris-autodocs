@@ -31,6 +31,9 @@ Stellaris installed.
 | `early-mod/` | `r10-loadorder` | The same early-sorting `!!!_…` filename applied to both a replace-on-repeat and a reject-on-repeat registry. The two rules predict opposite winners, so the pair identifies the enumeration model. |
 | `path-collision/` | `r6-pathcollision` | One file at `vanilla/`'s exact logical path, defining a key that file never mentions. What matters is that *both* keys the vanilla file defined disappear — merge-by-key is what this rules out. |
 | `replace-path/` | `r3-replace-path` | `replace_path="common/technology"` plus one of the declarer's own files in that directory, which must still load. |
+| `redefinition-vanilla/` | the base-game definitions golden case 5 redefines | A matched pair (`tech_matched_subject`, `tech_matched_control`) differing in nothing, so the redefinition can differ in exactly one field, plus `tech_untouched_baseline`. Separate from `vanilla/` because that corpus's exact key list is asserted by the r6 and r3 expectations. |
+| `redefinition/` | `r1-target` | A late-sorting `zz_…` redefinition that omits `potential`, which under whole-object replacement makes the field absent rather than inherited. Adds `tech_mod_only`, the positive control proving the file contributed at all. |
+| `redefinition-flipped/` | `r4-reordered`'s method, applied to technologies | The **same bytes** as `redefinition/` under an early-sorting `!!!_…` name. Only the filename differs, and the suite asserts that byte identity, so the flipped winner is a position result and not a content one. |
 
 ## Reading them
 
