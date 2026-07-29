@@ -75,11 +75,15 @@ pub(in crate::analysis) enum Removal {
 
 /// Where a fact came from.
 ///
-/// Not every fact has a stream position. A file removed by common file selection never
-/// entered a stream at all, so it has no resolution order and no definition ordinal, and
-/// inventing one for it would be the kind of plausible-looking provenance that is worse
-/// than a coarse one. This is what lets the r6 fact — "this vanilla file contributed
-/// nothing, including keys the winner never mentions" — be recorded at all.
+/// Not every fact has a stream position, and the accessors return `Option` because of it. A
+/// file removed by common file selection never entered a stream, so it has no resolution
+/// order and no definition ordinal; a value the Resolution Profile supplied has no source
+/// file at all. Inventing coordinates for either would be the kind of plausible-looking
+/// provenance that is worse than a coarse one — a `Defaulted` fact carrying a stream
+/// position tells a reader that a mod's file supplied a value it never mentioned.
+///
+/// This is also what lets the r6 fact — "this vanilla file contributed nothing, including
+/// keys the winner never mentions" — be recorded at all.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(in crate::analysis) enum FactSite {
     Stream(StreamPosition),
@@ -88,20 +92,28 @@ pub(in crate::analysis) enum FactSite {
         logical: LogicalPath,
         removal: Removal,
     },
+    /// A value the row itself declared. No source stated it, which is the fact.
+    DeclaredDefault {
+        registry: &'static str,
+    },
 }
 
 impl FactSite {
-    pub fn source(&self) -> SourceKind {
+    /// The contributing source, or `None` when no source contributed — the difference
+    /// between "Vanilla supplied this" and "nothing did, the profile did".
+    pub fn source(&self) -> Option<SourceKind> {
         match self {
-            Self::Stream(position) => position.source,
-            Self::RemovedBySelection { source, .. } => *source,
+            Self::Stream(position) => Some(position.source),
+            Self::RemovedBySelection { source, .. } => Some(*source),
+            Self::DeclaredDefault { .. } => None,
         }
     }
 
-    pub fn logical(&self) -> &LogicalPath {
+    pub fn logical(&self) -> Option<&LogicalPath> {
         match self {
-            Self::Stream(position) => &position.logical,
-            Self::RemovedBySelection { logical, .. } => logical,
+            Self::Stream(position) => Some(&position.logical),
+            Self::RemovedBySelection { logical, .. } => Some(logical),
+            Self::DeclaredDefault { .. } => None,
         }
     }
 }

@@ -100,6 +100,12 @@ pub(in crate::analysis) enum Refusal {
         reason: &'static str,
         oracle_gap: &'static str,
     },
+    /// The Target Mod declared a `replace_path` that is not a usable logical path, so the
+    /// surviving file set cannot be established. Every registry draws from that set, so no
+    /// registry's content can be trusted — the declaration's *intent* is clear (exclude a
+    /// directory) and its target is not, and quietly keeping the files it meant to exclude
+    /// would produce confidently wrong documentation.
+    UnusableReplacePath { declaration: String },
     /// The engine produced a provenance kind the row did not declare it produces. A
     /// contradiction between a row's claim and its behaviour, refused rather than emitted,
     /// because a consumer reading provenance would otherwise be told something no row stands
@@ -126,6 +132,11 @@ impl fmt::Display for Refusal {
                 f,
                 "registry `{registry}` has no policy for its {cell} cell: {reason}. \
                  Settled by: {oracle_gap}"
+            ),
+            Self::UnusableReplacePath { declaration } => write!(
+                f,
+                "the Target Mod declared {declaration}, so which files survive cannot be \
+                 established and no registry can be resolved"
             ),
             Self::UndeclaredFactKind { registry, kind } => write!(
                 f,
@@ -252,12 +263,17 @@ pub(super) enum OrderingRule {
 }
 
 /// What a row does with a reference it cannot resolve.
+///
+/// One variant, because the engine resolves no references. A row whose definitions carry
+/// them — scripted constants, inline scripts, localization references — must leave this cell
+/// `Pending` until the ticket that implements reference resolution adds the variant that
+/// describes it. Offering a `VisiblyUnresolved` the engine did not honour would be a name
+/// that lies: a row could select it and get exactly `NoReferences` behaviour, publishing
+/// incomplete definitions with a cell that claimed otherwise.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum ReferenceRule {
     /// The row's definitions reference nothing that has to resolve here.
     NoReferences,
-    /// An unresolved reference is retained as a visible unresolved fact rather than dropped.
-    VisiblyUnresolved,
 }
 
 /// The provenance kinds a row claims to produce.
@@ -315,6 +331,14 @@ where
 {
     // The cells any result at all depends on. Consulted up front so an unusable row refuses
     // before reading a single file, rather than part-way through with half an answer built.
+    // Before any cell: a declaration nobody can honour makes the surviving set unknowable,
+    // and every cell below is answered over that set.
+    if let Some(declaration) = selection.unusable_declarations().first() {
+        return Err(Refusal::UnusableReplacePath {
+            declaration: declaration.clone(),
+        });
+    }
+
     let key = policy.consult(PolicyCell::DefinitionKey, &policy.key)?;
     let scope = policy.consult(PolicyCell::FileStream, &policy.stream)?;
     let repeat = policy.consult(PolicyCell::DuplicateWithinStream, &policy.duplicates)?;
@@ -369,7 +393,7 @@ where
     let definitions = winners
         .into_iter()
         .map(|(key, winner)| {
-            let definition = winner.into_definition(key.clone(), fields);
+            let definition = winner.into_definition(key.clone(), fields, policy.name);
             (key, definition)
         })
         .collect::<BTreeMap<_, _>>();
@@ -423,27 +447,46 @@ impl Winner {
             field: None,
             site: FactSite::Stream(position.clone()),
         });
-        let loser = match rule {
+        let (loser, lost_body) = match rule {
             RepeatRule::ReplaceOnRepeat => {
                 let displaced = std::mem::replace(&mut self.position, position);
                 let mut fields = stated_fields(&body, &self.position);
                 if let Replacement::InheritAbsentFields = replacement {
                     carry_absent(&mut fields, &self.fields);
                 }
+                let lost = std::mem::replace(&mut self.body, body);
                 self.fields = fields;
-                self.body = body;
-                displaced
+                (displaced, lost)
             }
-            RepeatRule::RejectOnRepeat => position,
+            RepeatRule::RejectOnRepeat => (position, body),
         };
+        // The definition lost, and so did each field it stated. Both, because they answer
+        // different questions: the definition-level fact is the only one a body with no
+        // fields can produce — a scripted constant's value is a bare scalar — and the
+        // field-level facts are what let documentation say *what* a redefinition removed.
+        // The resolver evaluation asks the technologies row for "every contributed,
+        // defaulted, duplicate, and shadowed **field**", not merely every shadowed
+        // definition.
         self.displaced.push(FactProvenance {
             kind: FactKind::Shadowed,
             field: None,
-            site: FactSite::Stream(loser),
+            site: FactSite::Stream(loser.clone()),
         });
+        for field in stated_fields(&lost_body, &loser) {
+            self.displaced.push(FactProvenance {
+                kind: FactKind::Shadowed,
+                field: Some(field.field),
+                site: field.site,
+            });
+        }
     }
 
-    fn into_definition(mut self, key: DefinitionKey, rule: FieldRule) -> ResolvedDefinition {
+    fn into_definition(
+        mut self,
+        key: DefinitionKey,
+        rule: FieldRule,
+        registry: &'static str,
+    ) -> ResolvedDefinition {
         for default in rule.defaults {
             if self.fields.iter().any(|field| field.field == default.field) {
                 continue;
@@ -453,7 +496,7 @@ impl Winner {
                     field: default.field.to_owned(),
                     value,
                     kind: FactKind::Defaulted,
-                    site: FactSite::Stream(self.position.clone()),
+                    site: FactSite::DeclaredDefault { registry },
                 });
             }
         }
@@ -645,7 +688,7 @@ mod tests {
         assert_eq!(inherited.kind, FactKind::Inherited);
         assert_eq!(
             inherited.site.source(),
-            SourceKind::VanillaContent,
+            Some(SourceKind::VanillaContent),
             "an inherited fact must point at where the value actually came from"
         );
         // The field the winner does state is still its own.
@@ -756,17 +799,83 @@ mod tests {
     }
 
     #[test]
-    fn every_fact_names_the_file_it_came_from() {
+    fn every_fact_either_names_a_source_file_or_says_no_source_supplied_it() {
         // Provenance's other required coordinates — resolution order, source, and ordinal —
-        // are unsigned and legitimately zero, so the checkable claim over every fact is that
-        // each one names a real file rather than an empty placeholder.
+        // are unsigned and legitimately zero, so what is checkable over every fact is that it
+        // does not claim a file it cannot name. A declared default is the one fact with no
+        // source, and saying so is the point: a `Defaulted` fact carrying a stream position
+        // would tell a reader that some mod's file supplied a value it never mentioned.
+        const WITH_DEFAULT: RegistryPolicy = trial::with_fields(
+            "trial-sited",
+            FieldRule {
+                replacement: Replacement::WholeObject,
+                defaults: &[DefaultField {
+                    field: "weight",
+                    value: "0",
+                }],
+            },
+            &FactKind::ALL,
+        );
         let target = late_mod("tech_contested = { tier = 9 }");
-        let registry = resolve_with(&REPLACE_ON_REPEAT, &target).expect("a settled row");
+        let registry = resolve_with(&WITH_DEFAULT, &target).expect("a settled row");
         let facts = registry.provenance();
         assert!(!facts.is_empty());
-        for fact in facts {
-            assert!(!fact.site.logical().as_str().is_empty(), "{fact:?}");
+
+        let mut defaults = 0;
+        for fact in &facts {
+            match &fact.site {
+                FactSite::DeclaredDefault { registry } => {
+                    assert_eq!(*registry, "trial-sited");
+                    assert_eq!(fact.kind, FactKind::Defaulted);
+                    assert!(fact.site.source().is_none());
+                    assert!(fact.site.logical().is_none());
+                    defaults += 1;
+                }
+                site => {
+                    assert!(site.source().is_some(), "{fact:?}");
+                    assert!(
+                        site.logical().is_some_and(|path| !path.as_str().is_empty()),
+                        "{fact:?}"
+                    );
+                }
+            }
         }
+        assert_eq!(
+            defaults,
+            registry.definitions.len(),
+            "every definition the row resolved should carry the declared default"
+        );
+    }
+
+    #[test]
+    fn a_shadowed_definition_records_every_field_it_stated() {
+        // Definition-level and field-level, because they answer different questions. Without
+        // the field-level facts nothing downstream can say *what* a redefinition removed,
+        // which is the whole substance of the omitted-`potential` case.
+        let target = late_mod("tech_contested = { tier = 9 }");
+        let registry = resolve_with(&REPLACE_ON_REPEAT, &target).expect("a settled row");
+        let contested = registry.get("tech_contested").expect("resolves");
+
+        let shadowed_fields: Vec<&str> = contested
+            .displaced
+            .iter()
+            .filter(|fact| fact.kind == FactKind::Shadowed)
+            .filter_map(|fact| fact.field.as_deref())
+            .collect();
+        assert_eq!(
+            shadowed_fields,
+            ["tier", "cost", "category", "potential"],
+            "the displaced vanilla definition's fields are the record of what was removed"
+        );
+        assert_eq!(
+            contested
+                .displaced
+                .iter()
+                .filter(|fact| fact.kind == FactKind::Shadowed && fact.field.is_none())
+                .count(),
+            1,
+            "exactly one fact says the definition itself lost"
+        );
     }
 
     #[test]
@@ -874,6 +983,51 @@ mod tests {
                 oracle_gap: "a run redefining a vanilla key from an early-sorting mod file",
             })
         );
+    }
+
+    #[test]
+    fn a_replace_path_nobody_can_honour_refuses_rather_than_resolving_around_it() {
+        // The declaration's *intent* is clear — exclude a directory — and its target is not.
+        // Keeping the Vanilla files it meant to exclude would resolve successfully and
+        // document content the game would not load, which is the "confidently wrong" outcome
+        // visible failure exists to prevent. A malformed descriptor is rare; a wrong answer
+        // that looks right is not recoverable downstream.
+        let target = FixtureCorpus::new(SourceKind::TargetMod)
+            .with_file(
+                "descriptor.mod",
+                b"name=\"m\"\nreplace_path=\"/common/technology\"",
+            )
+            .with_file(
+                "common/technology/zz_late_tech.txt",
+                b"tech_own = { tier = 1 }",
+            )
+            .build()
+            .expect("a well-formed fixture corpus");
+
+        assert_eq!(
+            resolve_with(&REPLACE_ON_REPEAT, &target),
+            Err(Refusal::UnusableReplacePath {
+                declaration: "replace_path=\"/common/technology\": path is absolute or carries \
+                              a drive prefix"
+                    .to_owned()
+            })
+        );
+
+        // The negative control for the refusal: the same corpus with a usable declaration
+        // resolves, so the refusal is about the declaration rather than about the fixture.
+        let usable = FixtureCorpus::new(SourceKind::TargetMod)
+            .with_file(
+                "descriptor.mod",
+                b"name=\"m\"\nreplace_path=\"common/technology\"",
+            )
+            .with_file(
+                "common/technology/zz_late_tech.txt",
+                b"tech_own = { tier = 1 }",
+            )
+            .build()
+            .expect("a well-formed fixture corpus");
+        let resolved = resolve_with(&REPLACE_ON_REPEAT, &usable).expect("a usable declaration");
+        assert_eq!(resolved.keys(), ["tech_own"]);
     }
 
     #[test]

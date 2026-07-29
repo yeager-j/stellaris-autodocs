@@ -172,7 +172,8 @@ fn r6_an_exact_path_collision_removes_the_whole_losing_file() {
         .removed_files
         .iter()
         .filter(|fact| fact.kind == FactKind::Shadowed)
-        .map(|fact| fact.site.logical().as_str())
+        .filter_map(|fact| fact.site.logical())
+        .map(|logical| logical.as_str())
         .collect();
     assert_eq!(shadowed, ["common/technology/00_collided_tech.txt"]);
     assert!(
@@ -247,7 +248,7 @@ fn r3_replace_path_excludes_other_sources_and_keeps_the_declarer_s_own() {
             FactSite::RemovedBySelection {
                 logical, removal, ..
             } => Some((logical.as_str(), removal)),
-            FactSite::Stream(_) => None,
+            FactSite::Stream(_) | FactSite::DeclaredDefault { .. } => None,
         })
         .collect();
     let declaration = Removal::ReplacedDirectory {
@@ -315,17 +316,24 @@ fn r10_an_early_sorting_mod_file_wins_the_rejecting_registry_and_loses_the_repla
     // Both outcomes came from one enumeration, so each records that there were two
     // registrations and names the one that lost.
     for definition in [contested, notice] {
-        let kinds: Vec<FactKind> = definition.displaced.iter().map(|fact| fact.kind).collect();
+        // The definition-level facts, filtered from the field-level ones a shadowed body
+        // also produces: there were two registrations, and one of them lost.
+        let kinds: Vec<FactKind> = definition
+            .displaced
+            .iter()
+            .filter(|fact| fact.field.is_none())
+            .map(|fact| fact.kind)
+            .collect();
         assert_eq!(kinds, [FactKind::Duplicate, FactKind::Shadowed]);
     }
     assert_eq!(
         contested.displaced[1].site.source(),
-        SourceKind::TargetMod,
+        Some(SourceKind::TargetMod),
         "the replace-on-repeat registry shadowed the earlier mod definition"
     );
     assert_eq!(
         notice.displaced[1].site.source(),
-        SourceKind::VanillaContent,
+        Some(SourceKind::VanillaContent),
         "the reject-on-repeat registry rejected the later vanilla definition"
     );
 }
