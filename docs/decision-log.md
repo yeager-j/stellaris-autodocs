@@ -1169,6 +1169,22 @@ So the references cell became per reference kind, each kind carrying its own han
 
 **What this does not do.** It does not resolve a reference, does not pull Phase 4F or 4G forward, and does not reorder tickets. The two deferred behaviours are pinned by tests scheduled to go red in STE-27 and STE-28, so the flip is a decision somebody makes rather than a behaviour that quietly arrives.
 
+**D-131 — An inline-script shape no oracle record measures is a typed omission, never a guessed expansion**
+
+Recorded 2026-07-29 on completion of Phase 4G (STE-28), inline-script expansion. It records two policies chosen for shapes `r11` and `r12` do not cover; nothing in D-098 or D-130 changes.
+
+**What the records do settle.** `r11-inline` measured six subjects through a real game start: a simple inclusion expands, `$PARAM$` substitutes, an inclusion nests and must be expanded recursively, and a mod file at a vanilla inline script's path replaces its content. `r12-inline-missing` measured the failure: the game names the consuming file and line, and the technology **still registers** with the included content simply absent. So expansion is implemented, and a failure omits one inclusion rather than refusing the definition.
+
+**The problem the mechanism surfaced.** Two shapes reach the expander that neither record touches. A fragment can carry a `[[PARAM] … ]` conditional block — the dialect parses them, and nothing measures whether or on what condition the game compiles one inside an inline script. And a fragment can use a `$PARAM$` the call never binds.
+
+**Both are typed-unresolved, with the inclusion omitted.** A conditional block is `UnresolvedInline::ConditionalUnmeasured` and an unbound parameter is `UnresolvedInline::UnboundParameter { name }`; in each case the whole inclusion is absent from the effective field and the site carries the reason. The alternatives were each a guess wearing an answer's clothes. Compiling a conditional on a documented-but-unmeasured reading would put content into a technology page on the strength of a wiki, not a measurement — and omitting only the conditional half would be a second guess, about which half the game keeps. Substituting an unbound parameter with an empty value would fabricate content: `factor = $F$` would become a factor of nothing. Leaving the `$PARAM$` token in place would be worse still, because the technologies row does not declare the `Parameter` reference kind, so one unbound parameter three fragments deep would refuse the entire registry — a blast radius the game itself does not have.
+
+**Why omission is the right failure and silence is not.** `r12` is the authority for the shape: the definition survives, structurally valid, with the inclusion missing. The resolver owes the same survival. What it must not inherit is the quietness — "failed to expand" and "there was nothing to expand" are the same silence, and it is the silence, not the failure, that would publish a technology page missing its weight logic with nothing anywhere to reveal it.
+
+**What would settle each.** A capture exercising a `[[PARAM] … ]` conditional inside a fragment, with and without the parameter bound, would replace `ConditionalUnmeasured` with a measured rule. A capture supplying a fragment with a parameter the call omits would do the same for `UnboundParameter`. Until then each variant names its own gap, the same discipline `UnresolvedConstant` follows.
+
+**Scope.** Technologies only. `scripted-triggers` and `scripted-effects` keep `DetectedNotResolved` for this kind: `r11` measured a technology consumer, and per-row evidence is what a row may declare from.
+
 ## Open decisions
 
 **Q-002 — Project identity**

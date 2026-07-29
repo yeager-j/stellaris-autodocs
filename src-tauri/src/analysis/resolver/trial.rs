@@ -288,6 +288,69 @@ pub(super) fn registration_vanilla() -> SourceSnapshot {
     corpus(SourceKind::VanillaContent, REGISTRATION_VANILLA)
 }
 
+// --- Phase 4G: inline scripts ---
+
+/// The base-game side [`INLINE`] expands against: the inline script whose path the mod
+/// occupies, and one technology naming no inline script at all.
+pub(super) const INLINE_VANILLA: &[(&str, &[u8])] = &[
+    (
+        "common/inline_scripts/technologies/rare_weight_modifiers.txt",
+        fixture!("inline-vanilla/common/inline_scripts/technologies/rare_weight_modifiers.txt"),
+    ),
+    (
+        "common/technology/00_inline_baseline_tech.txt",
+        fixture!("inline-vanilla/common/technology/00_inline_baseline_tech.txt"),
+    ),
+];
+
+/// `r11-inline`: simple expansion, `$PARAM$` substitution, recursive nesting, and a mod file
+/// at a base-game inline script's path, each written to expand to one comparable shape.
+pub(super) const INLINE: &[(&str, &[u8])] = &[
+    ("descriptor.mod", fixture!("inline/descriptor.mod")),
+    (
+        "common/inline_scripts/oracle/factor_block.txt",
+        fixture!("inline/common/inline_scripts/oracle/factor_block.txt"),
+    ),
+    (
+        "common/inline_scripts/oracle/inner_factor.txt",
+        fixture!("inline/common/inline_scripts/oracle/inner_factor.txt"),
+    ),
+    (
+        "common/inline_scripts/oracle/outer_factor.txt",
+        fixture!("inline/common/inline_scripts/oracle/outer_factor.txt"),
+    ),
+    (
+        "common/inline_scripts/oracle/param_factor.txt",
+        fixture!("inline/common/inline_scripts/oracle/param_factor.txt"),
+    ),
+    (
+        "common/inline_scripts/technologies/rare_weight_modifiers.txt",
+        fixture!("inline/common/inline_scripts/technologies/rare_weight_modifiers.txt"),
+    ),
+    (
+        "common/technology/zz_inline_nested.txt",
+        fixture!("inline/common/technology/zz_inline_nested.txt"),
+    ),
+    (
+        "common/technology/zz_inline_tech.txt",
+        fixture!("inline/common/technology/zz_inline_tech.txt"),
+    ),
+];
+
+/// `r12-inline-missing`: a reference to a path no file supplies, and a sibling definition
+/// after it that must resolve normally.
+pub(super) const INLINE_MISSING: &[(&str, &[u8])] = &[
+    ("descriptor.mod", fixture!("inline-missing/descriptor.mod")),
+    (
+        "common/technology/zz_missing_inline.txt",
+        fixture!("inline-missing/common/technology/zz_missing_inline.txt"),
+    ),
+];
+
+pub(super) fn inline_vanilla() -> SourceSnapshot {
+    corpus(SourceKind::VanillaContent, INLINE_VANILLA)
+}
+
 const TECHNOLOGY_SCOPE: FileScope = FileScope {
     directory: "common/technology",
     extensions: &["txt"],

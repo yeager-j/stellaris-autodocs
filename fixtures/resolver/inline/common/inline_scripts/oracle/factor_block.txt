@@ -1,0 +1,9 @@
+# Original work; no Stellaris file is reproduced.
+#
+# The simple-expansion fragment. A bare body rather than a `key = { … }` definition: an
+# inline script file holds content spliced into the call site, not a registered definition,
+# which is why the library keeps a file's whole item list instead of its definitions.
+modifier = {
+	factor = 1000000
+	always = yes
+}

@@ -44,7 +44,13 @@ use super::stream::{ContentFamily, FileScope};
 ///   `DetectedNotResolved` to `ResolvedAgainstConstants`; the reference cell becomes per-kind
 ///   `CellStatus`, adding the `Parameter` kind (`Pending` everywhere it can appear); and the
 ///   scripted-constants row's cross-source cell is `Pending`.
-pub(in crate::analysis) const RESOLUTION_PROFILE_VERSION: u32 = 3;
+/// - 4 (Phase 4G, STE-28): the technologies row's `InlineScript` entry flips from
+///   `DetectedNotResolved` to `ExpandedFromInlineScripts`, so an inclusion inside a
+///   technology's `weight_modifier` is spliced into the effective field and recorded as a
+///   typed `InlineScriptFact` instead of marking the value unfinished. Triggers and effects
+///   are unchanged: `r11` measured a technology consumer, and per-row evidence is what a row
+///   may declare from.
+pub(in crate::analysis) const RESOLUTION_PROFILE_VERSION: u32 = 4;
 
 /// The Stellaris build every oracle record behind this profile was captured against.
 ///
@@ -95,9 +101,14 @@ pub(super) const SUPPORTED_STELLARIS_BUILD: StellarisBuild = StellarisBuild {
 ///   [`ConstantFact`](super::resolved::ConstantFact) naming the resolved value and its
 ///   declaration site, or a typed [`UnresolvedConstant`](super::resolved::UnresolvedConstant)
 ///   when it does not resolve — never a guessed number, and never silent. `inline_script`
-///   inclusions still belong to their own row and own ticket, so that kind stays
-///   `DetectedNotResolved`: an effective field carrying one records a `ReferenceFact` saying
-///   the value is not final, the same as before Phase 4F.
+///   inclusions are expanded (Phase 4G, STE-28): the referenced fragment's content is spliced
+///   into the effective field, recursively, with `$PARAM$` bindings substituted, and each site
+///   carries an [`InlineScriptFact`](super::resolved::InlineScriptFact) naming the resolved
+///   script path and its bindings — or a typed [`UnresolvedInline`](super::resolved::UnresolvedInline)
+///   with the inclusion omitted, which is `r12`'s survival model. This kind is the one that
+///   fails quietly if skipped: vanilla technologies use inline scripts heavily inside
+///   `weight_modifier`, the game expands them correctly, and a resolver that did not would
+///   publish technology pages missing their weight logic with no error anywhere.
 /// - **Provenance.** The four kinds the matrix names. `Inherited` is deliberately absent:
 ///   whole-object replacement never produces one, and an undeclared kind is a refusal, so
 ///   this is the field rule's claim stated where the engine can catch it breaking.
@@ -130,7 +141,7 @@ const TECHNOLOGIES: RegistryPolicy = RegistryPolicy {
             ),
             (
                 ReferenceKind::InlineScript,
-                CellStatus::Resolved(ReferenceHandling::DetectedNotResolved),
+                CellStatus::Resolved(ReferenceHandling::ExpandedFromInlineScripts),
             ),
         ],
     }),
@@ -368,8 +379,9 @@ mod tests {
 
     use super::super::resolve;
     use super::super::resolved::{
-        ConstantOutcome, FactSite, ReferenceFact, ReferenceKind, UnresolvedConstant,
+        ConstantOutcome, FactSite, InlineOutcome, ReferenceFact, UnresolvedConstant,
     };
+    use crate::analysis::parser::Value;
 
     /// One Target Mod technology, resolved through the declared row against an empty base.
     fn only_technology(body: &str) -> SourceSnapshot {
@@ -491,21 +503,72 @@ mod tests {
         );
     }
 
-    /// The inline-script half. **Scheduled to go red in STE-28 (Phase 4G).**
+    /// The inline-script half of the technologies row's references cell, revised for Phase 4G
+    /// (STE-28): the `InlineScript` entry now expands the inclusion rather than recording that
+    /// the value is unfinished — the flip this test's predecessor
+    /// (`an_inline_script_reference_is_detected_and_left_unexpanded`) scheduled.
     ///
-    /// Nested inside `weight_modifier`, because that is where `r11` found it and a detector
-    /// that only looked at top-level fields would report nothing for every real technology
-    /// that uses one.
+    /// Nested inside `weight_modifier`, because that is where `r11` found it and an expander
+    /// that only looked at top-level fields would do nothing for every real technology that
+    /// uses one.
     #[test]
-    fn an_inline_script_reference_is_detected_and_left_unexpanded() {
-        let found = references(
-            "tech_references = {\n\tweight_modifier = {\n\t\tinline_script = \"oracle/factor\"\n\t}\n}\n",
+    fn an_inline_script_reference_is_expanded_into_the_consuming_definition() {
+        let vanilla = empty_vanilla();
+        let target = FixtureCorpus::new(SourceKind::TargetMod)
+            .with_file("descriptor.mod", b"name=\"references\"")
+            .with_file(
+                "common/inline_scripts/oracle/factor.txt",
+                b"modifier = { factor = 5 }\n",
+            )
+            .with_file(
+                "common/technology/zz_references.txt",
+                b"tech_references = {\n\tweight_modifier = {\n\t\tinline_script = \"oracle/factor\"\n\t}\n}\n",
+            )
+            .build()
+            .expect("a well-formed fixture corpus");
+        let registry = resolve(&vanilla, &target)
+            .registry("technologies")
+            .expect("the declared row resolves");
+        let definition = registry.get("tech_references").expect("the key resolves");
+
+        assert!(
+            definition.references.is_empty(),
+            "an expanded inclusion is an InlineScriptFact, never a ReferenceFact: {:?}",
+            definition.references
         );
-        assert_eq!(found.len(), 1, "{found:?}");
-        assert_eq!(found[0].kind, ReferenceKind::InlineScript);
         assert_eq!(
-            found[0].field, "weight_modifier",
+            definition.inline_expansions.len(),
+            1,
+            "{:?}",
+            definition.inline_expansions
+        );
+        let fact = &definition.inline_expansions[0];
+        assert_eq!(fact.reference.as_deref(), Some("oracle/factor"));
+        assert_eq!(
+            fact.field, "weight_modifier",
             "attributed to the effective field a consumer reads, not to the container it sits in"
+        );
+        let InlineOutcome::Expanded { script, bindings } = &fact.outcome else {
+            panic!("expected the inclusion to expand: {:?}", fact.outcome);
+        };
+        assert!(bindings.is_empty(), "this call binds no parameters");
+        assert_eq!(
+            script.logical().map(|path| path.as_str().to_owned()),
+            Some("common/inline_scripts/oracle/factor.txt".to_owned()),
+            "provenance must name the file the content came from"
+        );
+
+        // The site is gone and the fragment's content is in its place — the whole point of
+        // the flip, and the half no fact would reveal on its own.
+        let Some(Value::Container(container)) = definition.field("weight_modifier") else {
+            panic!("weight_modifier is an effective container");
+        };
+        assert_eq!(
+            container
+                .fields()
+                .map(|field| field.key.text().into_owned())
+                .collect::<Vec<_>>(),
+            ["modifier"]
         );
     }
 

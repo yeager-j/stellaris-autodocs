@@ -1,0 +1,7 @@
+# Original work; no Stellaris file is reproduced.
+#
+# The outer half of the nesting pair: nothing but a second inclusion. An expander that
+# handled one level would splice this line in and stop, leaving the consuming definition
+# with an `inline_script` field and no modifier — which is the shape the nesting test
+# discriminates against.
+inline_script = "oracle/inner_factor"

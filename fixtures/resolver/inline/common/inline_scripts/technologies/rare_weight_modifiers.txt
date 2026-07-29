@@ -1,0 +1,11 @@
+# Original work; no Stellaris file is reproduced.
+#
+# The Target Mod's file at `inline-vanilla/`'s exact inline-script path. Unconditional where
+# the base-game body is gated, so which of the two was expanded is readable from the result
+# rather than inferred. `$TECHNOLOGY$` is deliberately *not* used here: the call site binds
+# it anyway, restating `r11`'s observation that a supplied-but-unreferenced parameter is
+# harmless.
+modifier = {
+	factor = 1000000
+	always = yes
+}

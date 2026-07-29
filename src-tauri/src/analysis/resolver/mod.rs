@@ -40,6 +40,9 @@
 //! - [`stream`] — step 2: per-family semantic streams. Script and sprite share one global
 //!   path order; localization has its own Vanilla → mod → `replace/` stream.
 //! - [`registry`] — steps 3 and 4, plus the eight-cell row vocabulary and the refusals.
+//! - [`constants`] and [`inline_scripts`] — the two substitution mechanisms a consuming row
+//!   may declare: a scripted-constant environment looked up per symbol, and a path-addressed
+//!   library of fragments spliced into the effective fields of the rows that include them.
 //! - [`resolved`] — what leaves: effective definitions, the five provenance kinds, and the
 //!   references a row detected without resolving.
 //! - [`profile`] — the profile's version, its pinned game build, and its declared rows.
@@ -56,6 +59,7 @@
 //! authority on what one is.
 
 mod constants;
+mod inline_scripts;
 mod profile;
 mod registry;
 mod resolved;
@@ -75,8 +79,9 @@ pub(in crate::analysis) use registry::Refusal;
 // following imports into submodules.
 #[allow(unused_imports)]
 pub(in crate::analysis) use resolved::{
-    ConstantFact, ConstantOutcome, FactKind, FactProvenance, FactSite, ReferenceFact,
-    ReferenceKind, ResolvedDefinition, ResolvedRegistry, StreamPosition, UnresolvedConstant,
+    ConstantFact, ConstantOutcome, FactKind, FactProvenance, FactSite, InlineOutcome,
+    InlineScriptFact, ReferenceFact, ReferenceKind, ResolvedDefinition, ResolvedRegistry,
+    StreamPosition, UnresolvedConstant, UnresolvedInline,
 };
 
 use crate::source::{SourceKind, SourceSnapshot};

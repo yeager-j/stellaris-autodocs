@@ -1,0 +1,8 @@
+# Original work; no Stellaris file is reproduced.
+#
+# The inner half of the nesting pair. Deliberately the same expanded shape every other
+# subject uses, so the nested subject's result is directly comparable with the basic one.
+modifier = {
+	factor = 1000000
+	always = yes
+}
