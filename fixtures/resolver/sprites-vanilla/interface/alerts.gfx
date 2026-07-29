@@ -1,0 +1,19 @@
+spriteTypes = {
+	spriteType = {
+		name = "GFX_alerticons"
+		texturefile = "gfx/interface/icons/phase4i_vanilla.dds"
+		noOfFrames = 2
+	}
+
+	spriteType = {
+		name = "GFX_alert_first"
+		sprite_sheet_sprite_type = "GFX_alerticons"
+		default_frame = 1
+	}
+
+	spriteType = {
+		name = "GFX_alert_second"
+		sprite_sheet_sprite_type = "GFX_alerticons"
+		default_frame = 2
+	}
+}

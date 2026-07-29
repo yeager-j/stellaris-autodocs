@@ -1,0 +1,7 @@
+spriteTypes = {
+	spriteType = {
+		name = "GFX_alerticons"
+		texturefile = "gfx/interface/icons/phase4i_mod.dds"
+		noOfFrames = 2
+	}
+}

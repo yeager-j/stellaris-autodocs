@@ -321,22 +321,31 @@
 //! - Changing buildings to `InheritAbsentFields` failed `r8_buildings_replace_the_whole_object`
 //!   at the provenance contract: the engine produced an undeclared `Inherited` fact, before it
 //!   could silently publish the inherited `building_sets` field.
+//!
+//! Phase 4I (STE-30) carries the ticket's reference-resolution negative control in ordinary
+//! CI. `resolving_sheet_edges_against_the_shadowed_definition_breaks_r17` first proves the
+//! late corpus's Vanilla dependents resolve the Target Mod texture, substitutes the
+//! byte-identical Vanilla sheet that r17 displaced, reruns the shipped reference post-pass,
+//! and proves the same dependent assertion goes false. That isolates winner lookup from
+//! registration direction: a row can select the right winner and still attribute every
+//! dependent to the wrong source if its references consult the loser.
 
 mod record;
 
 use super::registry::{CellStatus, FieldRule, PolicyCell, Refusal, RepeatRule, Replacement};
 use super::resolved::{
     ConstantOutcome, FactKind, FactSite, InlineOutcome, Removal, ResolvedDefinition,
-    ResolvedRegistry, UnresolvedConstant, UnresolvedInline,
+    ResolvedRegistry, SpriteTextureOutcome, UnresolvedConstant, UnresolvedInline,
 };
 use super::trial::{
     self, BUILDINGS, COMPONENTS, COMPONENTS_REPEAT, CONSTANTS_A_BODY, CONSTANTS_A_FLIPPED_BODY,
     CONSTANTS_B_BODY, CONSTANTS_B_FLIPPED_BODY, CONSTANTS_COLLISION, EARLY_MOD, EVENTS,
     EVENTS_EARLY, INLINE, INLINE_MISSING, NO_REDEFINITION, PARAMETERIZED, PATH_COLLISION,
     REDEFINITION, REDEFINITION_BODY, REDEFINITION_FLIPPED, REDEFINITION_FLIPPED_BODY, REGISTRATION,
-    REGISTRATION_FLIPPED, REPLACE_PATH, RISKY_CONSTANTS, TRIGGERS_A_BODY, TRIGGERS_A_FLIPPED_BODY,
-    TRIGGERS_B_BODY, TRIGGERS_B_FLIPPED_BODY, buildings_vanilla, corpus, events_vanilla,
-    inline_vanilla, redefinition_vanilla, registration_vanilla, vanilla,
+    REGISTRATION_FLIPPED, REPLACE_PATH, RISKY_CONSTANTS, SPRITES, SPRITES_EARLY, TRIGGERS_A_BODY,
+    TRIGGERS_A_FLIPPED_BODY, TRIGGERS_B_BODY, TRIGGERS_B_FLIPPED_BODY, buildings_vanilla, corpus,
+    events_vanilla, inline_vanilla, redefinition_vanilla, registration_vanilla, sprites_vanilla,
+    vanilla,
 };
 use super::{Resolution, profile, resolve};
 use crate::analysis::parser::Value;
@@ -351,12 +360,23 @@ struct Expectation {
     rule: &'static str,
 }
 
-/// The records consumed so far: the Phase 4D core's three, then the technologies row's.
+/// The records consumed so far: the Phase 4D core's three, then each declared row's evidence.
 ///
 /// Each row ticket appends its own. A record listed here is under the drift gate whether or
 /// not an expectation below reads it in detail — `r0-baseline` is the clearest case, since its
 /// value is the measured *absence* the r1 result is a delta against.
 const EXPECTATIONS: &[Expectation] = &[
+    Expectation {
+        run: "r17-sprites",
+        rule: "sprite names replace on repeat within and across files; a late-sorting Target \
+               Mod sheet wins, and every Vanilla dependent resolves its texture through that \
+               winning definition",
+    },
+    Expectation {
+        run: "r18-sprites-early",
+        rule: "an early-sorting Target Mod sheet registers before Vanilla and is then \
+               replaced, proving sprites use global path order rather than source layers",
+    },
     Expectation {
         run: "r8-registries",
         rule: "building and megastructure duplicate diagnostics use the new registration, while \
@@ -1120,11 +1140,11 @@ fn an_undeclared_registry_is_a_typed_refusal() {
     let (vanilla, target) = against(EARLY_MOD);
     let resolution = resolve(&vanilla, &target);
     assert_eq!(
-        resolution.registry("sprites"),
+        resolution.registry("localization"),
         Err(Refusal::UndeclaredRegistry {
-            registry: "sprites".to_owned()
+            registry: "localization".to_owned()
         }),
-        "technologies is declared and sprites is not, and the difference must be the \
+        "technologies is declared and localization is not, and the difference must be the \
          declaration rather than which registry the corpus happens to hold definitions for — \
          this corpus's technology files would resolve under either row's stream"
     );
@@ -1372,6 +1392,227 @@ fn phase_4h_row_copy_controls_flip_the_claimed_cells() {
             .get("mega_phase4h")
             .is_some(),
         "closing the copied field cell must read and resolve the non-empty megastructure corpus"
+    );
+}
+
+// --- Phase 4I (STE-30): sprite definitions ---
+
+fn sprites(files: &[(&str, &[u8])]) -> ResolvedRegistry {
+    let vanilla = sprites_vanilla();
+    let target = corpus(SourceKind::TargetMod, files);
+    named(&resolve(&vanilla, &target), "sprites")
+}
+
+fn texture(definition: &ResolvedDefinition) -> (&str, &FactSite) {
+    let resolution = definition
+        .sprite
+        .as_ref()
+        .expect("a sprite definition carries sprite resolution");
+    let SpriteTextureOutcome::Resolved(texture) = &resolution.texture else {
+        panic!(
+            "expected a resolved sprite texture: {:?}",
+            resolution.texture
+        );
+    };
+    (&texture.path, &texture.site)
+}
+
+fn r17_dependents_use_mod_texture(registry: &ResolvedRegistry) -> bool {
+    ["GFX_alert_first", "GFX_alert_second"]
+        .into_iter()
+        .all(|key| {
+            registry.get(key).is_some_and(|definition| {
+                let (path, site) = texture(definition);
+                path == "gfx/interface/icons/phase4i_mod.dds"
+                    && site.source() == Some(SourceKind::TargetMod)
+            })
+        })
+}
+
+#[test]
+fn r17_sprites_replace_last_within_files_across_files_and_sources() {
+    let registry = sprites(SPRITES);
+
+    let same_file = registry
+        .get("GFX_phase4i_same_file")
+        .expect("the same-file key resolves");
+    assert_eq!(same_file.position.ordinal, 1);
+    assert_eq!(
+        texture(same_file).0,
+        "gfx/interface/icons/phase4i_same_file_last.dds"
+    );
+
+    let cross_file = registry
+        .get("GFX_phase4i_cross_file")
+        .expect("the cross-file key resolves");
+    assert_eq!(
+        cross_file.position.logical.as_str(),
+        "interface/zz_phase4i_sprites_b.gfx"
+    );
+    assert_eq!(
+        texture(cross_file).0,
+        "gfx/interface/icons/phase4i_cross_file_last.dds"
+    );
+
+    let sheet = registry.get("GFX_alerticons").expect("the sheet resolves");
+    assert_eq!(sheet.position.source, SourceKind::TargetMod);
+    assert_eq!(texture(sheet).0, "gfx/interface/icons/phase4i_mod.dds");
+    assert_eq!(
+        sheet
+            .displaced
+            .iter()
+            .filter(|fact| fact.field.is_none())
+            .map(|fact| fact.kind)
+            .collect::<Vec<_>>(),
+        [FactKind::Duplicate, FactKind::Shadowed],
+        "the winning definition retains the contested registration and its displaced body"
+    );
+    assert!(
+        sheet.displaced.iter().any(|fact| {
+            fact.kind == FactKind::Shadowed
+                && fact.field.as_deref() == Some("texturefile")
+                && fact.site.source() == Some(SourceKind::VanillaContent)
+        }),
+        "the shadowed Vanilla texture remains field-level provenance"
+    );
+}
+
+#[test]
+fn r17_dependents_record_the_edge_and_the_texture_s_actual_source() {
+    let registry = sprites(SPRITES);
+    assert!(r17_dependents_use_mod_texture(&registry));
+
+    for key in ["GFX_alert_first", "GFX_alert_second"] {
+        let dependent = registry.get(key).expect("the dependent resolves");
+        assert_eq!(
+            dependent.position.source,
+            SourceKind::VanillaContent,
+            "the referring sprite is still Vanilla-owned"
+        );
+        let resolution = dependent.sprite.as_ref().expect("sprite resolution");
+        let edge = resolution.references.first().expect("the sheet edge");
+        assert_eq!(edge.sprite.as_deref(), Some("GFX_alerticons"));
+        assert_eq!(edge.site.source(), Some(SourceKind::VanillaContent));
+        assert_eq!(
+            edge.target.as_ref().and_then(FactSite::source),
+            Some(SourceKind::TargetMod),
+            "the edge names the winning sheet definition"
+        );
+        let SpriteTextureOutcome::Resolved(texture) = &edge.outcome else {
+            panic!("the edge resolves: {:?}", edge.outcome);
+        };
+        assert_eq!(texture.path, "gfx/interface/icons/phase4i_mod.dds");
+        assert_eq!(texture.site.source(), Some(SourceKind::TargetMod));
+    }
+}
+
+#[test]
+fn r18_an_early_sprite_override_loses_by_path_position() {
+    let registry = sprites(SPRITES_EARLY);
+    let sheet = registry.get("GFX_alerticons").expect("the sheet resolves");
+    assert_eq!(sheet.position.source, SourceKind::VanillaContent);
+    assert_eq!(texture(sheet).0, "gfx/interface/icons/phase4i_vanilla.dds");
+    assert!(sheet.displaced.iter().any(|fact| {
+        fact.kind == FactKind::Shadowed
+            && fact.field.as_deref() == Some("texturefile")
+            && fact.site.source() == Some(SourceKind::TargetMod)
+    }));
+
+    for key in ["GFX_alert_first", "GFX_alert_second"] {
+        let (path, site) = texture(registry.get(key).expect("the dependent resolves"));
+        assert_eq!(path, "gfx/interface/icons/phase4i_vanilla.dds");
+        assert_eq!(site.source(), Some(SourceKind::VanillaContent));
+    }
+}
+
+#[test]
+fn sprite_reference_chains_and_failures_are_total_and_typed() {
+    let registry = sprites(SPRITES);
+
+    let chain = registry
+        .get("GFX_phase4i_chain_start")
+        .expect("the chain resolves")
+        .sprite
+        .as_ref()
+        .expect("sprite resolution");
+    let SpriteTextureOutcome::Resolved(texture) = &chain.texture else {
+        panic!("the two-hop chain resolves: {:?}", chain.texture);
+    };
+    assert_eq!(texture.path, "gfx/interface/icons/phase4i_mod.dds");
+    assert_eq!(texture.site.source(), Some(SourceKind::TargetMod));
+    assert_eq!(
+        chain
+            .references
+            .iter()
+            .map(|edge| edge.sprite.as_deref())
+            .collect::<Vec<_>>(),
+        [Some("GFX_phase4i_chain_middle"), Some("GFX_alerticons")]
+    );
+
+    let missing_target = registry
+        .get("GFX_phase4i_missing_target")
+        .expect("the definition survives")
+        .sprite
+        .as_ref()
+        .expect("sprite resolution");
+    assert_eq!(
+        missing_target.texture,
+        SpriteTextureOutcome::MissingTarget {
+            sprite: Some("GFX_phase4i_absent".to_owned())
+        }
+    );
+
+    let missing_texture = registry
+        .get("GFX_phase4i_missing_texture")
+        .expect("the definition survives")
+        .sprite
+        .as_ref()
+        .expect("sprite resolution");
+    assert_eq!(
+        missing_texture.texture,
+        SpriteTextureOutcome::MissingTexture
+    );
+
+    let cycle = registry
+        .get("GFX_phase4i_cycle_a")
+        .expect("the definition survives")
+        .sprite
+        .as_ref()
+        .expect("sprite resolution");
+    assert_eq!(
+        cycle.texture,
+        SpriteTextureOutcome::CyclicReference {
+            sprite: "GFX_phase4i_cycle_a".to_owned()
+        }
+    );
+    assert_eq!(cycle.references.len(), 2);
+    assert!(
+        cycle
+            .references
+            .iter()
+            .all(|edge| edge.outcome == cycle.texture)
+    );
+}
+
+#[test]
+fn resolving_sheet_edges_against_the_shadowed_definition_breaks_r17() {
+    let mut late = sprites(SPRITES);
+    assert!(r17_dependents_use_mod_texture(&late));
+
+    let early = sprites(SPRITES_EARLY);
+    let (wrong_key, wrong_sheet) = early
+        .definitions
+        .iter()
+        .find(|(key, _)| key.as_str() == "GFX_alerticons")
+        .expect("the Vanilla sheet wins the early corpus");
+    late.definitions
+        .insert(wrong_key.clone(), wrong_sheet.clone());
+    super::sprites::attach(&mut late.definitions);
+
+    assert!(
+        !r17_dependents_use_mod_texture(&late),
+        "the r17 assertion must fail when a dependent consults the shadowed Vanilla sheet \
+         instead of the final Target Mod winner"
     );
 }
 

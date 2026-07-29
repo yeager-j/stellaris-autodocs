@@ -1,0 +1,6 @@
+spriteTypes = {
+	corneredTileSpriteType = {
+		name = "GFX_phase4i_cross_file"
+		texturefile = "gfx/interface/icons/phase4i_cross_file_last.dds"
+	}
+}

@@ -173,6 +173,11 @@ pub(in crate::analysis) enum ReferenceKind {
     /// triggers" / "Scripted effects": "parameter behavior requires resolver-backed
     /// investigation").
     Parameter,
+    /// A sprite definition's `sprite_sheet_sprite_type` field. Unlike the generic script
+    /// references above, this resolves against the final winners of the sprites registry:
+    /// the r17 dependents are the evidence that consulting a shadowed sheet definition
+    /// attributes the effective texture to the wrong source.
+    SpriteSheet,
 }
 
 /// A reference found in an effective definition and deliberately not resolved here.
@@ -367,6 +372,50 @@ pub(in crate::analysis) struct InlineScriptFact {
     pub outcome: InlineOutcome,
 }
 
+/// The primary texture a resolved sprite ultimately names.
+///
+/// The path stays source text at this seam. Phase 8 owns turning it into a normalized Source
+/// Asset Reference and reading bytes; the resolver owns only which value won and where that
+/// value came from.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::analysis) struct ResolvedSpriteTexture {
+    pub path: String,
+    pub site: FactSite,
+}
+
+/// Whether a sprite has an effective primary texture.
+///
+/// Missing and cyclic references remain typed outcomes instead of becoming an empty path or
+/// a best-effort fallback to a definition the registry did not select.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::analysis) enum SpriteTextureOutcome {
+    Resolved(ResolvedSpriteTexture),
+    MissingTexture,
+    MissingTarget { sprite: Option<String> },
+    CyclicReference { sprite: String },
+}
+
+/// One `sprite_sheet_sprite_type` edge followed while resolving a sprite's texture.
+///
+/// `target` names the winning referenced definition when one exists. `outcome` is the final
+/// value reached through this edge, including that value's own source site, so a Vanilla
+/// dependent can truthfully attribute a texture supplied by the Target Mod.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::analysis) struct SpriteReferenceEdge {
+    pub sprite: Option<String>,
+    pub site: FactSite,
+    pub target: Option<FactSite>,
+    pub outcome: SpriteTextureOutcome,
+}
+
+/// Sprite-specific resolved content attached only to definitions from the sprites row.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::analysis) struct SpriteResolution {
+    pub texture: SpriteTextureOutcome,
+    /// Edges from the definition outward, in reference order.
+    pub references: Vec<SpriteReferenceEdge>,
+}
+
 /// One field of the effective definition, and how it got there.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::analysis) struct EffectiveField {
@@ -414,6 +463,9 @@ pub(in crate::analysis) struct ResolvedDefinition {
     /// the winning definition exactly as parsed, because `body` is what carries the source
     /// ranges Source Excerpts need and a fragment's content has ranges into another file.
     pub inline_expansions: Vec<InlineScriptFact>,
+    /// The primary texture and sheet-reference chain for a definition from the sprites row.
+    /// `None` for every other registry.
+    pub sprite: Option<SpriteResolution>,
 }
 
 impl ResolvedDefinition {

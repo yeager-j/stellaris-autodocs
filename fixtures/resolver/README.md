@@ -50,6 +50,9 @@ Stellaris installed.
 | `buildings/` | `r8-registries` | A late whole-object redefinition plus a new-key control proves the mod file contributed. |
 | `components/` | `r8-registries` | Clean component templates share a block label but have distinct quoted direct `key` values. |
 | `components-repeat/` | `r8-registries` | A repeated direct component key reaches the intentionally unresolved duplicate-winner cell. |
+| `sprites-vanilla/` | the base-game side of `r17-sprites` and `r18-sprites-early` | One sheet sprite with two Vanilla dependents whose `sprite_sheet_sprite_type` edges make the sheet winner observable. |
+| `sprites/` | `r17-sprites` | Same-file, cross-file, and late cross-source replacements plus reference chains and typed missing/cyclic controls. Block labels deliberately vary so `name`, not `spriteType`, is the registry key. |
+| `sprites-early/` | `r18-sprites-early` | The same sheet override under a filename sorting before Vanilla's `alerts.gfx`, so the Target Mod definition is read and then displaced. |
 
 ## Reading them
 

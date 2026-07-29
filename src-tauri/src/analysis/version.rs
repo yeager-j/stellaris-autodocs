@@ -109,7 +109,7 @@ mod tests {
         // becomes undecodable, which is the failure the no-`skip_serializing_if` rule
         // exists to prevent (docs/technical-design.md:651; precedent state/model.rs:67).
         let minimal: AnalysisVersionVector = serde_json::from_str(
-            r#"{"source_enumeration":3,"parsed_model":1,"resolution_profile":5,
+            r#"{"source_enumeration":3,"parsed_model":1,"resolution_profile":6,
                 "documentation":1,"localization_interpretation":1,"search":1,
                 "canonical_encoding":1,"hidden_route_identity":1,
                 "analysis_issue_propagation":1}"#,
@@ -136,13 +136,13 @@ mod tests {
     fn pinned_current_digest() {
         // Pinned regression value: any component bump changes this and must re-pin it,
         // which is exactly the review moment the version vector exists to force.
-        // Re-pinned for resolution_profile = 5 (Phase 4H, STE-29 — events, buildings,
-        // megastructures, and ship-components are declared, and an open duplicate-winner
-        // cell now refuses lazily at a real repeat). Every prior pin stays reachable through
-        // this file's history; what matters is that the bump and the re-pin land together.
+        // Re-pinned for resolution_profile = 6 (Phase 4I, STE-30 — sprites are declared and
+        // sheet references resolve against final winners with texture-source provenance).
+        // Every prior pin stays reachable through this file's history; what matters is that
+        // the bump and the re-pin land together.
         assert_eq!(
             AnalysisVersionVector::current().digest().to_hex(),
-            "0b3476616ed7bee53a3b1d2a0b069d9b34566dc5adc657bcf59ef00fcea25322"
+            "68a2d8fa2cf52dc2e461453beac501e07e43974d6cb49b3950f90bc41eddb3e9"
         );
     }
 
