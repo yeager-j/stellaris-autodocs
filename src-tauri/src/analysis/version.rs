@@ -3,6 +3,7 @@
 //! representation"). Each component starts at 1 and is bumped by hand in the phase that
 //! changes the component's behavior.
 
+use super::resolver::RESOLUTION_PROFILE_VERSION;
 use crate::canonical::encode::{CanonicalDigest, DigestBytes, ENCODING_VERSION};
 use crate::source::policy::ENUMERATION_POLICY_VERSION;
 use serde::{Deserialize, Serialize};
@@ -43,7 +44,10 @@ impl AnalysisVersionVector {
             // asserts it beside the allowlists it versions.
             source_enumeration: ENUMERATION_POLICY_VERSION,
             parsed_model: 1,
-            resolution_profile: 1,
+            // Read from `resolver::profile`, which owns the rows, the streams, and the game
+            // build they were established against — the same reason `source_enumeration`
+            // above quotes its policy's constant rather than repeating its value.
+            resolution_profile: RESOLUTION_PROFILE_VERSION,
             documentation: 1,
             localization_interpretation: 1,
             search: 1,

@@ -850,15 +850,16 @@ The resolver module must consume the resolved policies, reproduce the captured o
 | --- | --- |
 | Pre-implementation evidence collection | **Complete.** Every row has been investigated as far as the current external observables permit. |
 | Complete Resolution Profile | **Partial.** Named open cells include megastructure field behavior, ship-component duplicate selection, scripted trigger and effect parameter behavior, and scripted-constant cross-source behavior. |
-| Controlled resolver reproduces every oracle result | **Not started.** No resolver exists yet; the captured records are its golden expectations. |
-| Provenance distinguishes fact kinds and semantic order | **Not started.** Requires the resolver. |
-| Deterministic enumeration | **Evidence established.** Game-semantic order is content-specific; the resolver must reproduce it without trusting filesystem enumeration order. |
-| Unsupported content types fail visibly | **Not started.** Requires the resolver. |
-| Stellaris-update comparison | **Harness ready.** `capture.py` records the installed build in every manifest; automated resolver comparison does not exist yet. |
+| Controlled resolver reproduces every oracle result | **Partial.** The Phase 4D core reproduces `r3`, `r6`, and `r10` — file selection, the one global path order, and both repeat rules — as machine-checked expectations over restated license-clean fixtures. Row-specific records (`r0`, `r1`, `r4`, `r8`, `r9`, `r11`–`r18`) are consumed by their own row tickets. |
+| Provenance distinguishes fact kinds and semantic order | **Implemented.** Contributed, inherited, defaulted, duplicate, and shadowed, each carrying stream position, source identity, logical path, and definition ordinal; a file removed by selection records the mechanism that removed it rather than a fabricated position. |
+| Deterministic enumeration | **Evidence established, and implemented for the core.** Streams are built from normalized logical paths, never from filesystem enumeration order. |
+| Unsupported content types fail visibly | **Implemented.** An undeclared registry and an unresolved policy cell are typed refusals naming the cell and the observation that would settle it. A cell may be open conditionally: a row measured within one source resolves same-source collisions and refuses cross-source ones. |
+| Stellaris-update comparison | **Automated for the consumed records.** The Resolution Profile pins the build every record was captured against and compares it, plus each record's artifact digests, on every ordinary test run. A re-capture blocks until the profile version and expectations are revised together. |
 
-The evidence-collection spike is complete. The Resolution Profile is not globally complete,
-and the resolver conformance phase has not started. Resolved rows are implementation inputs;
-unresolved cells remain unsupported without a fallback.
+The evidence-collection spike is complete. The Resolution Profile is not globally complete:
+the core exists and declares **no registry rows yet**, so every registry still refuses.
+Resolved rows are implementation inputs; unresolved cells remain unsupported without a
+fallback.
 
 ## Captured records
 

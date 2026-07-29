@@ -1,0 +1,21 @@
+# Stand-in Vanilla Content. Original work; no Stellaris file is reproduced.
+#
+# `tech_contested` is the key an early-sorting mod file also defines, so it is what the
+# replace-on-repeat registry decides. `tech_untouched` is the control: it lives in the same
+# file and nothing collides with it, so its survival separates "one definition lost" from
+# "the file stopped contributing".
+
+tech_contested = {
+	tier = 2
+	cost = 1000
+	category = { trial_category }
+	potential = {
+		always = yes
+	}
+}
+
+tech_untouched = {
+	tier = 1
+	cost = 100
+	category = { trial_category }
+}

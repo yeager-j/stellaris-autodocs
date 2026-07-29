@@ -1,0 +1,11 @@
+# Original work; no Stellaris file is reproduced.
+#
+# The declarer's OWN file inside the directory it replaces. It must still load: r3 excluded
+# the whole vanilla technology tree and the declaring mod's three technologies all
+# registered. "Exclude every other source's files here" is the rule; "this directory now
+# holds only what I ship and nothing resolves" is not.
+
+tech_declarer_own = {
+	tier = 1
+	cost = 20
+}

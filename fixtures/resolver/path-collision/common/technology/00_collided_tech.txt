@@ -1,0 +1,10 @@
+# Original work; no Stellaris file is reproduced.
+#
+# Exactly the logical path `vanilla/` uses, and it defines NEITHER of the two keys that file
+# defines. The vanilla file must contribute nothing at all — not the keys this one replaces,
+# because there are none, but the keys it never mentions. Merge-by-key would keep them.
+
+tech_sentinel = {
+	tier = 1
+	cost = 10
+}

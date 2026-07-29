@@ -1,0 +1,15 @@
+# Stand-in Vanilla Content. Original work; no Stellaris file is reproduced.
+#
+# The reject-on-repeat half of the r10 pair. `notice_contested` is redefined by an
+# early-sorting mod file; under a reject-on-repeat rule the mod's earlier registration is the
+# one that survives, which is the outcome no layer model produces.
+
+notice_contested = {
+	title = "baseline notice"
+	is_triggered_only = yes
+}
+
+notice_untouched = {
+	title = "baseline only"
+	is_triggered_only = yes
+}

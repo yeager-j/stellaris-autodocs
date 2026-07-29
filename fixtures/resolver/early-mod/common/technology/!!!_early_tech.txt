@@ -1,0 +1,16 @@
+# Original work; no Stellaris file is reproduced.
+#
+# `!!!` sorts ahead of `00`, so this file is read FIRST. Against a replace-on-repeat
+# registry that means it loses: the later vanilla definition replaces it. The identical
+# filename convention wins the reject-on-repeat registry in `events/`, and that opposite pair
+# is what rules out a layer model (r10-loadorder).
+#
+# It also omits `potential`, which the vanilla definition states. Under whole-object
+# replacement that field would be absent rather than inherited — asserted here only where
+# this file actually wins.
+
+tech_contested = {
+	tier = 9
+	cost = 5
+	category = { trial_category }
+}
