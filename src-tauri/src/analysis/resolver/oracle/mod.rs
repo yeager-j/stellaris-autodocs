@@ -362,7 +362,7 @@ use super::trial::{
     REDEFINITION_BODY, REDEFINITION_FLIPPED, REDEFINITION_FLIPPED_BODY, REGISTRATION,
     REGISTRATION_FLIPPED, REPLACE_PATH, RISKY_CONSTANTS, SPRITES, SPRITES_EARLY, TRIGGERS_A_BODY,
     TRIGGERS_A_FLIPPED_BODY, TRIGGERS_B_BODY, TRIGGERS_B_FLIPPED_BODY, buildings_vanilla, corpus,
-    events_vanilla, inline_vanilla, localization_vanilla, redefinition_vanilla,
+    events_vanilla, inline_vanilla, localization_vanilla, named, redefinition_vanilla,
     registration_vanilla, sprites_vanilla, vanilla,
 };
 use super::{Resolution, profile, resolve};
@@ -508,15 +508,6 @@ fn technologies(resolution: &Resolution<'_>) -> ResolvedRegistry {
     resolution
         .registry("technologies")
         .unwrap_or_else(|refusal| panic!("the declared technologies row resolves: {refusal}"))
-}
-
-/// A declared row resolved by name, panicking with the refusal on the caller's behalf. Named
-/// separately from [`technologies`] because Phase 4F's expectations ask three different rows
-/// by name, not one.
-fn named(resolution: &Resolution<'_>, registry: &str) -> ResolvedRegistry {
-    resolution
-        .registry(registry)
-        .unwrap_or_else(|refusal| panic!("the declared {registry} row resolves: {refusal}"))
 }
 
 /// `registration-vanilla/` paired with `registration/`: `r1-target`'s trigger, effect, and

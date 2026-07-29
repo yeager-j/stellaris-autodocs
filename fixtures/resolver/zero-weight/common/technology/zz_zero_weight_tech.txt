@@ -1,0 +1,103 @@
+# Original work; no Stellaris file is reproduced.
+#
+# Golden case 2's shape: a technology whose base Draw Weight is nonzero and whose weight is
+# nevertheless multiplied to zero while one condition holds. The case exists to keep two things
+# apart that a page can easily merge — eligibility and drawability — so the fixture's job is to
+# make the `×0` clause a fact about *one* modifier of *one* definition and nothing else.
+#
+# Restates the shape of the pinned Vanilla example rather than its bytes. `D-008` pins
+# `tech_combat_computers_3`, whose AI-outlawed modifier states `factor = 0` while the
+# similarly named `tech_sapient_ai` is its prerequisite and carries no such clause. That decoy
+# is half the difficulty, so the fixture keeps it:
+#
+#   tech_zero_weight_subject       SUBJECT  - the `×0` clause, gated on one condition
+#   tech_zero_weight_control       CONTROL  - the same clause at `factor = 0.5`, else identical
+#   tech_zero_weight_prerequisite  CONTROL  - the subject's prerequisite, no `×0` clause at all
+#
+# Subject and control differ in exactly one token. Removing the clause from the control instead
+# would have changed its modifier count too, and then "the resolver lost the zero" and "the
+# resolver lost a modifier" would be the same red test.
+#
+# The prerequisite is the decoy: it shares the subject's other modifiers and its name stem, so a
+# result that attributes the `×0` to it — or to the pair's shared modifiers — is visible here
+# rather than in Phase 6.
+#
+# Every value is a literal. `weight` is stated, not referenced, because this corpus's claim is
+# about a modifier clause; the constant-fed base value is `../enigmalith/`'s claim.
+#
+# `potential` is stated on all three: golden case 2 requires that the subject remains
+# documented as *otherwise eligible*, which is only observable when eligibility is present to
+# begin with.
+
+tech_zero_weight_subject = {
+	area = engineering
+	cost = 2000
+	tier = 4
+	category = { trial_computing }
+	weight = 100
+	prerequisites = { "tech_zero_weight_prerequisite" }
+	potential = {
+		always = yes
+	}
+	weight_modifier = {
+		modifier = {
+			factor = 2
+			has_trial_flag = trial_research_focus
+		}
+		modifier = {
+			factor = 0.25
+			has_trial_flag = trial_industry_focus
+		}
+		modifier = {
+			factor = 0
+			has_policy_flag = trial_ai_outlawed
+		}
+	}
+}
+
+tech_zero_weight_control = {
+	area = engineering
+	cost = 2000
+	tier = 4
+	category = { trial_computing }
+	weight = 100
+	prerequisites = { "tech_zero_weight_prerequisite" }
+	potential = {
+		always = yes
+	}
+	weight_modifier = {
+		modifier = {
+			factor = 2
+			has_trial_flag = trial_research_focus
+		}
+		modifier = {
+			factor = 0.25
+			has_trial_flag = trial_industry_focus
+		}
+		modifier = {
+			factor = 0.5
+			has_policy_flag = trial_ai_outlawed
+		}
+	}
+}
+
+tech_zero_weight_prerequisite = {
+	area = engineering
+	cost = 1000
+	tier = 3
+	category = { trial_computing }
+	weight = 100
+	potential = {
+		always = yes
+	}
+	weight_modifier = {
+		modifier = {
+			factor = 2
+			has_trial_flag = trial_research_focus
+		}
+		modifier = {
+			factor = 0.25
+			has_trial_flag = trial_industry_focus
+		}
+	}
+}

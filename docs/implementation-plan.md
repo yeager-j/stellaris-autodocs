@@ -49,7 +49,7 @@ Two ideas shape the order:
 1. **Prove the risky seams first.** The atomic publication chain (state pointer ↔ bundle move ↔ readers), source snapshot consistency, and the Tauri/HTTP dual-transport contract are where late integration would hurt most. A walking skeleton (Phase 3) drives a stub analysis through real state, source, revisions, and a real Tauri read before any deep analysis exists. From then on, every phase lands inside a working end-to-end harness instead of waiting for a big-bang integration.
 2. **Deep modules land in dependency order, each behind its accepted contract.** Parser → resolver → localization → generator → search/assets → workflows → frontend → companion. Search (Phase 7) and Assets (Phase 8) have no dependency on each other and can proceed in parallel once Phase 6 fixes the Analysis Draft shapes.
 
-The five golden cases are the acceptance backbone: fixture authoring starts early (Phase 4) and each later phase widens which golden assertions pass. The pinned "ordinary drawable vanilla technology" is selected in Phase 4 when resolver fixtures are authored.
+The five golden cases are the acceptance backbone: fixture authoring starts early (Phase 4) and each later phase widens which golden assertions pass. The pinned "ordinary drawable vanilla technology" was selected in Phase 4 when resolver fixtures were authored — `tech_xeno_relations`, recorded as `D-132` in [the decision log](./decision-log.md).
 
 ## Ticketing
 
@@ -282,7 +282,7 @@ These run inside phases rather than as separate phases:
 | --- | --- |
 | Typo-tolerant search algorithm and index representation | Phase 7, task 3 |
 | Final serialized fields for operation-specific Result payloads | Phase 9 detailed plan |
-| Pinned ordinary drawable vanilla technology | Phase 4, task 7 |
+| Pinned ordinary drawable vanilla technology | **Resolved** in Phase 4, task 7 — `tech_xeno_relations`, with its rationale recorded as `D-132` in [the decision log](./decision-log.md) |
 | Unresolved Resolution Profile cells | Phase 4 (resolver-backed tests close named cells; unclosed cells stay visibly failing) |
 | Graph layout implementation (`@xyflow/react` + Dagre) | Phase 12, task 6 — only with Enigmalith evidence |
 | Project name and copyright wording | Phase 12, task 6 |

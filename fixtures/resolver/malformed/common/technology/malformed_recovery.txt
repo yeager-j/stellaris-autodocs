@@ -1,0 +1,47 @@
+# Original work; no Stellaris file is reproduced.
+#
+# Golden case 4's losing definition: the one a fault costs outright.
+#
+# `tech_malformed_absent`'s opening brace is never closed, so the parser cannot emit that
+# definition at all. Everything proven before the fault stays Clean, resynchronization resumes
+# at the next column-zero identifier, and what follows is Recovered because its nesting may
+# have been misattributed (`docs/technical-design.md`, "Recovery is a heuristic about source
+# layout, not a rule of the grammar").
+#
+# Three keys, three different fates, so the fates are distinguishable rather than one red
+# result:
+#
+#   tech_malformed_clean      CONTROL  - before the fault, stays Clean
+#   tech_malformed_absent     SUBJECT  - unclosed brace, never emitted, absent
+#   tech_malformed_recovered  SUBJECT  - after resynchronization, emitted as Recovered
+#
+# `tech_malformed_recovered` sitting *after* the fault is what makes the absence readable:
+# without it, "the parser stopped at the fault" and "the parser lost this one definition" would
+# produce the same file. Its body is deliberately ordinary — a definition that recovers is
+# still a definition, and the point is that its evidence quality dropped, not its content.
+#
+# Filename order carries no meaning in this corpus. Every key here is unique and nothing in
+# `../` contests one, so no result depends on where these files land in the stream.
+
+tech_malformed_clean = {
+	area = physics
+	cost = 100
+	tier = 1
+	category = { trial_computing }
+	weight = 10
+}
+
+tech_malformed_absent = {
+	area = society
+	cost = 200
+	tier = 2
+	category = { trial_military_theory }
+	weight = 20
+
+tech_malformed_recovered = {
+	area = engineering
+	cost = 300
+	tier = 3
+	category = { trial_industry }
+	weight = 30
+}

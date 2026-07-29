@@ -1,8 +1,9 @@
 # Resolver fixtures
 
-Corpora for the resolver's oracle-expectation suite
-(`src-tauri/src/analysis/resolver/oracle/`). Every file here is **original work for this
-repository**. No Stellaris content is copied, and no vanilla file is reproduced.
+Corpora for the resolver's expectation suites — `src-tauri/src/analysis/resolver/oracle/` for the
+record-backed rules, and `src-tauri/src/analysis/resolver/golden.rs` for the golden-case shapes that
+have no record. Every file here is **original work for this repository**. No Stellaris content is
+copied, and no vanilla file is reproduced.
 
 ## Why these restate the oracle records rather than reusing them
 
@@ -56,6 +57,27 @@ Stellaris installed.
 | `localization-vanilla/` | the base-game side of `r13-loc-methods` and `r14-loc-samepath` | Two localization files: one a mod collides with and one untouched control proving shadowing stays scoped to the losing file. |
 | `localization-methods/` | `r13-loc-methods`, plus `r15-loc-modvmod`'s `replace/` phase | An early ordinary file, a late ordinary file, and an early-named `replace/` file prove source phase and replacement phase outrank filename order. |
 | `localization-samepath/` | `r14-loc-samepath` | One Target Mod file at the Vanilla technology-localization path. The resolver stops at whole-file selection, before interpreting which keys the loser contained. |
+
+## The golden-case corpora
+
+The six below are the exception to this file's framing: they restate a **golden case** from
+[`docs/mvp-acceptance.md`](../../docs/mvp-acceptance.md) rather than an oracle record, and no
+captured observation of the game anchors them. Their expectations live in
+`src-tauri/src/analysis/resolver/golden.rs` for that reason — `oracle/` is where a claim rests on a
+record — and each one states there what it can honestly assert before Phase 6 exists.
+
+Golden case 5's corpora are `redefinition*/` above, which do rest on records (`r1`, `r4`, `r10`).
+Golden case 1 needs no fixture: its subject is a pinned *vanilla* technology, reached through the
+drift-checked local-corpus run, and named in `docs/decision-log.md` (D-132).
+
+| Corpus | Restates | Shape |
+| --- | --- | --- |
+| `malformed-vanilla/` | golden case 4's untouched side | One key defined here and contested by nothing, so "successfully analyzed content remains searchable" has a definition no mod-side fault could have reached. |
+| `malformed/` | golden case 4 | Three files whose faults cost three different things. `malformed_recovery.txt` loses a definition outright to an unclosed brace and downgrades what follows it to Recovered; `malformed_stray_brace.txt` loses no definition and downgrades anyway; `malformed_intact.txt` is wholly clean, which is what separates "this file recovered" from "the corpus broke". |
+| `zero-weight-vanilla/` | golden case 2's scoping control | One uncontested key with no `weight_modifier` at all, so the `×0` result is provably scoped to one modifier of one definition. |
+| `zero-weight/` | golden case 2 | A matched pair differing in exactly one token — `factor = 0` against `factor = 0.5` on the same gated modifier — plus the prerequisite decoy `D-008` names, which shares the subject's other modifiers and its name stem and must never carry the zero. |
+| `enigmalith-vanilla/` | golden case 3's base values | The scripted constants the technologies read across sources: a zero draw weight, a nonzero one for the control, and a base cost. Declared here so the read is genuinely cross-source, and redeclared nowhere so the constants row's open cross-source collision cell is not reached. |
+| `enigmalith/` | golden case 3 | A zero base Draw Weight fed by a constant rather than stated inline, its matched nonzero control, two events granting the same technology from *different* enclosing actions (an `immediate` and an `option`) plus one that grants nothing, and a megastructure entry the megastructures row refuses to interpret on its open field cell — asserted both as present at the parser seam and as visibly refused at the resolver's. |
 
 ## Reading them
 

@@ -1,0 +1,49 @@
+# Original work; no Stellaris file is reproduced.
+#
+# Golden case 3's technology: zero base Draw Weight, reached through a constant rather than
+# stated inline, and no `weight_modifier` at all.
+#
+#   tech_enigmalith_subject  SUBJECT  - `weight = @enigmalith_zero_draw`, resolves to 0
+#   tech_enigmalith_control  CONTROL  - `weight = @enigmalith_drawn_draw`, resolves to 25
+#
+# The pair is what makes zero a *result*. Both keys read a Vanilla-declared constant through the
+# same path, so a resolution that reported zero for both would be reporting the absence of a
+# value, and one that reported 25 for both would be reporting the wrong declaration. Only the
+# symbol differs between them.
+#
+# `cost` reads `@enigmalith_base_cost` on both, which is the "resolved base cost" half of the
+# same requirement: the effective field keeps the reference text and the resolved value arrives
+# as a separate fact, so a page can show the base value without the resolver having rewritten
+# the source it cites.
+#
+# No `weight_modifier`. Golden case 3's zero is a *base* weight, which is a different mechanism
+# from golden case 2's `×0` modifier; `../zero-weight/` owns that one. A fixture carrying both
+# would let a page that confused them still pass.
+#
+# The technology is granted by two separate events in `../enigmalith/events/`, and the
+# megastructure that names it lives in `../enigmalith/common/megastructures/`. Neither link is
+# modeled at this seam — nothing in the resolver walks an event body looking for a grant, and the
+# megastructures row refuses on its open field cell before reading a file. Both are asserted as
+# what they are: structures present in the corpus, not routes derived from it.
+
+tech_enigmalith_subject = {
+	area = engineering
+	cost = @enigmalith_base_cost
+	tier = 5
+	category = { trial_materials }
+	weight = @enigmalith_zero_draw
+	potential = {
+		always = yes
+	}
+}
+
+tech_enigmalith_control = {
+	area = engineering
+	cost = @enigmalith_base_cost
+	tier = 5
+	category = { trial_materials }
+	weight = @enigmalith_drawn_draw
+	potential = {
+		always = yes
+	}
+}

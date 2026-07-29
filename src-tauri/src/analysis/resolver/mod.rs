@@ -68,6 +68,8 @@ mod sprites;
 mod stream;
 
 #[cfg(test)]
+mod golden;
+#[cfg(test)]
 mod oracle;
 #[cfg(test)]
 mod trial;

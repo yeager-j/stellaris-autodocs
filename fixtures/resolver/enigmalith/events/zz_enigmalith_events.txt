@@ -1,0 +1,66 @@
+# Original work; no Stellaris file is reproduced.
+#
+# The two enclosing actions golden case 3 needs: one technology granted from two different
+# places, so the case's "separately typed route cards" claim has two distinct things to separate.
+#
+#   enigmalith.databank      SUBJECT  - grants from an `immediate` block, plus research progress
+#   enigmalith.final_spark   SUBJECT  - grants from an `option`, under an origin-specific trigger
+#   enigmalith.notice        CONTROL  - names the technology nowhere
+#
+# The two grants deliberately sit in *different* enclosing actions rather than in two copies of
+# the same one. `D-051` keeps routes separate even when their terminal effects match — "shared
+# terminal effects such as `add_research_option` do not cause their preceding routes to be
+# merged" — and a fixture with two identical enclosing shapes could not tell a resolver that
+# merged on the effect apart from one that kept the sites distinct. The Databank route also adds
+# progress and the Final Spark route does not, which is the difference `D-052` says the two
+# cards' Unlock Effects must state precisely.
+#
+# `enigmalith.notice` is the scoping control. Without it, "two events grant this technology" and
+# "every event in this corpus mentions it" are the same observation.
+#
+# What this corpus does **not** claim: nothing in the resolver reads an event body looking for a
+# grant. `ReferenceKind` is a closed four-variant set and none of its variants is a grant, so
+# there is no reverse index from a technology to the actions that award it. The events row
+# resolves registration — the `id` key, first-wins on repeat — and these bodies are retained
+# exactly as parsed. Phase 6 owns Grant Sites and route identity; this file is the evidence it
+# will need, committed early, not an assertion that the work is done.
+
+namespace = enigmalith
+
+country_event = {
+	id = enigmalith.databank
+	title = enigmalith_databank_title
+	is_triggered_only = yes
+
+	immediate = {
+		add_research_option = tech_enigmalith_subject
+		add_tech_progress = {
+			tech = tech_enigmalith_subject
+			progress = 0.2
+		}
+	}
+}
+
+country_event = {
+	id = enigmalith.final_spark
+	title = enigmalith_final_spark_title
+	is_triggered_only = yes
+
+	option = {
+		name = enigmalith_final_spark_option
+		trigger = {
+			has_trial_origin = trial_origin_final_spark
+		}
+		add_research_option = tech_enigmalith_subject
+	}
+}
+
+country_event = {
+	id = enigmalith.notice
+	title = enigmalith_notice_title
+	is_triggered_only = yes
+
+	immediate = {
+		set_trial_flag = trial_enigmalith_noticed
+	}
+}

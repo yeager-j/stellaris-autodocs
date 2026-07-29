@@ -1,0 +1,28 @@
+# Original work; no Stellaris file is reproduced.
+#
+# The related megastructure entry golden case 3 needs: a search for the subject must return
+# separately typed technology and megastructure entries, which requires a megastructure that
+# names the technology.
+#
+#   megastructure_enigmalith_site  SUBJECT  - gated on the technology, in the megastructures scope
+#
+# This file is the one piece of the corpus the resolver deliberately cannot interpret. The
+# megastructures row's field cell is open — `r8` cannot distinguish whole replacement from
+# inherited fields for a megastructure redefinition — and that cell is eager, so asking for the
+# row refuses before a file is read. The refusal is the correct answer and the fixture asserts it
+# as one: an unresolved cell fails visibly rather than becoming implementation discretion
+# (`docs/technical-design.md`, "unsupported rows fail visibly").
+#
+# Which is exactly why the assertion has two halves. The refusal alone would be just as green
+# over a corpus containing no megastructure at all, so the suite also parses this file at the
+# parser seam and asserts the definition is here and Clean. One half proves the content exists;
+# the other proves the row is honest about not yet interpreting it. Closing the cell is STE-22's
+# stretch capture, and when it closes this file is already the corpus that tests it.
+
+megastructure_enigmalith_site = {
+	entity = "enigmalith_site_entity"
+	construction_blocked = no
+	potential = {
+		has_technology = tech_enigmalith_subject
+	}
+}

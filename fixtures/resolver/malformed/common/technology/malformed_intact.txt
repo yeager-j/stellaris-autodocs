@@ -1,0 +1,17 @@
+# Original work; no Stellaris file is reproduced.
+#
+# The scoping control. A wholly clean file in a corpus whose other two files both fault.
+#
+# Without it, "this file recovered" and "the corpus broke" are the same observation. Golden
+# case 4's claim is that successfully analyzed content remains searchable and documented, and
+# that claim is only testable against content whose evidence a fault never touched.
+#
+#   tech_intact_baseline  CONTROL  - Clean, in a corpus with two faulted files
+
+tech_intact_baseline = {
+	area = engineering
+	cost = 400
+	tier = 4
+	category = { trial_industry }
+	weight = 40
+}

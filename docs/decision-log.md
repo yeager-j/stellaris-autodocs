@@ -1086,6 +1086,48 @@ A doc comment alone would survive Phase 6 and start lying, so the claim is asser
 
 **Corpus accessors lend `&SourceSnapshot` rather than yielding it.** `source::snapshot::establish` produces a `LiveSource` that exposes only a borrow, and `SourceSnapshot` is not `Clone` because it holds a mutex of captured asset reads — so a by-value accessor would be exactly the memory-backed assumption that forks the harness when Phase 4 task 8 points a run at an installed Vanilla and ACOT. Borrowing lets that phase make the backing an enum inside the corpus module and change nothing else.
 
+### Golden fixtures
+
+Recorded 2026-07-29 on completion of Phase 4K (STE-32), golden fixture authoring. These resolve the implementation plan's open-decision row "Pinned ordinary drawable vanilla technology" and extend D-008, which pinned golden case 2's subject the same way.
+
+**D-132 — Golden case 1's ordinary drawable technology is `tech_xeno_relations`**
+
+Selected by surveying all 355 base-game technologies in the installed `Pegasus v4.4.6` (`modsCompatibilityVersion 4.4`) against every property [`docs/mvp-acceptance.md`](./mvp-acceptance.md)'s golden case 1 must later assert. Eighty-three carried all of them; the tie-breakers below are what narrowed those.
+
+| Case 1 requirement | What the technology supplies |
+| --- | --- |
+| Nonzero Draw Weight | `weight = @tier3weight1` — nonzero, and reached through the implemented scripted-constants row rather than stated as a literal |
+| Resolved base cost | `cost = @tier3cost2` — likewise a constant, so "resolved base value" is a real resolution and not a copy |
+| Prerequisite technologies | two, `tech_xeno_diplomacy` and `tech_galactic_administration`, so the prerequisite view is exercised beyond a single edge |
+| Eligibility requirements and blockers | `potential = { is_regular_empire }`, a scripted trigger whose own body is an `OR` over `is_country_type` plus a `NOT` over `has_ethic` — both halves, and reached through the scripted-triggers row rather than sitting inline |
+| Base Draw Weight and conditional Weight Modifiers | eight modifiers over `has_ethic`, `has_civic`, and `is_galactic_community_member` |
+| Content unlocked | `building_grand_embassy` names it by key, and the `buildings` row has no open cells |
+| Technology icon rendering | `gfx/interface/icons/technologies/tech_xeno_relations.dds` exists |
+| Multi-language localization | name and `_desc` defined in all ten shipped languages |
+| Bounded Source Excerpts | 55 lines, well inside the 16 KiB bound |
+
+**The tie-breaker that decided it is the absence of a `factor = 0` clause.** Case 1's subject must be *ordinary*, and a technology that also carried a conditional `×0` would make the ordinary case simultaneously a zero-weight case, blurring the one distinction golden case 2 exists to prove. That is what rejected the otherwise stronger runner-up, `tech_robotic_workers`: it states its blockers directly in `potential` as a `NOR` rather than behind a scripted trigger, and it unlocks a building *and* a decision, but two of its eight weight modifiers are `factor = 0`.
+
+Two further constraints, both about keeping the oracle observation reproducible: it declares no `host_has_dlc`, so the observation does not depend on which DLC the observing installation owns, and it uses no `technology_swap`, a construct rare enough that building the ordinary path on it would be building on the exception.
+
+The properties above are facts about the installed build, not about a committed fixture. Golden case 1 is therefore reached through the drift-checked local-corpus run (Phase 4 task 8) rather than through `fixtures/resolver/`; a re-capture under a new game build is what re-checks them, and a changed result blocks the version update the same way every other oracle claim does.
+
+**D-133 — A golden-case fixture that no record anchors is asserted separately from the oracle suite**
+
+Golden cases 2, 3, and 4 describe *shapes* a mod corpus can have — a conditional `×0` modifier, a zero base Draw Weight granted from two enclosing actions, a corpus that partly fails to parse. None needs an observation of the game to be worth committing, and none has one. So their expectations live in `src-tauri/src/analysis/resolver/golden.rs` rather than in `oracle/`, whose every claim is anchored to a run under `docs/spikes/oracle-records/` and gated against the pinned build. Filing them under `oracle` would imply an anchor that does not exist. Golden case 5 stays in `oracle/` because it genuinely has one (`r1`, `r4`, `r10`).
+
+**Two seams these fixtures deliberately do not assert across, stated because a fixture committed with no expectation is indistinguishable from one nobody reads.** Drawability is not modeled: a `factor = 0` clause is a container the technologies row preserved, and that it *means* "will not appear through normal random research" is golden case 2's product claim, owned by Phase 6. Grants are not modeled either — `ReferenceKind` is a closed four-variant set with no grant among them, nothing walks an event body looking for one, and no reverse index leads from a technology to the actions that award it — so golden case 3's two enclosing actions are asserted as structures present in resolved event bodies, not as routes derived from them.
+
+**The Enigmalith megastructure is asserted twice, and needs both halves.** The megastructures row refuses on its open `FieldRule` cell before reading a file, so the refusal alone would be equally green over a corpus containing no megastructure at all. The suite therefore also parses the file at the parser seam and asserts the definition is present and Clean. One half proves the content exists; the other proves the row is honest about not yet interpreting it.
+
+**D-134 — The acceptance harness runs the golden-case corpora, and cannot assert them**
+
+Each fixture is also a named `AcceptanceCorpus` constructor, so the standard thread runs over it now and Phase 6 does not have to introduce a corpus on the day bytes stop being inert. What those cases assert is thin on purpose: the corpus is a distinct observation, its build publishes, and the read serves the revision back. `analysis::parser` and `analysis::resolver` are crate-private, so an integration target cannot parse or resolve anything — which D-128's honesty control already asserts from the other direction — and a case there that appeared to claim more would be claiming a seam it cannot see.
+
+These are the first constructors in that target to read committed bytes through `include_bytes!` rather than inline literals, which the Phase 3 corpora deliberately avoided for `fixtures/oracle/*`. That reasoning does not carry: the oracle fixtures are frozen because every captured record's manifest pins their SHA-256, `fixtures/resolver/*` are pinned by nothing, and no case in the target depends on a revision identifier's value — only on two of them differing. The alternative would have been a corpus whose bytes were a paraphrase of the fixture, sharing its name and not its content.
+
+The file lists are consequently stated twice, once in `resolver::trial` and once in the acceptance target, because the first is crate-private. `corpora::every_committed_fixture_file_reaches_a_corpus` walks the committed tree and compares, making the directory the authority and both tables derivations of it. Without it the failure that hides is a fixture file added for one suite and silently skipped by the other, since every corpus still builds and every case still passes.
+
 ## Provisional decisions
 
 **P-004 — Adopt the extracted serializable Result package**

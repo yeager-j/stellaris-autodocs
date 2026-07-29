@@ -20,7 +20,7 @@ use super::registry::{
     ProvenanceRule, ReferenceHandling, ReferenceRule, RegistryPolicy, RepeatRule, Replacement,
     ShadowUnit, StreamScope,
 };
-use super::resolved::{FactKind, ReferenceKind};
+use super::resolved::{FactKind, ReferenceKind, ResolvedRegistry};
 use super::stream::{ContentFamily, FileScope};
 
 macro_rules! fixture {
@@ -122,6 +122,18 @@ pub(super) const REDEFINITION_BODY: &[u8] =
     fixture!("redefinition/common/technology/zz_redefinition_tech.txt");
 pub(super) const REDEFINITION_FLIPPED_BODY: &[u8] =
     fixture!("redefinition-flipped/common/technology/!!!_redefinition_tech.txt");
+
+/// A declared row resolved by name, panicking with the refusal on the caller's behalf.
+///
+/// Asking by name rather than through `resolve_row` is deliberate wherever a suite's claim is
+/// about the *declared* profile: `resolve_row` would prove the weaker thing, that a policy works
+/// when handed straight to the engine. Both [`super::oracle`] and [`super::golden`] make claims
+/// of the stronger kind, which is why this lives here rather than in either of them.
+pub(super) fn named(resolution: &super::Resolution<'_>, registry: &str) -> ResolvedRegistry {
+    resolution
+        .registry(registry)
+        .unwrap_or_else(|refusal| panic!("the declared {registry} row resolves: {refusal}"))
+}
 
 pub(super) fn corpus(kind: SourceKind, files: &[(&str, &[u8])]) -> SourceSnapshot {
     files
@@ -489,6 +501,175 @@ pub(super) const INLINE_MISSING: &[(&str, &[u8])] = &[
 
 pub(super) fn inline_vanilla() -> SourceSnapshot {
     corpus(SourceKind::VanillaContent, INLINE_VANILLA)
+}
+
+// --- Phase 4K: the golden-case fixture shapes ---
+//
+// Unlike every corpus above, these three restate a *golden case* rather than an oracle record.
+// Their expectations live in [`super::golden`] for that reason: `oracle` is where a claim rests
+// on a captured observation of the game, and none of these has one. What they can honestly
+// carry today is stated case by case there.
+
+/// The base side of [`MALFORMED`]: one key a faulted mod file never contests.
+pub(super) const MALFORMED_VANILLA: &[(&str, &[u8])] = &[(
+    "common/technology/00_malformed_baseline_tech.txt",
+    fixture!("malformed-vanilla/common/technology/00_malformed_baseline_tech.txt"),
+)];
+
+/// Golden case 4's shape: one fault that costs a definition, one that costs only evidence
+/// quality, and one wholly clean file in the same corpus.
+pub(super) const MALFORMED: &[(&str, &[u8])] = &[
+    ("descriptor.mod", fixture!("malformed/descriptor.mod")),
+    (
+        "common/technology/malformed_intact.txt",
+        fixture!("malformed/common/technology/malformed_intact.txt"),
+    ),
+    (
+        "common/technology/malformed_recovery.txt",
+        MALFORMED_RECOVERY_BODY,
+    ),
+    (
+        "common/technology/malformed_stray_brace.txt",
+        MALFORMED_STRAY_BODY,
+    ),
+];
+
+/// Named separately so the parser-seam expectations can read the same bytes the corpus does.
+/// A second `include_bytes!` of the same path would compile just as well and would be a second
+/// place to edit when the fixture changes.
+pub(super) const MALFORMED_RECOVERY_BODY: &[u8] =
+    fixture!("malformed/common/technology/malformed_recovery.txt");
+pub(super) const MALFORMED_STRAY_BODY: &[u8] =
+    fixture!("malformed/common/technology/malformed_stray_brace.txt");
+
+/// The base side of [`ZERO_WEIGHT`]: one uncontested key with no `weight_modifier` at all.
+pub(super) const ZERO_WEIGHT_VANILLA: &[(&str, &[u8])] = &[(
+    "common/technology/00_zero_weight_baseline_tech.txt",
+    fixture!("zero-weight-vanilla/common/technology/00_zero_weight_baseline_tech.txt"),
+)];
+
+/// Golden case 2's shape: a `factor = 0` modifier on a technology whose base weight is nonzero,
+/// its matched control, and the prerequisite decoy `D-008` names.
+pub(super) const ZERO_WEIGHT: &[(&str, &[u8])] = &[
+    ("descriptor.mod", fixture!("zero-weight/descriptor.mod")),
+    (
+        "common/technology/zz_zero_weight_tech.txt",
+        fixture!("zero-weight/common/technology/zz_zero_weight_tech.txt"),
+    ),
+];
+
+/// The base side of [`ENIGMALITH`]: the constants its technologies read across sources.
+pub(super) const ENIGMALITH_VANILLA: &[(&str, &[u8])] = &[(
+    "common/scripted_variables/00_enigmalith_constants.txt",
+    fixture!("enigmalith-vanilla/common/scripted_variables/00_enigmalith_constants.txt"),
+)];
+
+/// Golden case 3's shape: a zero base Draw Weight fed by a constant, two enclosing actions
+/// granting that technology, and a megastructure entry the row cannot yet interpret.
+pub(super) const ENIGMALITH: &[(&str, &[u8])] = &[
+    ("descriptor.mod", fixture!("enigmalith/descriptor.mod")),
+    (
+        "common/megastructures/zz_enigmalith_megastructures.txt",
+        ENIGMALITH_MEGASTRUCTURE_BODY,
+    ),
+    (
+        "common/technology/zz_enigmalith_tech.txt",
+        fixture!("enigmalith/common/technology/zz_enigmalith_tech.txt"),
+    ),
+    (
+        "events/zz_enigmalith_events.txt",
+        fixture!("enigmalith/events/zz_enigmalith_events.txt"),
+    ),
+];
+
+/// Named separately because the megastructures row refuses before reading a file, so the only
+/// way to show the corpus contains the entry at all is to parse these bytes directly.
+pub(super) const ENIGMALITH_MEGASTRUCTURE_BODY: &[u8] =
+    fixture!("enigmalith/common/megastructures/zz_enigmalith_megastructures.txt");
+
+pub(super) fn malformed_vanilla() -> SourceSnapshot {
+    corpus(SourceKind::VanillaContent, MALFORMED_VANILLA)
+}
+
+pub(super) fn zero_weight_vanilla() -> SourceSnapshot {
+    corpus(SourceKind::VanillaContent, ZERO_WEIGHT_VANILLA)
+}
+
+pub(super) fn enigmalith_vanilla() -> SourceSnapshot {
+    corpus(SourceKind::VanillaContent, ENIGMALITH_VANILLA)
+}
+
+/// One corpus table, with the fixture directory it claims to be the whole of.
+type FixtureTree = (&'static str, &'static [(&'static str, &'static [u8])]);
+
+/// The Phase 4K trees, paired with their directory names.
+///
+/// Scoped to these six rather than to every corpus in this file, because "every committed file
+/// reaches this table" is only true of a table that claims a whole tree. Several above claim
+/// subsets on purpose — [`NO_REDEFINITION`] names one file of `redefinition/` and nothing else,
+/// which is the `r0-baseline` shape — so a gate over all of them would report a deliberate
+/// omission as drift.
+const TREES: &[FixtureTree] = &[
+    ("malformed", MALFORMED),
+    ("malformed-vanilla", MALFORMED_VANILLA),
+    ("zero-weight", ZERO_WEIGHT),
+    ("zero-weight-vanilla", ZERO_WEIGHT_VANILLA),
+    ("enigmalith", ENIGMALITH),
+    ("enigmalith-vanilla", ENIGMALITH_VANILLA),
+];
+
+/// This file's half of the gate over the Phase 4K tables.
+///
+/// The acceptance target names the same six trees for its own corpora and cannot borrow these,
+/// because this module is crate-private — so the tables are genuinely duplicated and *each* side
+/// needs checking. `corpora::every_committed_fixture_file_reaches_a_corpus` is the other half, and
+/// on its own it leaves the hole this closes: a file added to the tree and to the acceptance table
+/// but not here passes there, and [`super::golden`] then resolves an incomplete corpus while every
+/// assertion it makes still holds. Neither gate implies the other.
+///
+/// Two gates rather than a shared manifest, because the committed directory is already the
+/// authority: a manifest would be a third artifact, and its own drift would need a gate too.
+#[test]
+fn every_committed_fixture_file_reaches_its_corpus_table() {
+    for (tree, declared) in TREES {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../fixtures/resolver")
+            .join(tree);
+        let mut committed = Vec::new();
+        collect_committed(&root, &root, &mut committed);
+        committed.sort();
+
+        let mut named: Vec<String> = declared
+            .iter()
+            .map(|(logical, _)| (*logical).to_owned())
+            .collect();
+        named.sort();
+
+        assert_eq!(
+            committed, named,
+            "fixtures/resolver/{tree}/ and its corpus table disagree about which files exist",
+        );
+    }
+}
+
+/// A test-time directory read of fixtures this file otherwise includes at compile time. Not a
+/// widening of `source::fixture`'s no-`from_directory` rule: nothing here builds a snapshot from
+/// what it finds, and the same read already backs the parser's own fixture suites.
+fn collect_committed(root: &std::path::Path, directory: &std::path::Path, found: &mut Vec<String>) {
+    for entry in std::fs::read_dir(directory).expect("a committed fixture directory is readable") {
+        let path = entry.expect("a readable directory entry").path();
+        if path.is_dir() {
+            collect_committed(root, &path, found);
+        } else {
+            let logical = path
+                .strip_prefix(root)
+                .expect("every entry is under the tree root")
+                .to_str()
+                .expect("a fixture path is UTF-8")
+                .replace('\\', "/");
+            found.push(logical);
+        }
+    }
 }
 
 const TECHNOLOGY_SCOPE: FileScope = FileScope {
