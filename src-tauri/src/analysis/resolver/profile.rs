@@ -516,8 +516,9 @@ const MEGASTRUCTURES: RegistryPolicy = RegistryPolicy {
 /// - **Ordering.** Source order is preserved for the clean, distinct-key templates.
 /// - **References.** Scripted constants and inline scripts are detected, not resolved; r8 did
 ///   not evaluate either mechanism in component bodies. `Parameter` is deliberately unnamed.
-/// - **Provenance.** Contributed only: repeats refuse before any duplicate or shadowed fact is
-///   an established outcome.
+/// - **Provenance.** Contributed and shadowed. Definition repeats refuse before producing a
+///   duplicate or definition-level shadowed fact, but common file selection can still shadow
+///   a whole component file before the stream is built.
 const SHIP_COMPONENTS: RegistryPolicy = RegistryPolicy {
     name: "ship-components",
     key: CellStatus::Resolved(KeyRule {
@@ -547,7 +548,7 @@ const SHIP_COMPONENTS: RegistryPolicy = RegistryPolicy {
     ordering: CellStatus::Resolved(OrderingRule::SourceOrderPreserved),
     references: CellStatus::Resolved(DETECTED_SCRIPT_REFERENCES),
     provenance: CellStatus::Resolved(ProvenanceRule {
-        kinds: &[FactKind::Contributed],
+        kinds: &[FactKind::Contributed, FactKind::Shadowed],
     }),
 };
 

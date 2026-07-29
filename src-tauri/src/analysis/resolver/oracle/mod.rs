@@ -1232,6 +1232,34 @@ fn ship_components_resolve_by_inner_key_and_refuse_at_a_repeat() {
 }
 
 #[test]
+fn ship_components_accept_file_selection_shadow_provenance_without_settling_repeats() {
+    let vanilla = corpus(
+        SourceKind::VanillaContent,
+        &[(
+            "common/component_templates/zz_phase4h_components.txt",
+            b"utility_component_template = { key = \"VANILLA_SHADOWED_COMPONENT\" }",
+        )],
+    );
+    let target = corpus(SourceKind::TargetMod, COMPONENTS);
+    let registry = named(&resolve(&vanilla, &target), "ship-components");
+
+    assert_eq!(
+        registry.keys(),
+        ["PHASE4H_COMPONENT_A", "PHASE4H_COMPONENT_B"],
+        "the target file replaces the same-path vanilla file before component keys are read"
+    );
+    assert_eq!(
+        registry
+            .removed_files
+            .iter()
+            .map(|fact| fact.kind)
+            .collect::<Vec<_>>(),
+        [FactKind::Shadowed],
+        "file selection can emit shadow provenance without reaching the pending repeat cell"
+    );
+}
+
+#[test]
 fn megastructures_refuse_on_the_eager_field_cell_before_a_file_is_read() {
     let vanilla = corpus(SourceKind::VanillaContent, &[]);
     let target = megastructure_target();
