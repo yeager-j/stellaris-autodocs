@@ -1,0 +1,16 @@
+namespace = phase4h
+
+country_event = {
+	id = phase4h.same_file
+	title = phase4h_same_first
+}
+
+country_event = {
+	id = phase4h.same_file
+	title = phase4h_same_second
+}
+
+country_event = {
+	id = phase4h.late
+	title = phase4h_late_mod
+}

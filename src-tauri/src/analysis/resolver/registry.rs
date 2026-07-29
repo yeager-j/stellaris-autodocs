@@ -203,6 +203,11 @@ pub(super) struct ReadDefinition {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum DefinitionReader {
     TopLevelDefinitions,
+    /// The identifier is a direct scalar child of each top-level block. Events key on `id`
+    /// and component templates on `key`; the block label itself is not their registry key.
+    InnerField {
+        field: &'static str,
+    },
     ConstantDeclarations,
 }
 
@@ -210,6 +215,7 @@ impl DefinitionReader {
     pub(super) fn read(self, file: &ParsedFile) -> Vec<ReadDefinition> {
         match self {
             Self::TopLevelDefinitions => top_level_definitions(file),
+            Self::InnerField { field } => inner_field_definitions(file, field),
             Self::ConstantDeclarations => super::constants::constant_declarations(file),
         }
     }
@@ -246,6 +252,33 @@ pub(super) fn top_level_definitions(file: &ParsedFile) -> Vec<ReadDefinition> {
             key: DefinitionKey::new(field.key.text().into_owned()),
             ordinal: ordinal as u32,
             body: field.value.clone(),
+        })
+        .collect()
+}
+
+/// Top-level blocks keyed by one direct scalar child, in source order.
+///
+/// The first matching child wins if a block repeats `field`. That edge is deliberately
+/// unmeasured: this reader preserves the parser's direct-child order without claiming a
+/// broader game rule for malformed or repeated inner identifiers.
+fn inner_field_definitions(file: &ParsedFile, wanted: &str) -> Vec<ReadDefinition> {
+    file.definitions()
+        .enumerate()
+        .filter_map(|(ordinal, (outer, _))| {
+            let Value::Container(container) = &outer.value else {
+                return None;
+            };
+            let inner = container
+                .fields()
+                .find(|inner| inner.key.text().as_ref() == wanted)?;
+            let Value::Scalar(value) = &inner.value else {
+                return None;
+            };
+            Some(ReadDefinition {
+                key: DefinitionKey::new(value.text().into_owned()),
+                ordinal: ordinal as u32,
+                body: outer.value.clone(),
+            })
         })
         .collect()
 }
@@ -470,7 +503,6 @@ where
 
     let key = policy.consult(PolicyCell::DefinitionKey, &policy.key)?;
     let scope = policy.consult(PolicyCell::FileStream, &policy.stream)?;
-    let repeat = policy.consult(PolicyCell::DuplicateWithinStream, &policy.duplicates)?;
     let fields = policy.consult(PolicyCell::FieldRule, &policy.fields)?;
     let provenance = policy.consult(PolicyCell::Provenance, &policy.provenance)?;
     let reference_rule = policy.consult(PolicyCell::UnresolvedReferences, &policy.references)?;
@@ -559,6 +591,11 @@ where
                     );
                 }
                 Some(held) => {
+                    // An open duplicate-winner cell matters only when a repeat actually
+                    // occurs. A clean corpus still has a complete answer; the first repeat
+                    // refuses before any other collision policy can decide it.
+                    let repeat =
+                        policy.consult(PolicyCell::DuplicateWithinStream, &policy.duplicates)?;
                     // A repeat that spans two sources consults the cross-source cell — and
                     // only then. A row measured within one source stays usable for
                     // same-source collisions while its cross-source cell is open, which is
@@ -1145,6 +1182,58 @@ mod tests {
         kinds
     }
 
+    fn parsed(source: &str) -> ParsedFile {
+        super::super::super::parser::parse(
+            SourceIdentity::new(
+                SourceKind::TargetMod,
+                LogicalPath::parse("events/zz_reader.txt").expect("a logical path"),
+            ),
+            source.as_bytes(),
+        )
+    }
+
+    #[test]
+    fn an_inner_field_reader_uses_the_direct_identifier_not_the_shared_block_name() {
+        let definitions = DefinitionReader::InnerField { field: "id" }.read(&parsed(
+            "event = { id = story.1 marker = first }\nevent = { id = story.2 marker = second }",
+        ));
+        assert_eq!(
+            definitions
+                .iter()
+                .map(|definition| definition.key.as_str())
+                .collect::<Vec<_>>(),
+            ["story.1", "story.2"]
+        );
+        assert!(matches!(definitions[0].body, Value::Container(_)));
+    }
+
+    #[test]
+    fn an_inner_field_reader_uses_quoted_scalar_text() {
+        let definitions = DefinitionReader::InnerField { field: "key" }.read(&parsed(
+            "utility_component_template = { key = \"SMALL_ARMOR_1\" }",
+        ));
+        assert_eq!(definitions[0].key.as_str(), "SMALL_ARMOR_1");
+    }
+
+    #[test]
+    fn an_inner_field_reader_skips_missing_blocks_without_renumbering() {
+        let definitions = DefinitionReader::InnerField { field: "id" }.read(&parsed(
+            "namespace = story\nevent = { title = x }\nevent = { id = story.3 }",
+        ));
+        assert_eq!(definitions[0].key.as_str(), "story.3");
+        assert_eq!(definitions[0].ordinal, 2);
+    }
+
+    #[test]
+    fn an_inner_field_reader_skips_namespaces_and_constant_declarations() {
+        let definitions = DefinitionReader::InnerField { field: "id" }.read(&parsed(
+            "namespace = story\n@chance = 1\nevent = { id = story.4 }",
+        ));
+        assert_eq!(definitions.len(), 1);
+        assert_eq!(definitions[0].key.as_str(), "story.4");
+        assert_eq!(definitions[0].ordinal, 2);
+    }
+
     #[test]
     fn whole_object_replacement_leaves_an_omitted_field_absent() {
         // The omitted-`potential` shape, stated at the engine rather than at a row: the
@@ -1431,7 +1520,33 @@ mod tests {
     }
 
     #[test]
-    fn an_unconditional_pending_cell_refuses_before_any_file_is_read() {
+    fn an_eager_pending_field_cell_refuses_before_any_file_is_read() {
+        const OPEN: RegistryPolicy = RegistryPolicy {
+            name: "trial-open-fields",
+            fields: CellStatus::Pending {
+                reason: "the missing-field behavior cannot be distinguished",
+                oracle_gap: "a runtime observable that distinguishes replacement from inheritance",
+            },
+            ..REPLACE_ON_REPEAT
+        };
+        let target = late_mod("tech_contested = { tier = 9 }");
+        let vanilla = vanilla();
+        let selection = super::super::selection::select(&vanilla, &target);
+        assert_eq!(
+            resolve(&OPEN, &selection, |_| panic!(
+                "an eager field refusal must precede reads"
+            )),
+            Err(Refusal::UnresolvedCell {
+                registry: "trial-open-fields",
+                cell: PolicyCell::FieldRule,
+                reason: "the missing-field behavior cannot be distinguished",
+                oracle_gap: "a runtime observable that distinguishes replacement from inheritance",
+            })
+        );
+    }
+
+    #[test]
+    fn an_open_duplicate_cell_is_lazy_but_refuses_at_the_first_repeat() {
         const OPEN: RegistryPolicy = RegistryPolicy {
             name: "trial-open-duplicates",
             duplicates: CellStatus::Pending {
@@ -1440,9 +1555,14 @@ mod tests {
             },
             ..REPLACE_ON_REPEAT
         };
-        let target = late_mod("tech_contested = { tier = 9 }");
+        let clean = late_mod("tech_clean = { tier = 1 }");
+        assert!(
+            resolve_with(&OPEN, &clean).is_ok(),
+            "a clean corpus needs no duplicate decision"
+        );
+        let repeated = late_mod("tech_repeat = { tier = 1 }\ntech_repeat = { tier = 2 }");
         assert_eq!(
-            resolve_with(&OPEN, &target),
+            resolve_with(&OPEN, &repeated),
             Err(Refusal::UnresolvedCell {
                 registry: "trial-open-duplicates",
                 cell: PolicyCell::DuplicateWithinStream,

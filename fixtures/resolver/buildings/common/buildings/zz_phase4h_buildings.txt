@@ -1,0 +1,7 @@
+building_phase4h_subject = {
+	icon = phase4h_subject_mod
+}
+
+building_phase4h_new = {
+	icon = phase4h_new
+}

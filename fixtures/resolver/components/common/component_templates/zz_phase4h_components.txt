@@ -1,0 +1,9 @@
+utility_component_template = {
+	key = "PHASE4H_COMPONENT_A"
+	icon = phase4h_a
+}
+
+utility_component_template = {
+	key = "PHASE4H_COMPONENT_B"
+	icon = phase4h_b
+}

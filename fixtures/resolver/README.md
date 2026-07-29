@@ -43,6 +43,13 @@ Stellaris installed.
 | `inline-vanilla/` | the base-game side `inline/` expands against | One inline script at `technologies/rare_weight_modifiers`, gated so that expanding it contributes nothing, plus one technology naming no inline script — the scoping control that separates "expansion broke the row" from "this definition was displaced". |
 | `inline/` | `r11-inline` | The record's six subjects, every one written to expand to the same shape so a subject that does not produce it did not expand: a hand-written literal positive control, a no-modifier negative control, a quoted single-argument call, a block call binding `$F$`, a block call at `inline-vanilla/`'s exact script path (with an unused binding), and — in its own file, so a nesting failure cannot reach the others — a fragment whose whole body is a second inclusion. |
 | `inline-missing/` | `r12-inline-missing` | An inline reference to a path no file supplies, plus a sibling definition after it in the same file: the game diagnoses the reference and registers the technology anyway with the inclusion absent, so the resolver owes survival with an explicit fact rather than silence. |
+| `events-vanilla/` | `r9-events-runtime`, `r10-loadorder` | Base event blocks using `namespace` and direct `id` keys; supplies the late and early vanilla collision sides. |
+| `events/` | `r9-events-runtime` | A late mod corpus with a same-file first-wins pair and a `zz_` collision vanilla retains. |
+| `events-early/` | `r10-loadorder` | The early `!!!_` event collision that registers before its vanilla counterpart. |
+| `buildings-vanilla/` | `r8-registries` | The base building states `building_sets`, the field a mod replacement omits. |
+| `buildings/` | `r8-registries` | A late whole-object redefinition plus a new-key control proves the mod file contributed. |
+| `components/` | `r8-registries` | Clean component templates share a block label but have distinct quoted direct `key` values. |
+| `components-repeat/` | `r8-registries` | A repeated direct component key reaches the intentionally unresolved duplicate-winner cell. |
 
 ## Reading them
 
