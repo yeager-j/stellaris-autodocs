@@ -96,7 +96,10 @@ Launch one smaller-model implementation agent. Give it:
 
 Tell the agent it is not alone in the worktree and must not revert edits it did not create. Require it
 to implement, run the assigned checks, inspect its diff, and report changed files, verification
-results, and remaining concerns.
+results, and remaining concerns. Require it to commit its work on the feature branch before
+finishing — never push or open a pull request. An uncommitted worktree is the only copy of the work,
+and the review phase that follows deliberately mutates and restores files; a commit makes every
+probe reversible and every accident recoverable.
 
 Keep the agent handle. Do not launch a fresh implementation agent for convenience, token savings, or
 a second opinion; continuity is the point of this workflow.
@@ -133,6 +136,12 @@ until no actionable fault remains or progress requires new user authority.
 If the original agent becomes unavailable, report the lost context before substituting another
 agent. Reconstruct the handoff from the plan, diff, test output, and prior reports; never pretend the
 replacement retained the original context.
+
+Codex automatically reviews opened pull requests; the harness notifies the coordinator of its
+comments, so do not poll or listen for them. Treat each Codex finding like any other review lead:
+confirm it against the source, investigate whether it is a real fault, and — when it is — send fix
+instructions to the same implementation agent through this section's fault-return loop rather than
+editing the fix in directly.
 
 ### 7. Close the Loop
 
