@@ -1,0 +1,30 @@
+# Original work; no Stellaris file is reproduced.
+#
+# `r12-inline-missing`, restated: an inline reference to a path no file supplies. The game
+# names the file and line in a diagnostic and then registers the technology anyway, with the
+# included content simply absent — quieter than the file-corrupting cascade an unresolved
+# scripted constant produces (`r7`).
+#
+# The resolver owes the same survival with an explicit fact attached, because "failed to
+# expand" is otherwise indistinguishable from "there was nothing to expand".
+#
+# `tech_missing_sibling` is the isolation control: a second definition in the same file,
+# after the failing one, which must resolve normally.
+
+tech_missing_inline = {
+	area = physics
+	cost = 1000
+	tier = 0
+	weight = 1
+
+	weight_modifier = {
+		inline_script = "oracle/this_inline_script_does_not_exist"
+	}
+}
+
+tech_missing_sibling = {
+	area = physics
+	cost = 1000
+	tier = 0
+	weight = 1
+}

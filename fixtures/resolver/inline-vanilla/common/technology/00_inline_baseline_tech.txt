@@ -1,0 +1,12 @@
+# Original work; no Stellaris file is reproduced.
+#
+# The scoping control for every inline-script expectation: a base-game technology that names
+# no inline script at all. It must survive untouched, so "expansion broke the row" cannot be
+# mistaken for "this definition was displaced".
+
+tech_inline_baseline = {
+	area = physics
+	cost = 1000
+	tier = 0
+	weight = 1
+}

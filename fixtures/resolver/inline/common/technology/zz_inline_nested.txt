@@ -1,0 +1,23 @@
+# Original work; no Stellaris file is reproduced.
+#
+# Can an inline script include another inline script? `oracle/outer_factor` holds nothing but
+# `inline_script = "oracle/inner_factor"`, and the inner fragment holds the modifier every
+# other subject expands to.
+#
+# In its own file for the reason `r11`'s nesting subject was: an inclusion that fails damages
+# the file that consumes it (`r7`), and a failure here must not be able to reach the subjects
+# in `zz_inline_tech.txt` and make their results unattributable.
+#
+# This is the recursion depth that matters. Base-game inline scripts contain inline scripts,
+# so an expander handling one level drops content with nothing logged anywhere.
+
+tech_inline_nested = {
+	area = engineering
+	cost = 1000
+	tier = 0
+	weight = 1
+
+	weight_modifier = {
+		inline_script = "oracle/outer_factor"
+	}
+}

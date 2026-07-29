@@ -1,0 +1,84 @@
+# Original work; no Stellaris file is reproduced.
+#
+# `r11-inline`'s subjects, restated at the resolver seam. The record's observable was
+# draw-pool membership after a real game start; this suite's observable is the effective
+# `weight_modifier` the resolver produces, so every subject is written to expand to ONE
+# shape — `modifier = { factor = 1000000 always = yes }` — and a subject that does not
+# produce it did not expand.
+#
+# `tech_inline_literal` writes that shape out by hand and names no inline script. It is the
+# positive control: if the expanded subjects do not match it, the disagreement is about
+# expansion rather than about what the assertion is looking for.
+#
+# `tech_inline_lowweight` is the negative control — the same base weight and no modifier of
+# any kind, which is what "the mechanism did nothing" looks like. Without it, an expansion
+# that quietly produced an empty `weight_modifier` would be indistinguishable from one that
+# worked.
+
+tech_inline_literal = {
+	area = engineering
+	cost = 1000
+	tier = 0
+	weight = 1
+
+	weight_modifier = {
+		modifier = {
+			factor = 1000000
+			always = yes
+		}
+	}
+}
+
+tech_inline_lowweight = {
+	area = society
+	cost = 1000
+	tier = 0
+	weight = 1
+}
+
+# Does a simple inclusion expand at all? The quoted single-argument call form.
+tech_inline_basic = {
+	area = physics
+	cost = 1000
+	tier = 0
+	weight = 1
+
+	weight_modifier = {
+		inline_script = "oracle/factor_block"
+	}
+}
+
+# Does `$PARAM$` substitute? `oracle/param_factor` writes `factor = $F$`, and the block call
+# form supplies `F` here. The path is unquoted in this form, which is the shape the record
+# measured; the library must key on the same normalized path either way.
+tech_inline_param = {
+	area = society
+	cost = 1000
+	tier = 0
+	weight = 1
+
+	weight_modifier = {
+		inline_script = {
+			script = oracle/param_factor
+			F = 1000000
+		}
+	}
+}
+
+# Does a Target Mod file at a base-game inline script's path override it? `inline-vanilla/`
+# ships a gated body at `technologies/rare_weight_modifiers`; this mod ships an unconditional
+# one at the same path. `TECHNOLOGY` is bound but never referenced by the fragment — the
+# unused-binding case, which must be harmless rather than a failure.
+tech_inline_override_probe = {
+	area = physics
+	cost = 1000
+	tier = 0
+	weight = 1
+
+	weight_modifier = {
+		inline_script = {
+			script = technologies/rare_weight_modifiers
+			TECHNOLOGY = tech_inline_override_probe
+		}
+	}
+}

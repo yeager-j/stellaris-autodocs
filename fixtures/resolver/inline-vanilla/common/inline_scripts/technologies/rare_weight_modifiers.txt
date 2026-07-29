@@ -1,0 +1,11 @@
+# Original work; no Stellaris file is reproduced.
+#
+# The stand-in base game's own inline script, at the path `inline/` ships a file over. Its
+# modifier is gated on a condition a fresh empire never satisfies, so expanding *this* body
+# contributes no factor at all. The override is observable precisely because the two bodies
+# at this one path disagree — the same-path replacement rule of `r6`, applied to a directory
+# that holds no declared identifiers.
+modifier = {
+	factor = 1
+	has_federation = yes
+}

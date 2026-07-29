@@ -33,6 +33,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use super::constants;
+use super::inline_scripts;
 use super::resolved::{
     ConstantFact, ConstantOutcome, DefinitionKey, EffectiveField, FactKind, FactProvenance,
     FactSite, ReferenceFact, ReferenceKind, ResolvedDefinition, ResolvedRegistry, StreamPosition,
@@ -371,6 +372,18 @@ pub(super) enum ReferenceHandling {
     /// selects this; the engine builds the environment this handling reads from only when at
     /// least one kind selects it (`registry::resolve`).
     ResolvedAgainstConstants,
+    /// Found and expanded: the referenced fragment's content is spliced into the effective
+    /// field in place of the site, and the site becomes a typed
+    /// [`InlineScriptFact`](super::resolved::InlineScriptFact) — the resolved source path and
+    /// the parameter bindings, or a typed reason the inclusion was omitted. Never a
+    /// [`ReferenceFact`], because after expansion an inclusion site is settled rather than
+    /// unfinished.
+    ///
+    /// Only [`ReferenceKind::InlineScript`] selects this. Expansion runs over the winners'
+    /// effective fields *before* reference detection, so whatever a fragment brought with it
+    /// — a `@constant`, a literal — is scanned by the row's declared kinds like any other
+    /// content the definition states (`r11`, `r12`).
+    ExpandedFromInlineScripts,
 }
 
 /// What a row does with the references its definitions carry.
@@ -482,6 +495,16 @@ where
     // it, or the constants row itself attaching a fact to its own declarations.
     let mut environment = (is_constants_row || consumes_constants)
         .then(|| constants::build_environment(selection, &read));
+    // The inline-script library, on the same terms as the constants environment: built once
+    // per resolution, and only when this row actually expands inclusions. A row that merely
+    // *detects* them reads nothing here.
+    let expands_inline = reference_rule.kinds.iter().any(|(_, status)| {
+        matches!(
+            status,
+            CellStatus::Resolved(ReferenceHandling::ExpandedFromInlineScripts)
+        )
+    });
+    let library = expands_inline.then(|| inline_scripts::build_library(selection, &read));
 
     let stream = super::stream::build(selection, scope.family, scope.scope);
     let mut winners: BTreeMap<DefinitionKey, Winner> = BTreeMap::new();
@@ -556,9 +579,18 @@ where
             (key, definition)
         })
         .collect::<BTreeMap<_, _>>();
-    // After the effective fields are settled, not during the walk: a reference in a definition
-    // that went on to lose is not a fact about the answer, and recording one would tell a
-    // consumer the effective value is unfinished when the value it names never survived.
+    // Expansion first, then detection — and both after the winners walk, for the same reason:
+    // a reference or an inclusion inside a definition that went on to lose is not a fact about
+    // the answer, and recording one would tell a consumer the effective value is unfinished
+    // when the value it names never survived. Expanding *before* the scan is what makes a
+    // fragment's own content ordinary content: a `@constant` a fragment brought with it is
+    // scanned and resolved exactly as one the definition wrote out itself, rather than needing
+    // a second, fragment-shaped detector.
+    if let Some(library) = library.as_ref() {
+        for definition in definitions.values_mut() {
+            inline_scripts::expand(library, definition);
+        }
+    }
     for definition in definitions.values_mut() {
         let (references, found_constants) = detect_references(
             definition,
@@ -701,12 +733,16 @@ impl Winner {
             // Attached by `detect_references` (a consuming reference) or, for the constants
             // row's own definitions, by the constants-row post-pass in `resolve`.
             constants: Vec::new(),
+            // Attached by `inline_scripts::expand`, which runs before both of the above.
+            inline_expansions: Vec::new(),
         }
     }
 }
 
-/// The field name that carries an inline-script inclusion, at any depth.
-const INLINE_SCRIPT: &str = "inline_script";
+/// The field name that carries an inline-script inclusion, at any depth. Shared with
+/// [`inline_scripts`](super::inline_scripts), which expands the sites this name finds, so
+/// detection and expansion cannot come to disagree about what a site is.
+pub(super) const INLINE_SCRIPT: &str = "inline_script";
 
 /// Every reference one effective definition carries, or the refusal its row earned.
 ///
@@ -910,6 +946,16 @@ impl Scan<'_> {
                 });
                 Ok(())
             }
+            // A `@name` is not an inclusion site, so no row can sensibly declare inline-script
+            // expansion as the handling for the scripted-constant kind. Stated here rather
+            // than folded into a catch-all, so that adding a third substitution mechanism has
+            // to answer this question again.
+            Some(CellStatus::Resolved(ReferenceHandling::ExpandedFromInlineScripts)) => {
+                unreachable!(
+                    "ExpandedFromInlineScripts is only ever declared for \
+                     ReferenceKind::InlineScript"
+                )
+            }
         }
     }
 
@@ -955,6 +1001,21 @@ impl Scan<'_> {
                 unreachable!(
                     "only ScriptedConstant routes through record_scripted_constant; no row \
                      declares this handling for {kind:?}"
+                )
+            }
+            Some(CellStatus::Resolved(ReferenceHandling::ExpandedFromInlineScripts)) => {
+                // Expansion runs before this walk and settles every site it reaches: a
+                // resolved inclusion is replaced by the fragment's items, and an unresolved
+                // one is omitted with a typed fact. So a row declaring this handling has no
+                // `inline_script` field left for the scan to find, and reaching here would
+                // mean the expander left a site behind rather than that a new kind of fact
+                // needs recording — which is why this is a defect assertion and not a
+                // refusal. The triggers and effects rows are untouched by that reasoning:
+                // they still declare `DetectedNotResolved` and still route through the arm
+                // above.
+                unreachable!(
+                    "inline_scripts::expand removes or omits every site before the scan runs, \
+                     so no {kind:?} reference can survive to be recorded"
                 )
             }
         }

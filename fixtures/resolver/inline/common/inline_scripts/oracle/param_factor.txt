@@ -1,0 +1,9 @@
+# Original work; no Stellaris file is reproduced.
+#
+# The `$PARAM$` fragment: `$F$` stands where a factor goes, and the call site supplies it.
+# The same expanded shape as `factor_block.txt` once `F` is bound to 1000000, so the two
+# subjects differ in the mechanism under test and in nothing else.
+modifier = {
+	factor = $F$
+	always = yes
+}

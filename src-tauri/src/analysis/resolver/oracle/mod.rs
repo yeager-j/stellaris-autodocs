@@ -217,21 +217,88 @@
 //! constants::tests::a_self_referencing_local_declaration_never_falls_through_to_the_global
 //! constants::tests::a_local_declaration_referencing_a_different_symbol_is_equally_unmeasured
 //! ```
+//!
+//! Phase 4G (STE-28) added four, each broken by hand once in the *shipped* expander and the
+//! named tests observed failing, then restored:
+//!
+//! - **Single-level expansion**, the ticket's named control: deleting the recursion into
+//!   spliced content in `inline_scripts::Expansion::include`. The result is stronger than a
+//!   wrong answer — a one-level expander leaves the outer fragment's own `inline_script` field
+//!   standing in the effective value, which trips `registry::Scan::record`'s
+//!   `ExpandedFromInlineScripts` defect assertion for every definition resolved from that
+//!   corpus, so it cannot silently publish a technology missing its weight logic. To show the
+//!   nesting *assertion* discriminates rather than just the guard, the break was repeated with
+//!   the `unreachable!` neutralized to a no-op; exactly four tests then failed on their own
+//!   assertions, and `r11_nested_inclusion_expands_recursively` is the only oracle expectation
+//!   among them — the other five `r11` subjects stayed green:
+//!
+//! ```text
+//! r11_nested_inclusion_expands_recursively
+//! inline_scripts::tests::a_nested_inclusion_expands_recursively
+//! inline_scripts::tests::a_cyclic_inclusion_terminates_with_a_typed_outcome
+//! inline_scripts::tests::a_failing_nested_site_does_not_fail_its_parent_site
+//! ```
+//!
+//! - **Substitution removed.** Making `inline_scripts::substitute_scalar` a no-op failed
+//!   exactly the three parameter tests and nothing else — the unbound-parameter check catches
+//!   the surviving `$F$` and omits the inclusion, so the failure is a missing modifier rather
+//!   than a `Parameter` scalar leaking into an effective field:
+//!
+//! ```text
+//! r11_parameters_substitute_into_the_expanded_content
+//! inline_scripts::tests::a_bound_parameter_substitutes_in_a_value_position
+//! inline_scripts::tests::a_bound_parameter_substitutes_in_a_nested_key_position
+//! ```
+//!
+//! - **The typed fact dropped on an unknown path.** Returning no items *without* recording
+//!   the fact — the shape where an inclusion silently vanishes, which is precisely the hazard
+//!   `r12` names — failed the r12 expectation and the three unit tests that read a failing
+//!   site's fact:
+//!
+//! ```text
+//! r12_an_unresolved_inline_reference_is_a_typed_fact_and_the_definition_survives
+//! inline_scripts::tests::an_unknown_path_omits_the_inclusion_and_records_the_reference
+//! inline_scripts::tests::a_failing_site_leaves_its_siblings_expanded
+//! inline_scripts::tests::a_failing_nested_site_does_not_fail_its_parent_site
+//! ```
+//!
+//! - **Provenance taken from the call site instead of the script file.** Recording the
+//!   consuming definition's position as `InlineOutcome::Expanded`'s `script` failed the three
+//!   tests that read *where the expanded content came from*, which is what separates "an
+//!   inclusion expanded" from "this content came from the mod's file at the vanilla path":
+//!
+//! ```text
+//! r11_a_simple_inline_script_expands_into_the_consuming_definition
+//! r11_a_mod_file_at_a_vanilla_script_s_path_overrides_its_content
+//! profile::tests::an_inline_script_reference_is_expanded_into_the_consuming_definition
+//! ```
+//!
+//!   The override result itself has no *new* code to break: a mod file at a vanilla inline
+//!   script's path wins through `selection`'s exact-path rule, before any stream exists, and
+//!   that rule already carries its own controls (`r6_an_exact_path_collision_removes_the_
+//!   whole_losing_file`, `merge_by_key_would_keep_the_shadowed_file_s_other_keys`). What the
+//!   override expectation adds is that the *library* reads the selected file set rather than a
+//!   snapshot, and the control above is what shows that test reads the source it names.
+//!
+//! - **The drift gate, over the two newly consumed records.** `r11-inline` and
+//!   `r12-inline-missing` are named in `EXPECTATIONS`, so
+//!   `every_consumed_record_matches_the_profile_s_pinned_build` covers them mechanically,
+//!   exactly as it already does for the records earlier phases consumed.
 
 mod record;
 
 use super::registry::{PolicyCell, Refusal};
 use super::resolved::{
-    ConstantOutcome, FactKind, FactSite, Removal, ResolvedDefinition, ResolvedRegistry,
-    UnresolvedConstant,
+    ConstantOutcome, FactKind, FactSite, InlineOutcome, Removal, ResolvedDefinition,
+    ResolvedRegistry, UnresolvedConstant, UnresolvedInline,
 };
 use super::trial::{
     self, CONSTANTS_A_BODY, CONSTANTS_A_FLIPPED_BODY, CONSTANTS_B_BODY, CONSTANTS_B_FLIPPED_BODY,
-    CONSTANTS_COLLISION, EARLY_MOD, NO_REDEFINITION, PARAMETERIZED, PATH_COLLISION, REDEFINITION,
-    REDEFINITION_BODY, REDEFINITION_FLIPPED, REDEFINITION_FLIPPED_BODY, REGISTRATION,
-    REGISTRATION_FLIPPED, REPLACE_PATH, RISKY_CONSTANTS, TRIGGERS_A_BODY, TRIGGERS_A_FLIPPED_BODY,
-    TRIGGERS_B_BODY, TRIGGERS_B_FLIPPED_BODY, corpus, redefinition_vanilla, registration_vanilla,
-    vanilla,
+    CONSTANTS_COLLISION, EARLY_MOD, INLINE, INLINE_MISSING, NO_REDEFINITION, PARAMETERIZED,
+    PATH_COLLISION, REDEFINITION, REDEFINITION_BODY, REDEFINITION_FLIPPED,
+    REDEFINITION_FLIPPED_BODY, REGISTRATION, REGISTRATION_FLIPPED, REPLACE_PATH, RISKY_CONSTANTS,
+    TRIGGERS_A_BODY, TRIGGERS_A_FLIPPED_BODY, TRIGGERS_B_BODY, TRIGGERS_B_FLIPPED_BODY, corpus,
+    inline_vanilla, redefinition_vanilla, registration_vanilla, vanilla,
 };
 use super::{Resolution, profile, resolve};
 use crate::analysis::parser::Value;
@@ -295,6 +362,21 @@ const EXPECTATIONS: &[Expectation] = &[
                names the constant (`unknown command 'tier' for MTTH/script value`), so \
                detection of an unresolved scripted constant is resolver-owned rather than \
                read off the error log",
+    },
+    Expectation {
+        run: "r11-inline",
+        rule: "inline scripts expand textually into the consuming definition before it \
+               registers: a simple inclusion expands, `$PARAM$` substitutes, an inclusion \
+               nests and must be expanded recursively, and a mod file at a vanilla script's \
+               path replaces its content — all six subjects reached the draw pool and the \
+               no-modifier control did not",
+    },
+    Expectation {
+        run: "r12-inline-missing",
+        rule: "an inline reference that does not resolve is diagnosed with the consuming file \
+               and line, and the technology still registers with the inclusion silently \
+               omitted — quieter than the file-corrupting cascade a broken scripted constant \
+               produces, so an unexpanded inclusion must be a resolver-owned fact",
     },
 ];
 
@@ -1387,4 +1469,334 @@ fn inverting_either_direction_produces_the_opposite_winner() {
         "common/scripted_variables/zz_dup_constants_b.txt",
         "inverting the constants row to replace-on-repeat must move the winner to the LAST file"
     );
+}
+
+// --- Phase 4G (STE-28): inline-script expansion ---
+
+/// `inline-vanilla/` paired with `inline/`: `r11-inline`'s six subjects, restated.
+fn inline() -> (SourceSnapshot, SourceSnapshot) {
+    (inline_vanilla(), corpus(SourceKind::TargetMod, INLINE))
+}
+
+/// `r12-inline-missing`, restated.
+fn inline_missing() -> (SourceSnapshot, SourceSnapshot) {
+    (
+        inline_vanilla(),
+        corpus(SourceKind::TargetMod, INLINE_MISSING),
+    )
+}
+
+/// The scalar `key = value` pairs of every `modifier` block inside a definition's effective
+/// `weight_modifier`.
+///
+/// `r11` made every subject expand to one shape so that draw-pool membership read the same
+/// way for all of them. This is that comparison at the resolver seam: each subject's result is
+/// compared against the hand-written literal control's, so "expanded" is measured against a
+/// known-good value rather than against a shape the assertion invented.
+fn weight_modifier_blocks(definition: &ResolvedDefinition) -> Vec<Vec<(String, String)>> {
+    let Some(Value::Container(container)) = definition.field("weight_modifier") else {
+        return Vec::new();
+    };
+    container
+        .fields()
+        .filter(|field| field.key.text() == "modifier")
+        .map(|field| match &field.value {
+            Value::Container(inner) => inner
+                .fields()
+                .filter_map(|nested| match &nested.value {
+                    Value::Scalar(scalar) => {
+                        Some((nested.key.text().into_owned(), scalar.text().into_owned()))
+                    }
+                    Value::Container(_) | Value::Tagged { .. } => None,
+                })
+                .collect(),
+            Value::Scalar(_) | Value::Tagged { .. } => Vec::new(),
+        })
+        .collect()
+}
+
+/// The hand-written positive control's expanded shape, read from the corpus rather than
+/// written out here: an assertion that restated the expected literal would pass even if the
+/// control itself drifted, and then it would no longer be a control.
+fn literal_control(registry: &ResolvedRegistry) -> Vec<Vec<(String, String)>> {
+    let control = weight_modifier_blocks(
+        registry
+            .get("tech_inline_literal")
+            .expect("the positive control resolves"),
+    );
+    assert_eq!(
+        control,
+        [[
+            ("factor".to_owned(), "1000000".to_owned()),
+            ("always".to_owned(), "yes".to_owned()),
+        ]],
+        "the positive control names no inline script, so this shape is what the corpus states \
+         outright — if it has drifted, every comparison below is against the wrong thing"
+    );
+    control
+}
+
+/// The two controls that bracket every expansion result: the literal subject states the target
+/// shape outright, and the no-modifier subject shows what "the mechanism did nothing" looks
+/// like. Without the second, an expansion producing an empty `weight_modifier` would be
+/// indistinguishable from one that worked.
+#[test]
+fn r11_the_literal_and_no_modifier_controls_bracket_every_expansion() {
+    let (vanilla, target) = inline();
+    let resolution = resolve(&vanilla, &target);
+    let registry = technologies(&resolution);
+
+    let control = literal_control(&registry);
+    assert!(
+        registry
+            .get("tech_inline_literal")
+            .expect("resolves")
+            .inline_expansions
+            .is_empty(),
+        "the literal control names no inline script, so it has no expansion site to record"
+    );
+
+    let nothing = registry
+        .get("tech_inline_lowweight")
+        .expect("the negative control resolves");
+    assert!(
+        !nothing.states("weight_modifier"),
+        "the negative control states no modifier of any kind"
+    );
+    assert_ne!(
+        weight_modifier_blocks(nothing),
+        control,
+        "the two controls must differ, or neither discriminates"
+    );
+
+    // The scoping control from the base-game side: a definition naming no inline script at
+    // all survives expansion untouched.
+    let baseline = registry
+        .get("tech_inline_baseline")
+        .expect("the base-game definition resolves");
+    assert_eq!(baseline.position.source, SourceKind::VanillaContent);
+    assert!(baseline.inline_expansions.is_empty());
+    assert!(baseline.states("weight"));
+}
+
+/// `r11`'s first subject: does a simple inclusion expand at all?
+#[test]
+fn r11_a_simple_inline_script_expands_into_the_consuming_definition() {
+    let (vanilla, target) = inline();
+    let resolution = resolve(&vanilla, &target);
+    let registry = technologies(&resolution);
+    let control = literal_control(&registry);
+
+    let subject = registry.get("tech_inline_basic").expect("resolves");
+    assert_eq!(
+        weight_modifier_blocks(subject),
+        control,
+        "the fragment's content must be spliced in where the site was"
+    );
+    assert!(
+        subject.references.is_empty(),
+        "an expanded inclusion is settled, not an unfinished value: {:?}",
+        subject.references
+    );
+
+    let fact = subject
+        .inline_expansions
+        .first()
+        .expect("the site is recorded");
+    assert_eq!(fact.reference.as_deref(), Some("oracle/factor_block"));
+    assert_eq!(fact.field, "weight_modifier");
+    let InlineOutcome::Expanded { script, bindings } = &fact.outcome else {
+        panic!("expected expansion: {:?}", fact.outcome);
+    };
+    assert_eq!(
+        script.logical().map(LogicalPath::as_str),
+        Some("common/inline_scripts/oracle/factor_block.txt"),
+        "the resolved source path is what the resolution matrix requires of every site"
+    );
+    assert!(bindings.is_empty());
+    assert_eq!(script.source(), Some(SourceKind::TargetMod));
+}
+
+/// `r11`'s second subject: `$PARAM$` substitution, and the bindings recorded beside it.
+#[test]
+fn r11_parameters_substitute_into_the_expanded_content() {
+    let (vanilla, target) = inline();
+    let resolution = resolve(&vanilla, &target);
+    let registry = technologies(&resolution);
+    let control = literal_control(&registry);
+
+    let subject = registry.get("tech_inline_param").expect("resolves");
+    assert_eq!(
+        weight_modifier_blocks(subject),
+        control,
+        "`factor = $F$` with F bound to 1000000 must produce the control's shape exactly — a \
+         substituter that dropped the token would leave a factor of nothing behind"
+    );
+
+    let fact = subject
+        .inline_expansions
+        .first()
+        .expect("the site is recorded");
+    assert_eq!(fact.reference.as_deref(), Some("oracle/param_factor"));
+    let InlineOutcome::Expanded { bindings, .. } = &fact.outcome else {
+        panic!("expected expansion: {:?}", fact.outcome);
+    };
+    assert_eq!(
+        bindings,
+        &[("F".to_owned(), "1000000".to_owned())],
+        "the parameter bindings are required provenance, not an implementation detail"
+    );
+}
+
+/// `r11`'s third subject: an inclusion inside an inclusion.
+///
+/// The recursion depth that matters. Vanilla inline scripts contain inline scripts, the game
+/// expands them correctly, and an expander handling one level would drop the content with
+/// nothing logged anywhere — which is why this is the ticket's named negative control.
+#[test]
+fn r11_nested_inclusion_expands_recursively() {
+    let (vanilla, target) = inline();
+    let resolution = resolve(&vanilla, &target);
+    let registry = technologies(&resolution);
+    let control = literal_control(&registry);
+
+    let subject = registry.get("tech_inline_nested").expect("resolves");
+    assert_eq!(
+        weight_modifier_blocks(subject),
+        control,
+        "the outer fragment states nothing but a second inclusion, so this shape can only \
+         come from expanding the inner one too"
+    );
+
+    let sites: Vec<(Option<&str>, Option<&str>)> = subject
+        .inline_expansions
+        .iter()
+        .map(|fact| {
+            (
+                fact.reference.as_deref(),
+                fact.site.logical().map(LogicalPath::as_str),
+            )
+        })
+        .collect();
+    assert_eq!(
+        sites,
+        [
+            (
+                Some("oracle/outer_factor"),
+                Some("common/technology/zz_inline_nested.txt")
+            ),
+            (
+                Some("oracle/inner_factor"),
+                Some("common/inline_scripts/oracle/outer_factor.txt")
+            ),
+        ],
+        "each site is recorded where it is actually written — the nested one in the fragment \
+         that states it, not in the consuming technology"
+    );
+}
+
+/// `r11`'s fourth subject: a mod file at a vanilla inline script's path.
+///
+/// This falls out of step 1 rather than any registration rule — inline scripts have no
+/// declared identifier to collide on, so their only collision mode is `r6`'s exact-path
+/// replacement, applied before any stream exists.
+#[test]
+fn r11_a_mod_file_at_a_vanilla_script_s_path_overrides_its_content() {
+    let (vanilla, target) = inline();
+    let resolution = resolve(&vanilla, &target);
+    let registry = technologies(&resolution);
+    let control = literal_control(&registry);
+
+    let subject = registry
+        .get("tech_inline_override_probe")
+        .expect("resolves");
+    assert_eq!(
+        weight_modifier_blocks(subject),
+        control,
+        "the base-game body at this path is gated and would not produce the control's shape, \
+         so this result can only come from the mod's file having won the path"
+    );
+
+    let fact = subject
+        .inline_expansions
+        .first()
+        .expect("the site is recorded");
+    let InlineOutcome::Expanded { script, bindings } = &fact.outcome else {
+        panic!("expected expansion: {:?}", fact.outcome);
+    };
+    assert_eq!(
+        script.source(),
+        Some(SourceKind::TargetMod),
+        "provenance must name the source that actually supplied the expanded content"
+    );
+    assert_eq!(
+        script.logical().map(LogicalPath::as_str),
+        Some("common/inline_scripts/technologies/rare_weight_modifiers.txt")
+    );
+    assert_eq!(
+        bindings,
+        &[(
+            "TECHNOLOGY".to_owned(),
+            "tech_inline_override_probe".to_owned()
+        )],
+        "the fragment never references this binding, and `r11` shows the game accepts it — \
+         an unused binding is a fact about the call, not a fault"
+    );
+}
+
+/// `r12-inline-missing`: the reference does not resolve, and the definition survives anyway.
+///
+/// The record's point is that this failure is *quiet*. Unlike a broken scripted constant
+/// (`r7`), nothing downstream is corrupted: the technology registers, structurally valid, with
+/// the included content simply absent. So the resolver owes the same survival plus an explicit
+/// fact, because otherwise "failed to expand" and "there was nothing to expand" are one
+/// silence.
+#[test]
+fn r12_an_unresolved_inline_reference_is_a_typed_fact_and_the_definition_survives() {
+    let (vanilla, target) = inline_missing();
+    let resolution = resolve(&vanilla, &target);
+    // Asked by name through the public seam: a refusal here would be the resolver taking the
+    // whole registry down over a fault the game itself walks away from.
+    let registry = technologies(&resolution);
+
+    let subject = registry
+        .get("tech_missing_inline")
+        .expect("the definition still registers");
+    assert_eq!(
+        field_names(subject),
+        ["area", "cost", "tier", "weight", "weight_modifier"],
+        "every field survives, including the one that held the inclusion"
+    );
+    assert!(
+        weight_modifier_blocks(subject).is_empty(),
+        "the inclusion is absent from the field it would have filled"
+    );
+
+    let fact = subject
+        .inline_expansions
+        .first()
+        .expect("the failure is recorded rather than silent");
+    assert_eq!(
+        fact.reference.as_deref(),
+        Some("oracle/this_inline_script_does_not_exist"),
+        "the fact must name the path that did not resolve — the game's own diagnostic names \
+         it, and a fact that did not could not be surfaced as an Analysis Issue"
+    );
+    assert_eq!(fact.field, "weight_modifier");
+    assert_eq!(
+        fact.outcome,
+        InlineOutcome::Unresolved(UnresolvedInline::UnknownPath)
+    );
+    assert!(
+        subject.references.is_empty(),
+        "an omitted inclusion is settled with a reason, not left as an unfinished value"
+    );
+
+    // The isolation control: the definition after the failing one in the same file resolves
+    // normally, which is the difference between this and `r7`'s cascade.
+    let sibling = registry
+        .get("tech_missing_sibling")
+        .expect("the following definition is unaffected");
+    assert!(sibling.inline_expansions.is_empty());
+    assert!(sibling.states("weight"));
 }

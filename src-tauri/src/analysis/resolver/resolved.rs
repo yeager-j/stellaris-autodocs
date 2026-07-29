@@ -274,6 +274,88 @@ pub(in crate::analysis) struct ConstantFact {
     pub outcome: ConstantOutcome,
 }
 
+/// Why an `inline_script` inclusion did not expand.
+///
+/// Every variant is a *typed absence*: the inclusion is omitted from the effective field and
+/// this says why, because "failed to expand" and "there was nothing to expand" are otherwise
+/// the same silence — the hazard `r11` and `r12` exist to name. Each variant states the
+/// record it rests on, or the gap that would settle it, the same way
+/// [`UnresolvedConstant`] does.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::analysis) enum UnresolvedInline {
+    /// No file under `common/inline_scripts` supplies the referenced path. `r12` measured
+    /// this directly: the game names the consuming file and line, and registers the
+    /// definition anyway with the included content simply absent.
+    UnknownPath,
+    /// The referenced path is already being expanded further up the same chain. No record
+    /// measures a cyclic inclusion, but termination is not optional — a typed refusal is the
+    /// only answer here that is not a guess about an unmeasured shape.
+    CyclicInclusion,
+    /// The call site is neither a scalar path nor a container holding a scalar `script` field
+    /// and scalar bindings. Those two forms are what `r11` measured (`inline_script = "path"`
+    /// and `inline_script = { script = path  F = 1000000 }`); anything else is an unmeasured
+    /// call shape rather than a shape this expander may invent a reading for.
+    CallShapeUnmeasured,
+    /// The fragment uses a `$PARAM$` the call never binds. Substituting an empty value would
+    /// fabricate content, and leaving the token in place would put a `Parameter` scalar into
+    /// an effective field of a row that does not declare that reference kind — refusing the
+    /// whole definition for a fault local to one inclusion. Settled by a capture measuring
+    /// what the game does with an unbound parameter.
+    UnboundParameter { name: String },
+    /// The fragment carries a `[[PARAM] … ]` conditional block. The dialect parses them
+    /// (`Item::Conditional`), but no record measures whether — or with what truth condition —
+    /// the game compiles one inside an inline script, so the inclusion is omitted rather than
+    /// evaluated on a documented-but-unmeasured reading. Settled by a capture exercising a
+    /// conditional block in a fragment.
+    ConditionalUnmeasured,
+    /// The site is a definition's own top-level `inline_script` field rather than one nested
+    /// inside a field's value. `r11` measured inclusion sites nested in `weight_modifier`
+    /// only, and a root-level site raises a question the record does not answer: what the
+    /// spliced fields would even be fields *of*. Settled by a capture placing an inclusion
+    /// directly under a definition.
+    RootPlacementUnmeasured,
+}
+
+/// What happened at one inline-script expansion site.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::analysis) enum InlineOutcome {
+    Expanded {
+        /// The inline script file whose content was spliced in — the "resolved source path"
+        /// the resolution matrix requires of every expansion site.
+        script: FactSite,
+        /// The parameter bindings this call supplied, in the order the call states them.
+        /// Recorded whether or not the fragment used them: `r11` bound a parameter its
+        /// fragment never referenced, and the game accepted it, so an unused binding is a
+        /// fact about the call rather than a fault.
+        bindings: Vec<(String, String)>,
+    },
+    Unresolved(UnresolvedInline),
+}
+
+/// One inline-script expansion site, and what became of it.
+///
+/// Separate from [`ReferenceFact`] for the reason [`ConstantFact`] is: a `ReferenceFact` says
+/// an effective value is *not final*, and after Phase 4G an inclusion site always is — it was
+/// spliced in, or it was omitted with a typed reason. Neither is an unfinished value waiting
+/// for another row.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::analysis) struct InlineScriptFact {
+    /// The script path the call site named. `None` only when the call named no path at all,
+    /// which nothing but [`UnresolvedInline::CallShapeUnmeasured`] can produce — absent
+    /// rather than empty, because `script = ""` is a call that named a path and that path is
+    /// a different fact from a call with no `script` field.
+    pub reference: Option<String>,
+    /// The effective field the site was found under. Nested sites are attributed to the same
+    /// field their outermost call was, because that is the unit a consumer reads — an
+    /// inclusion three fragments deep still makes `weight_modifier` what it makes.
+    pub field: String,
+    /// Where the call site itself is: the consuming definition's position for a site the
+    /// definition states, and the inline script file's own position for a site found inside a
+    /// fragment.
+    pub site: FactSite,
+    pub outcome: InlineOutcome,
+}
+
 /// One field of the effective definition, and how it got there.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::analysis) struct EffectiveField {
@@ -313,6 +395,14 @@ pub(in crate::analysis) struct ResolvedDefinition {
     /// about the declaration's own value (`field: None`). Empty for a row with no resolving
     /// handling declared.
     pub constants: Vec<ConstantFact>,
+    /// Inline-script expansion outcomes: one per site, nested sites included, in the order
+    /// expansion reached them. Empty for a row that does not declare
+    /// `ExpandedFromInlineScripts`, and for a definition that names no inline script.
+    ///
+    /// These describe `fields`, not `body`: expansion rewrites the effective view and leaves
+    /// the winning definition exactly as parsed, because `body` is what carries the source
+    /// ranges Source Excerpts need and a fragment's content has ranges into another file.
+    pub inline_expansions: Vec<InlineScriptFact>,
 }
 
 impl ResolvedDefinition {
