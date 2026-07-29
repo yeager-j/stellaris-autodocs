@@ -175,6 +175,48 @@
 //!   consumed, so `every_consumed_record_matches_the_profile_s_pinned_build` covers them
 //!   mechanically — a re-capture under a new Stellaris build would fail that one gate for
 //!   both, the same as it already does for `r0`, `r1`, `r3`, `r4`, `r6`, and `r10`.
+//!
+//! A Codex review of the shipped Phase 4F code (PR #15) found three more faults — none a
+//! cell or a row's declared policy, so no `RESOLUTION_PROFILE_VERSION` bump accompanies
+//! them; each just makes the engine honour what version 3 already declares. Each was broken
+//! by hand once against the fixed shipped code and the named test observed failing, then
+//! restored:
+//!
+//! - **The root-key Parameter walk removed** (`registry::detect_references`). A `$PARAM$`
+//!   key used as a definition's own top-level field — not nested inside a container — escaped
+//!   detection entirely, because `EffectiveField` flattens a key to its text and erases the
+//!   `ScalarKind` that names it a parameter. Removing the walk over the winning body's own
+//!   container failed exactly the two root-level tests and nothing else:
+//!
+//! ```text
+//! registry::tests::a_root_level_parameter_key_refuses_under_an_open_cell
+//! registry::tests::a_root_level_parameter_key_is_detected_when_declared
+//! ```
+//!
+//! - **The alias-propagation pass removed** (`constants::build_environment`). Without it, a
+//!   symbol whose value was copied from another symbol during chain evaluation (`@alias =
+//!   @base`) kept that copied value even after the second pass marked `@base` itself
+//!   `CrossSourcePending` — a consumer would see a resolved number derived from a binding the
+//!   row explicitly refuses to stand behind. Failed the alias unit test and its
+//!   consuming-side twin:
+//!
+//! ```text
+//! constants::tests::cross_source_invalidation_propagates_through_an_alias
+//! registry::tests::a_consumer_reading_an_alias_of_a_contested_symbol_is_pending
+//! ```
+//!
+//! - **Global seeding restored for local bodies** (`constants::Environment::lookup`). Passing
+//!   the global environment back into a local declaration's own evaluation — the shape before
+//!   this fix — turns `@cost = @cost` into a silent read of the very global `@cost` the local
+//!   declaration exists to shadow, fabricating a value for a self-cycle. Only a literal local
+//!   override is measured (`r1`); failed both reference-bodied local tests and left the
+//!   pre-existing literal-99 tests unaffected, confirming the control isolates the reference
+//!   shape rather than breaking local overrides generally:
+//!
+//! ```text
+//! constants::tests::a_self_referencing_local_declaration_never_falls_through_to_the_global
+//! constants::tests::a_local_declaration_referencing_a_different_symbol_is_equally_unmeasured
+//! ```
 
 mod record;
 

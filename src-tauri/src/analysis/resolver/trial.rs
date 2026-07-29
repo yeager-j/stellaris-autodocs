@@ -274,8 +274,8 @@ pub(super) const CONSTANTS_COLLISION: &[(&str, &[u8])] = &[
     ),
 ];
 
-/// The `$PARAM$` reference open cell: a trigger carrying a nested `$COUNT$` substitution,
-/// plus a parameter-free control trigger in the same file.
+/// The `$PARAM$` reference open cell: a trigger carrying a nested `$COUNT$` substitution, one
+/// carrying a root-level `$MODE$` key, plus a parameter-free control trigger in the same file.
 pub(super) const PARAMETERIZED: &[(&str, &[u8])] = &[
     ("descriptor.mod", fixture!("parameterized/descriptor.mod")),
     (

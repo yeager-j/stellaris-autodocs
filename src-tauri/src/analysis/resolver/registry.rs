@@ -739,6 +739,34 @@ fn detect_references(
         found: Vec::new(),
         constants: Vec::new(),
     };
+    // A definition's own top-level field keys, checked once before the value walk below.
+    // `EffectiveField` flattens a key down to its text — exactly what lets a field survive
+    // whole-object replacement and a default fill by name — but that flattening is also what
+    // erases the key's `ScalarKind`. INLINE_SCRIPT's root check just below can still work off
+    // the flattened name because it matches by *text*; `$PARAM$` has to match by *kind*, so
+    // this walks the winning body's own container once, where the `Field`'s `Scalar` key is
+    // still intact, and attributes the finding to the matching `EffectiveField` by name — a
+    // Parameter-keyed field is always a stated field, never a `Defaulted` one, so the match
+    // always exists.
+    if let Some(container) = body_fields(&definition.body) {
+        for body_field in container.fields() {
+            if matches!(body_field.key.kind, ScalarKind::Parameter) {
+                let Some(effective) = definition
+                    .fields
+                    .iter()
+                    .find(|field| field.field == body_field.key.text())
+                else {
+                    debug_assert!(
+                        false,
+                        "a root Parameter key must name a stated effective field: {:?}",
+                        body_field.key.text()
+                    );
+                    continue;
+                };
+                scan.record(ReferenceKind::Parameter, effective)?;
+            }
+        }
+    }
     for field in &definition.fields {
         if field.field == INLINE_SCRIPT {
             scan.record(ReferenceKind::InlineScript, field)?;
@@ -1709,6 +1737,66 @@ mod tests {
         );
     }
 
+    /// `$PARAM$` used as a definition's own top-level field key — a real shape, and a
+    /// different mechanism from the nested-key check above: `EffectiveField` flattens a key
+    /// to its text, which is exactly what lets a field survive whole-object replacement, but
+    /// it erases the key's `ScalarKind`. Root detection has to walk the winning body's own
+    /// container, where the `Field`'s `Scalar` key is still intact.
+    #[test]
+    fn a_root_level_parameter_key_refuses_under_an_open_cell() {
+        let target = FixtureCorpus::new(SourceKind::TargetMod)
+            .with_file("descriptor.mod", b"name=\"root-param\"")
+            .with_file(
+                "common/scripted_triggers/zz_root_param.txt",
+                b"trig_root_param = {\n\t$MODE$ = yes\n}\n",
+            )
+            .build()
+            .expect("a well-formed fixture corpus");
+        assert_eq!(
+            resolve_with(&trial::TRIGGERS_DECLARING_PARAMETER, &target),
+            Err(Refusal::UnresolvedCell {
+                registry: "trial-triggers-declaring-parameter",
+                cell: PolicyCell::UnresolvedReferences,
+                reason: "no record measures $PARAM$ substitution in a trigger or effect body",
+                oracle_gap: "a capture exercising a parameterised scripted trigger/effect call",
+            })
+        );
+    }
+
+    /// The positive half: a row that declares `Parameter` records the root-level key as a
+    /// `ReferenceFact`, attributed to the field itself (its `EffectiveField` name *is* the
+    /// key text, since a root field's name and its key are the same thing).
+    #[test]
+    fn a_root_level_parameter_key_is_detected_when_declared() {
+        let target = late_mod("tech_contested = {\n\t$MODE$ = yes\n}\n");
+        let resolved = resolve_with(&trial::TECHNOLOGY_DETECTING_PARAMETER, &target)
+            .expect("a declared Parameter kind resolves");
+        let definition = resolved.get("tech_contested").expect("the key resolves");
+        assert_eq!(
+            definition
+                .references
+                .iter()
+                .map(|fact| (fact.kind, fact.field.as_str()))
+                .collect::<Vec<_>>(),
+            [(ReferenceKind::Parameter, "$MODE$")]
+        );
+    }
+
+    /// The control: a literal-keyed root field is one character away from the shape above and
+    /// must carry nothing.
+    #[test]
+    fn a_literal_keyed_root_field_carries_no_parameter_reference() {
+        let target = late_mod("tech_contested = {\n\tmode = yes\n}\n");
+        let resolved =
+            resolve_with(&trial::TECHNOLOGY_DETECTING_PARAMETER, &target).expect("resolves");
+        let definition = resolved.get("tech_contested").expect("the key resolves");
+        assert!(
+            definition.references.is_empty(),
+            "{:?}",
+            definition.references
+        );
+    }
+
     /// A row resolving `ScriptedConstant` against the constants environment records a typed
     /// [`ConstantFact`] — resolved with the declaration's site for a known symbol, and a typed
     /// `Unresolved(UndeclaredSymbol)` for a missing one — and never a [`ReferenceFact`].
@@ -1800,6 +1888,43 @@ mod tests {
             fact.outcome,
             ConstantOutcome::Unresolved(UnresolvedConstant::Expression),
             "an expression is not a symbol, declared or not"
+        );
+    }
+
+    /// The consuming-side half of the alias-propagation fix
+    /// (`constants::tests::cross_source_invalidation_propagates_through_an_alias` is the
+    /// required unit test): a technology reading `@alias` must see the same
+    /// `CrossSourcePending` its dependency `@base` carries, not the value `@alias` copied
+    /// before `@base`'s cross-source collision was known.
+    #[test]
+    fn a_consumer_reading_an_alias_of_a_contested_symbol_is_pending() {
+        let vanilla = FixtureCorpus::new(SourceKind::VanillaContent)
+            .with_file(
+                "common/scripted_variables/00_alias.txt",
+                b"@base = 5\n@alias = @base\n",
+            )
+            .build()
+            .expect("a well-formed fixture corpus");
+        let target = FixtureCorpus::new(SourceKind::TargetMod)
+            .with_file("descriptor.mod", b"name=\"alias-consumer\"")
+            .with_file("common/scripted_variables/zz_alias.txt", b"@base = 99\n")
+            .with_file(
+                "common/technology/zz_alias_consumer.txt",
+                b"tech_alias_consumer = {\n\tcost = @alias\n\ttier = 1\n}\n",
+            )
+            .build()
+            .expect("a well-formed fixture corpus");
+
+        let resolution = super::super::resolve(&vanilla, &target);
+        let resolved = resolution
+            .resolve_row(&trial::TECHNOLOGY_RESOLVING_CONSTANTS)
+            .expect("a settled row");
+        let definition = resolved.get("tech_alias_consumer").expect("resolves");
+        let fact = definition.constants.first().expect("a constant fact");
+        assert_eq!(
+            fact.outcome,
+            ConstantOutcome::Unresolved(UnresolvedConstant::CrossSourcePending),
+            "a consumer of the alias must not see a value derived from a pending dependency"
         );
     }
 }

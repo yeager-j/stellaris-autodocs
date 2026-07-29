@@ -124,6 +124,15 @@ impl Environment {
     /// even when the local declaration is invalid. A consumer whose local declaration follows
     /// it, or names it twice, gets a fact about *that*, never a silent fall-through to
     /// whatever Vanilla or another file declared.
+    ///
+    /// A valid local declaration resolves only when its own body is a literal scalar — the
+    /// only shape `r1` measured (`@oracle_const_local = 99`). It is never chain-evaluated
+    /// against the global environment or against other locals: a `@name` reference in a
+    /// local body would either fall through to the very global binding the local exists to
+    /// shadow (`@cost = @cost` would silently read the global `@cost`, turning a self-cycle
+    /// into a number) or rest on an equally unmeasured claim about resolving one local
+    /// against another. [`UnresolvedConstant::LocalReferenceUnmeasured`] names that gap
+    /// instead of guessing either way.
     pub(super) fn lookup(
         &self,
         file: &LogicalPath,
@@ -143,7 +152,7 @@ impl Environment {
                             UnresolvedConstant::LocalDeclarationFollowsConsumer,
                         )
                     } else {
-                        evaluate_value(&only.body, only.site.clone(), &self.global)
+                        local_outcome(only)
                     };
                 }
                 _ => {
@@ -193,12 +202,25 @@ impl Environment {
 /// Builds the global [`Environment`] by walking the constants scope's own stream once, in
 /// the one path order every content family shares (`super::stream`).
 ///
-/// Two passes over the declarations found, not two passes over the files: the first walk
-/// evaluates each symbol's *first* registration in stream order (`evaluate`, the chain
-/// logic), and a second, pure bookkeeping pass then marks every symbol whose registrations
-/// spanned both sources as [`UnresolvedConstant::CrossSourcePending`] — overriding whatever
-/// the first pass computed, because that marking depends on having seen every registration,
-/// including ones the chain evaluator never revisits once first-wins has settled a symbol.
+/// Three passes over the declarations found, not three passes over the files:
+///
+/// 1. The chain-evaluation pass (`evaluate_value`) evaluates each symbol's *first*
+///    registration in stream order, copying a referenced symbol's value when the body is a
+///    `@name` reference — a plain value copy, made before anything is known about which
+///    symbols will turn out to be contested.
+/// 2. A pure bookkeeping pass marks every symbol whose registrations spanned both sources as
+///    [`UnresolvedConstant::CrossSourcePending`] — overriding whatever pass 1 computed for
+///    *that* symbol, because the marking depends on having seen every registration, including
+///    ones the chain evaluator never revisits once first-wins has settled a symbol.
+/// 3. An alias-propagation pass. Pass 1's value copy is exactly what pass 2 does not reach:
+///    `@alias = @base` copies `@base`'s value before pass 2 can know `@base` is contested, so
+///    `@alias` would otherwise keep a value derived from an explicitly pending dependency —
+///    a resolved number a consumer would trust, built on a binding the row itself refuses to
+///    stand behind. Pass 1 also records each symbol's immediate reference dependency, and
+///    pass 3 walks that map to a fixpoint: any symbol whose dependency is (transitively)
+///    `CrossSourcePending` becomes `CrossSourcePending` too. Dependencies only ever point at a
+///    symbol already evaluated earlier in the same stream order, so this can never cycle and
+///    a loop-until-no-change always converges.
 pub(super) fn build_environment<R>(selection: &FileSelection, read: &R) -> Environment
 where
     R: Fn(&StreamEntry) -> Option<ParsedFile>,
@@ -206,6 +228,10 @@ where
     let stream = super::stream::build(selection, ContentFamily::Script, SCOPE);
     let mut resolved: BTreeMap<String, ConstantOutcome> = BTreeMap::new();
     let mut sources_seen: BTreeMap<String, BTreeSet<SourceKind>> = BTreeMap::new();
+    // Each symbol's immediate `@name` reference dependency, recorded only for the first
+    // registration — a later, rejected registration's body never contributes a value and so
+    // never contributes a dependency either.
+    let mut dependency: BTreeMap<String, String> = BTreeMap::new();
 
     for entry in &stream {
         let Some(file) = read(entry) else {
@@ -229,6 +255,9 @@ where
                 logical: entry.logical.clone(),
                 ordinal: declaration.ordinal,
             });
+            if let Some(target) = referenced_symbol(&declaration.body) {
+                dependency.insert(symbol.clone(), target);
+            }
             let outcome = evaluate_value(&declaration.body, site, &resolved);
             resolved.insert(symbol, outcome);
         }
@@ -243,9 +272,51 @@ where
         }
     }
 
+    loop {
+        let mut changed = false;
+        for (symbol, target) in &dependency {
+            let already_pending = is_cross_source_pending(resolved.get(symbol));
+            if already_pending {
+                continue;
+            }
+            if is_cross_source_pending(resolved.get(target)) {
+                resolved.insert(
+                    symbol.clone(),
+                    ConstantOutcome::Unresolved(UnresolvedConstant::CrossSourcePending),
+                );
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+
     Environment {
         global: resolved,
         locals: BTreeMap::new(),
+    }
+}
+
+fn is_cross_source_pending(outcome: Option<&ConstantOutcome>) -> bool {
+    matches!(
+        outcome,
+        Some(ConstantOutcome::Unresolved(
+            UnresolvedConstant::CrossSourcePending
+        ))
+    )
+}
+
+/// The symbol a declaration's value directly names, when that value is a `@name` reference —
+/// `None` for a literal, an expression, or a non-scalar body. Used only to build the
+/// alias-dependency map [`build_environment`] propagates `CrossSourcePending` through; it
+/// does not itself decide whether the reference resolves.
+fn referenced_symbol(body: &Value) -> Option<String> {
+    match body {
+        Value::Scalar(scalar) if matches!(scalar.kind, ScalarKind::VariableRef) => {
+            Some(scalar.text().into_owned())
+        }
+        Value::Scalar(_) | Value::Container(_) | Value::Tagged { .. } => None,
     }
 }
 
@@ -283,6 +354,31 @@ fn evaluate_value(
         _ => ConstantOutcome::Resolved {
             value: SourceNumber::parse(&scalar.text()),
             declaration: site,
+        },
+    }
+}
+
+/// A valid local declaration's outcome — the measured shape only (`r1`:
+/// `@oracle_const_local = 99`, a literal). Deliberately not `evaluate_value` reused with the
+/// global map as `resolved_so_far`: a local declaration is never chain-evaluated against
+/// anything. A `@name` reference in a local body is [`UnresolvedConstant::LocalReferenceUnmeasured`]
+/// rather than a lookup, because a lookup has no unmeasured-free place to point — the global
+/// registry is the very binding the local shadows, and another local is just as unproven a
+/// target. A `@[ … ]` expression is `Unresolved(Expression)`, matching every other body.
+fn local_outcome(local: &LocalDeclaration) -> ConstantOutcome {
+    let Value::Scalar(scalar) = &local.body else {
+        // Same unmeasured-shape reasoning as `evaluate_value`: no record establishes a
+        // scripted constant whose value is a container, local or global.
+        return ConstantOutcome::Unresolved(UnresolvedConstant::DeclarationNeverResolves);
+    };
+    match scalar.kind {
+        ScalarKind::VariableExpr => ConstantOutcome::Unresolved(UnresolvedConstant::Expression),
+        ScalarKind::VariableRef => {
+            ConstantOutcome::Unresolved(UnresolvedConstant::LocalReferenceUnmeasured)
+        }
+        _ => ConstantOutcome::Resolved {
+            value: SourceNumber::parse(&scalar.text()),
+            declaration: local.site.clone(),
         },
     }
 }
@@ -585,6 +681,43 @@ mod tests {
     }
 
     #[test]
+    fn cross_source_invalidation_propagates_through_an_alias() {
+        // `@alias` never itself collides across sources — only `@base` does — but its value
+        // was copied from `@base` during the chain-evaluation pass, before that pass could
+        // know `@base` would end up contested. Without propagation, `@alias` would keep the
+        // value it copied even though the symbol it depends on is explicitly pending.
+        let vanilla = FixtureCorpus::new(SourceKind::VanillaContent)
+            .with_file(
+                "common/scripted_variables/00_alias.txt",
+                b"@base = 5\n@alias = @base\n@clean = 7\n",
+            )
+            .build()
+            .expect("a well-formed fixture corpus");
+        let target = FixtureCorpus::new(SourceKind::TargetMod)
+            .with_file("descriptor.mod", b"name=\"alias-collision\"")
+            .with_file("common/scripted_variables/zz_alias.txt", b"@base = 99\n")
+            .build()
+            .expect("a well-formed fixture corpus");
+        let environment = environment_over_snapshots(&vanilla, &target);
+
+        assert_eq!(
+            environment.declaration_outcome("@base"),
+            ConstantOutcome::Unresolved(UnresolvedConstant::CrossSourcePending),
+            "the directly-contested symbol"
+        );
+        assert_eq!(
+            environment.declaration_outcome("@alias"),
+            ConstantOutcome::Unresolved(UnresolvedConstant::CrossSourcePending),
+            "the alias must not keep the value it copied before @base's collision was known"
+        );
+        // The per-symbol honesty control: an independent literal symbol still resolves.
+        assert_eq!(
+            exact(&environment.declaration_outcome("@clean")).as_deref(),
+            Some("7")
+        );
+    }
+
+    #[test]
     fn a_file_local_declaration_overrides_the_global_binding() {
         // `zz_consumer_tech.txt` declares `@const_local = 99` at ordinal 0, ahead of
         // `tech_local_consumer` at ordinal 1 — the valid-override shape. The global binding
@@ -603,6 +736,70 @@ mod tests {
         assert_eq!(
             exact(&environment.lookup(&elsewhere, 0, "@const_local")).as_deref(),
             Some("11")
+        );
+    }
+
+    #[test]
+    fn a_self_referencing_local_declaration_never_falls_through_to_the_global() {
+        // `@cost = @cost` locally, with a global `@cost` also declared: falling through to
+        // the global would turn a self-cycle into a number, and it is exactly the
+        // fall-through the no-fall-through rule (decision 8) forbids. Only a literal local
+        // override is measured (`r1`); a reference-valued local body stays typed-unresolved.
+        let vanilla = FixtureCorpus::new(SourceKind::VanillaContent)
+            .with_file("common/scripted_variables/00_cost.txt", b"@cost = 5\n")
+            .build()
+            .expect("a well-formed fixture corpus");
+        let target = FixtureCorpus::new(SourceKind::TargetMod)
+            .with_file("descriptor.mod", b"name=\"local-reference\"")
+            .with_file(
+                "common/technology/zz_local_reference.txt",
+                b"@cost = @cost\ntech_consumer = { cost = @cost }\n",
+            )
+            .build()
+            .expect("a well-formed fixture corpus");
+        let mut environment = environment_over_snapshots(&vanilla, &target);
+        record_locals(
+            &mut environment,
+            &target,
+            SourceKind::TargetMod,
+            "common/technology/zz_local_reference.txt",
+        );
+        let file = LogicalPath::parse("common/technology/zz_local_reference.txt").unwrap();
+        assert_eq!(
+            environment.lookup(&file, 1, "@cost"),
+            ConstantOutcome::Unresolved(UnresolvedConstant::LocalReferenceUnmeasured),
+            "must never resolve to the global's 5"
+        );
+    }
+
+    #[test]
+    fn a_local_declaration_referencing_a_different_symbol_is_equally_unmeasured() {
+        // Not just the self-cycle shape: any reference-valued local body is unmeasured,
+        // because resolving it against other locals is just as unproven as resolving it
+        // against the global.
+        let vanilla = FixtureCorpus::new(SourceKind::VanillaContent)
+            .with_file("common/scripted_variables/00_other.txt", b"@other = 3\n")
+            .build()
+            .expect("a well-formed fixture corpus");
+        let target = FixtureCorpus::new(SourceKind::TargetMod)
+            .with_file("descriptor.mod", b"name=\"local-reference-other\"")
+            .with_file(
+                "common/technology/zz_local_reference_other.txt",
+                b"@a = @other\ntech_consumer = { cost = @a }\n",
+            )
+            .build()
+            .expect("a well-formed fixture corpus");
+        let mut environment = environment_over_snapshots(&vanilla, &target);
+        record_locals(
+            &mut environment,
+            &target,
+            SourceKind::TargetMod,
+            "common/technology/zz_local_reference_other.txt",
+        );
+        let file = LogicalPath::parse("common/technology/zz_local_reference_other.txt").unwrap();
+        assert_eq!(
+            environment.lookup(&file, 1, "@a"),
+            ConstantOutcome::Unresolved(UnresolvedConstant::LocalReferenceUnmeasured)
         );
     }
 

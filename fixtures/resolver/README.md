@@ -39,7 +39,7 @@ Stellaris installed.
 | `registration-flipped/` | `r4-reordered`'s method, applied to the trigger and constant pairs | The trigger pair's two file names are swapped with each other, and the constant pair's two file names are swapped with each other — byte for byte, asserted rather than assumed — so the cross-file winner for each moves with the name while same-file results and the consumer facts are unchanged. |
 | `risky-constants/` | `r5-risky-constants` and `r7-risky-consumed` | A forward reference and a two-symbol cycle, neither rejected by the game, each consumed by its own technology file so one broken reference's blast radius cannot be confused with another's. |
 | `constants-collision/` | the scripted-constants cross-source open cell | Redeclares `registration-vanilla/`'s `@shared_symbol` from the Target Mod, plus one consumer of the colliding symbol and one consumer of an uncontested one. |
-| `parameterized/` | the `$PARAM$` reference open cell | A scripted trigger carrying a nested `$COUNT$` substitution, plus a parameter-free control trigger in the same file. |
+| `parameterized/` | the `$PARAM$` reference open cell | A scripted trigger carrying a nested `$COUNT$` substitution, one carrying a root-level `$MODE$` key, plus a parameter-free control trigger in the same file. |
 
 ## Reading them
 

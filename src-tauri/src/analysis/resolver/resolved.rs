@@ -230,6 +230,12 @@ pub(in crate::analysis) enum UnresolvedConstant {
     LocalDeclarationFollowsConsumer,
     /// The consuming file declares this symbol locally more than once.
     DuplicateLocalDeclaration,
+    /// The consuming file's local declaration of this symbol has a reference body. Only a
+    /// literal local override is measured (r1); resolving the reference against the global
+    /// registry would fall through to the very binding the local shadows (`@cost = @cost`),
+    /// and resolving it against other locals is equally unmeasured — so it stays
+    /// typed-unresolved rather than either guess.
+    LocalReferenceUnmeasured,
     /// This symbol's registrations span both Vanilla and the Target Mod. No oracle record
     /// measures a cross-source scripted-constant repeat (the next capture, `r19`, would),
     /// so a consumer reading this specific symbol is refused even when the constants row
