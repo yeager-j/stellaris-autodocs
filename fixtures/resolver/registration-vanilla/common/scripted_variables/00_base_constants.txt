@@ -1,0 +1,9 @@
+# Stand-in Vanilla Content. Original work; no Stellaris file is reproduced.
+#
+# The base-game scripted constants the Phase 4F corpora consume. `@base_cost` is what
+# `tech_vanilla_consumer` reads across sources — the "vanilla constant read from a mod file
+# resolves" half of `r1`. `@shared_symbol` exists so `constants-collision/` can redeclare it
+# from the Target Mod and produce a genuine cross-source repeat.
+
+@base_cost = 20
+@shared_symbol = 5

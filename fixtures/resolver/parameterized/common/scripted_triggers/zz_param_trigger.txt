@@ -1,0 +1,16 @@
+# Original work; no Stellaris file is reproduced.
+#
+# `trig_param` carries a `$COUNT$` parameter substitution nested inside `check_variable` —
+# the open cell no record measures. `trig_plain` is the control: a trigger with no parameter
+# at all, so the same row still resolves a corpus that never exercises the open cell.
+
+trig_param = {
+	check_variable = {
+		which = oracle_count
+		value = $COUNT$
+	}
+}
+
+trig_plain = {
+	always = yes
+}

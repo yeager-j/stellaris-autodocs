@@ -24,10 +24,11 @@
 //! record, and a re-capture under a new build fails until this constant, the expectations,
 //! and the profile version are all revised together.
 
+use super::constants;
 use super::registry::{
-    CellStatus, CrossSourceRule, FieldRule, KeyRule, OrderingRule, ProvenanceRule,
-    ReferenceHandling, ReferenceRule, RegistryPolicy, RepeatRule, Replacement, ShadowUnit,
-    StreamScope, top_level_definitions,
+    CellStatus, CrossSourceRule, DefinitionReader, FieldRule, KeyRule, NO_REFERENCES, OrderingRule,
+    ProvenanceRule, ReferenceHandling, ReferenceRule, RegistryPolicy, RepeatRule, Replacement,
+    ShadowUnit, StreamScope,
 };
 use super::resolved::{FactKind, ReferenceKind};
 use super::stream::{ContentFamily, FileScope};
@@ -38,7 +39,12 @@ use super::stream::{ContentFamily, FileScope};
 ///   rule, provenance, and visible refusal. No registry row is declared yet.
 /// - 2: the technologies row, and a per-kind references cell the engine honours by detecting
 ///   scripted-constant and inline-script references without resolving them.
-pub(in crate::analysis) const RESOLUTION_PROFILE_VERSION: u32 = 2;
+/// - 3 (Phase 4F, STE-27): `scripted-triggers`, `scripted-effects`, and `scripted-constants`
+///   declared; the technologies row's `ScriptedConstant` entry flips from
+///   `DetectedNotResolved` to `ResolvedAgainstConstants`; the reference cell becomes per-kind
+///   `CellStatus`, adding the `Parameter` kind (`Pending` everywhere it can appear); and the
+///   scripted-constants row's cross-source cell is `Pending`.
+pub(in crate::analysis) const RESOLUTION_PROFILE_VERSION: u32 = 3;
 
 /// The Stellaris build every oracle record behind this profile was captured against.
 ///
@@ -67,7 +73,7 @@ pub(super) const SUPPORTED_STELLARIS_BUILD: StellarisBuild = StellarisBuild {
 ///   reader does *not* return is a file-local scripted-constant declaration: vanilla's
 ///   `00_fallen_empire_tech.txt` opens with `@EnigmaticEngineeringDraw = 0.025`, and reading
 ///   that as a definition would publish a technology the game does not have
-///   ([`top_level_definitions`]).
+///   ([`top_level_definitions`](super::registry::top_level_definitions)).
 /// - **Stream.** `common/technology/*.txt` in the script family's one global path order.
 ///   Non-recursive: vanilla ships the directory flat and no record settles what a
 ///   subdirectory under it would do, so this is the measured shape rather than a guess about
@@ -83,18 +89,22 @@ pub(super) const SUPPORTED_STELLARIS_BUILD: StellarisBuild = StellarisBuild {
 ///   (`r1`). No defaults: no record establishes a value the game supplies when nobody states
 ///   one, and inventing one would put a fact in a definition that no source and no evidence
 ///   stands behind.
-/// - **References.** Detected, not resolved. Technology bodies carry `@constant` references
-///   and `inline_script` inclusions, and both belong to rows with their own evidence and
-///   their own tickets. Declaring them here is what makes their presence *visible* in the
-///   meantime: an effective `cost` of `@tier5cost3` carries a fact saying so instead of
-///   reading as a literal value.
+/// - **References.** `@constant` references resolve against the scripted-constants
+///   environment (Phase 4F, STE-27): `r1` proved the game resolves a vanilla constant read
+///   from a mod file, so a technology's `cost = @tier5cost3` now carries a
+///   [`ConstantFact`](super::resolved::ConstantFact) naming the resolved value and its
+///   declaration site, or a typed [`UnresolvedConstant`](super::resolved::UnresolvedConstant)
+///   when it does not resolve — never a guessed number, and never silent. `inline_script`
+///   inclusions still belong to their own row and own ticket, so that kind stays
+///   `DetectedNotResolved`: an effective field carrying one records a `ReferenceFact` saying
+///   the value is not final, the same as before Phase 4F.
 /// - **Provenance.** The four kinds the matrix names. `Inherited` is deliberately absent:
 ///   whole-object replacement never produces one, and an undeclared kind is a refusal, so
 ///   this is the field rule's claim stated where the engine can catch it breaking.
 const TECHNOLOGIES: RegistryPolicy = RegistryPolicy {
     name: "technologies",
     key: CellStatus::Resolved(KeyRule {
-        reader: top_level_definitions,
+        reader: DefinitionReader::TopLevelDefinitions,
         shadow: ShadowUnit::CommonFileSelection,
     }),
     stream: CellStatus::Resolved(StreamScope {
@@ -116,11 +126,11 @@ const TECHNOLOGIES: RegistryPolicy = RegistryPolicy {
         kinds: &[
             (
                 ReferenceKind::ScriptedConstant,
-                ReferenceHandling::DetectedNotResolved,
+                CellStatus::Resolved(ReferenceHandling::ResolvedAgainstConstants),
             ),
             (
                 ReferenceKind::InlineScript,
-                ReferenceHandling::DetectedNotResolved,
+                CellStatus::Resolved(ReferenceHandling::DetectedNotResolved),
             ),
         ],
     }),
@@ -134,6 +144,202 @@ const TECHNOLOGIES: RegistryPolicy = RegistryPolicy {
     }),
 };
 
+/// No record measures `$PARAM$` substitution in a trigger or effect body
+/// (`docs/spikes/resolver-evaluation.md`: "parameter behavior requires resolver-backed
+/// investigation" for both scripted triggers and scripted effects). Shared by both rows so
+/// the open cell has one wording rather than two that could drift apart.
+const PARAMETER_OPEN: (ReferenceKind, CellStatus<ReferenceHandling>) = (
+    ReferenceKind::Parameter,
+    CellStatus::Pending {
+        reason: "no record measures $PARAM$ substitution in a trigger or effect body",
+        oracle_gap: "a capture exercising a parameterised scripted trigger/effect call",
+    },
+);
+
+/// Scripted triggers: whole-block replacement, decided by the same path order as
+/// technologies, with parameter substitution left open.
+///
+/// Every resolved cell traces to `docs/spikes/resolver-evaluation.md`'s "Scripted triggers"
+/// row and the `r1`/`r4` evidence technologies already rests on — the collision and
+/// replacement mechanics are one finding shared across every last-wins registry, not a
+/// second measurement per row:
+///
+/// - **Key and shadow unit.** The trigger identifier, shadowed by the common file and
+///   directory rules — no inner identifier, the same as technologies.
+/// - **Stream.** `common/scripted_triggers/*.txt`, non-recursive: the measured shape, not a
+///   guess about a nesting mod (the same reasoning [`TECHNOLOGIES`] states for its own
+///   directory).
+/// - **Duplicates and cross-source.** Last in enumeration order wins — `r1`'s trigger
+///   collisions resolve the same direction as its technology ones, and `r4`'s flip moves the
+///   winner with the file rather than the content, confirming position and not layer decides
+///   it.
+/// - **Fields.** Whole replacement: "the shadowed body never evaluates" (resolution matrix).
+///   No defaults — nothing establishes one.
+/// - **References.** `@constant` is detected, not resolved: a trigger row consuming scripted
+///   constants is unmeasured and belongs to its own evidence, unlike the technologies row
+///   `r1` directly measured. `$PARAM$` is [`PARAMETER_OPEN`].
+/// - **Provenance.** Contributed, duplicate, and shadowed — a trigger's body is a bare
+///   `{ … }` block with no fields distinguishing it from a technology's, so the same three
+///   kinds a redefinition can produce apply.
+const SCRIPTED_TRIGGERS: RegistryPolicy = RegistryPolicy {
+    name: "scripted-triggers",
+    key: CellStatus::Resolved(KeyRule {
+        reader: DefinitionReader::TopLevelDefinitions,
+        shadow: ShadowUnit::CommonFileSelection,
+    }),
+    stream: CellStatus::Resolved(StreamScope {
+        family: ContentFamily::Script,
+        scope: FileScope {
+            directory: "common/scripted_triggers",
+            extensions: &["txt"],
+            recursive: false,
+        },
+    }),
+    duplicates: CellStatus::Resolved(RepeatRule::ReplaceOnRepeat),
+    cross_source: CellStatus::Resolved(CrossSourceRule::DecidedByStreamPosition),
+    fields: CellStatus::Resolved(FieldRule {
+        replacement: Replacement::WholeObject,
+        defaults: &[],
+    }),
+    ordering: CellStatus::Resolved(OrderingRule::SourceOrderPreserved),
+    references: CellStatus::Resolved(ReferenceRule {
+        kinds: &[
+            (
+                ReferenceKind::ScriptedConstant,
+                CellStatus::Resolved(ReferenceHandling::DetectedNotResolved),
+            ),
+            (
+                ReferenceKind::InlineScript,
+                CellStatus::Resolved(ReferenceHandling::DetectedNotResolved),
+            ),
+            PARAMETER_OPEN,
+        ],
+    }),
+    provenance: CellStatus::Resolved(ProvenanceRule {
+        kinds: &[
+            FactKind::Contributed,
+            FactKind::Duplicate,
+            FactKind::Shadowed,
+        ],
+    }),
+};
+
+/// Scripted effects: the same shape as [`SCRIPTED_TRIGGERS`], one directory over.
+///
+/// "Duplicates do not accumulate" (resolution matrix) is the one point of emphasis specific
+/// to effects: a redefined effect produces exactly one `Shadowed` definition-level fact, the
+/// same as any other whole-object-replacement row, and this row's own evidence (`r1`, `r4`)
+/// is what confirms effects follow it rather than merging call sites.
+const SCRIPTED_EFFECTS: RegistryPolicy = RegistryPolicy {
+    name: "scripted-effects",
+    key: CellStatus::Resolved(KeyRule {
+        reader: DefinitionReader::TopLevelDefinitions,
+        shadow: ShadowUnit::CommonFileSelection,
+    }),
+    stream: CellStatus::Resolved(StreamScope {
+        family: ContentFamily::Script,
+        scope: FileScope {
+            directory: "common/scripted_effects",
+            extensions: &["txt"],
+            recursive: false,
+        },
+    }),
+    duplicates: CellStatus::Resolved(RepeatRule::ReplaceOnRepeat),
+    cross_source: CellStatus::Resolved(CrossSourceRule::DecidedByStreamPosition),
+    fields: CellStatus::Resolved(FieldRule {
+        replacement: Replacement::WholeObject,
+        defaults: &[],
+    }),
+    ordering: CellStatus::Resolved(OrderingRule::SourceOrderPreserved),
+    references: CellStatus::Resolved(ReferenceRule {
+        kinds: &[
+            (
+                ReferenceKind::ScriptedConstant,
+                CellStatus::Resolved(ReferenceHandling::DetectedNotResolved),
+            ),
+            (
+                ReferenceKind::InlineScript,
+                CellStatus::Resolved(ReferenceHandling::DetectedNotResolved),
+            ),
+            PARAMETER_OPEN,
+        ],
+    }),
+    provenance: CellStatus::Resolved(ProvenanceRule {
+        kinds: &[
+            FactKind::Contributed,
+            FactKind::Duplicate,
+            FactKind::Shadowed,
+        ],
+    }),
+};
+
+/// Scripted constants: first-wins, with the cross-source cell left open.
+///
+/// - **Key and shadow unit.** The `@`-prefixed symbol, read by
+///   [`constants::constant_declarations`] — the complement of
+///   [`top_level_definitions`](super::registry::top_level_definitions), which every other
+///   script row uses to *skip* exactly these declarations.
+/// - **Stream.** [`constants::SCOPE`]: `common/scripted_variables/*.txt`, non-recursive — the
+///   measured shape, restated from [`TECHNOLOGIES`]'s own directory reasoning rather than
+///   assumed a second time.
+/// - **Duplicates.** Reject on repeat: "redefined within one file" and "redefined across two
+///   files in one layer" both resolve first-wins (`r1`, `r4`) — the opposite direction from
+///   technologies, triggers, and effects.
+/// - **Cross-source.** `Pending`. "This yields a prediction the spike has not tested"
+///   (`docs/spikes/resolver-evaluation.md`, "There is no layer precedence"): a Target Mod
+///   redefining a vanilla constant should win only from an early-sorting file, exactly as
+///   events do, but no record measures it. Settled by the next capture, `r19`: a run
+///   redefining a vanilla scripted constant from an early-sorting Target Mod file. Asking
+///   this row for itself by name refuses wholesale the moment a repeat spans both sources;
+///   a *consumer* reading one contested symbol gets `CrossSourcePending` for that symbol
+///   alone while every clean symbol still resolves (`constants::Environment`).
+/// - **Fields.** Whole-object, with no defaults — vacuous for a row whose body is always a
+///   bare scalar, stated rather than left implicit.
+/// - **References.** None: a constant declaration's body is a bare scalar, so the field walk
+///   that reference detection runs over never has anything to walk
+///   (`registry.rs`, "a body that is not an object states no fields"). This row's own
+///   evaluation outcomes are [`ConstantFact`](super::resolved::ConstantFact)s with
+///   `field: None`, attached to its own declarations directly rather than found by that walk.
+/// - **Provenance.** Contributed, duplicate, and shadowed — the same three a redefinable
+///   bare-scalar body can produce.
+///
+/// The chain evaluator behind this row's evaluation is [`constants`]'s own: a forward
+/// reference and a cycle both fail to resolve (`r5-risky-constants`), a definition
+/// consuming either carries the same failure rather than a fabricated value
+/// (`r7-risky-consumed`), and `0.1 + 0.2` compares exactly equal to `0.3` under
+/// [`ExactValue`](crate::canonical::numeric::ExactValue) — never under binary floating point.
+const SCRIPTED_CONSTANTS: RegistryPolicy = RegistryPolicy {
+    name: "scripted-constants",
+    key: CellStatus::Resolved(KeyRule {
+        reader: DefinitionReader::ConstantDeclarations,
+        shadow: ShadowUnit::CommonFileSelection,
+    }),
+    stream: CellStatus::Resolved(StreamScope {
+        family: ContentFamily::Script,
+        scope: constants::SCOPE,
+    }),
+    duplicates: CellStatus::Resolved(RepeatRule::RejectOnRepeat),
+    cross_source: CellStatus::Pending {
+        reason: "no record measures a scripted-constant repeat spanning Vanilla and the \
+                 Target Mod",
+        oracle_gap: "the next capture, r19: a run redefining a vanilla scripted constant \
+                     from an early-sorting Target Mod file",
+    },
+    fields: CellStatus::Resolved(FieldRule {
+        replacement: Replacement::WholeObject,
+        defaults: &[],
+    }),
+    ordering: CellStatus::Resolved(OrderingRule::SourceOrderPreserved),
+    references: CellStatus::Resolved(NO_REFERENCES),
+    provenance: CellStatus::Resolved(ProvenanceRule {
+        kinds: &[
+            FactKind::Contributed,
+            FactKind::Duplicate,
+            FactKind::Shadowed,
+        ],
+    }),
+};
+
 /// The registry rows this profile declares.
 ///
 /// One row per ticket, because each is a unit of evidence that deserves its own review
@@ -141,7 +347,12 @@ const TECHNOLOGIES: RegistryPolicy = RegistryPolicy {
 /// asking for it is [`Refusal::UndeclaredRegistry`](super::registry::Refusal) — which is the
 /// design's "a content type may be claimed as supported only when every policy it requires is
 /// explicit and oracle-backed", enforced rather than intended.
-pub(super) const DECLARED: &[RegistryPolicy] = &[TECHNOLOGIES];
+pub(super) const DECLARED: &[RegistryPolicy] = &[
+    TECHNOLOGIES,
+    SCRIPTED_TRIGGERS,
+    SCRIPTED_EFFECTS,
+    SCRIPTED_CONSTANTS,
+];
 
 pub(super) fn declared(name: &str) -> Option<&'static RegistryPolicy> {
     DECLARED.iter().find(|policy| policy.name == name)
@@ -156,7 +367,9 @@ mod tests {
     use crate::source::snapshot::SourceSnapshot;
 
     use super::super::resolve;
-    use super::super::resolved::{ReferenceFact, ReferenceKind};
+    use super::super::resolved::{
+        ConstantOutcome, FactSite, ReferenceFact, ReferenceKind, UnresolvedConstant,
+    };
 
     /// One Target Mod technology, resolved through the declared row against an empty base.
     fn only_technology(body: &str) -> SourceSnapshot {
@@ -167,11 +380,15 @@ mod tests {
             .expect("a well-formed fixture corpus")
     }
 
-    fn references(body: &str) -> Vec<ReferenceFact> {
-        let vanilla = FixtureCorpus::new(SourceKind::VanillaContent)
+    fn empty_vanilla() -> SourceSnapshot {
+        FixtureCorpus::new(SourceKind::VanillaContent)
             .with_file("common/technology/00_empty.txt", b"")
             .build()
-            .expect("a well-formed fixture corpus");
+            .expect("a well-formed fixture corpus")
+    }
+
+    fn references(body: &str) -> Vec<ReferenceFact> {
+        let vanilla = empty_vanilla();
         let target = only_technology(body);
         let registry = resolve(&vanilla, &target)
             .registry("technologies")
@@ -194,27 +411,56 @@ mod tests {
         );
     }
 
-    /// The scripted-constant half of the technologies row's references cell.
-    ///
-    /// A pin on *deferred* behaviour, not on desired behaviour. `r1` proved the game resolves
-    /// a vanilla `@` constant read from a mod file, so the effective `cost` here is wrong as a
-    /// value — and the row's answer is to say so rather than to publish `@tier5cost3` as
-    /// though it were a number.
-    ///
-    /// **This test is scheduled to go red in STE-27 (Phase 4F).** When that ticket teaches the
-    /// engine to resolve scripted constants, this row's `ScriptedConstant` entry changes and
-    /// the assertion below becomes the wrong expectation — which is the point: the flip has to
-    /// be a decision somebody makes, not a behaviour that quietly arrives.
+    /// The scripted-constant half of the technologies row's references cell, revised for
+    /// Phase 4F (STE-27): the `ScriptedConstant` entry now resolves against the constants
+    /// environment rather than merely detecting the reference — the flip this test's
+    /// predecessor scheduled. `@tier5cost3` is declared nowhere in this fixture pair, so the
+    /// resolved outcome is `Unresolved(UndeclaredSymbol)`, and the field still keeps the
+    /// reference text (`EffectiveField.value` never synthesizes a literal).
     #[test]
-    fn a_scripted_constant_reference_is_detected_and_left_unresolved() {
-        let found = references("tech_references = {\n\tcost = @tier5cost3\n\ttier = 1\n}\n");
-        assert_eq!(found.len(), 1, "{found:?}");
-        assert_eq!(found[0].kind, ReferenceKind::ScriptedConstant);
-        assert_eq!(found[0].field, "cost");
+    fn a_scripted_constant_reference_is_resolved_against_the_constants_environment() {
+        let vanilla = empty_vanilla();
+        let target = only_technology("tech_references = {\n\tcost = @tier5cost3\n\ttier = 1\n}\n");
+        let registry = resolve(&vanilla, &target)
+            .registry("technologies")
+            .expect("the declared row resolves");
+        let definition = registry.get("tech_references").expect("the key resolves");
 
-        // And the value is still the reference text, not a resolved number and not a hole.
+        assert!(
+            definition.references.is_empty(),
+            "a resolved scripted-constant reference is a ConstantFact, never a ReferenceFact: \
+             {:?}",
+            definition.references
+        );
+        assert_eq!(
+            definition.constants,
+            [super::super::resolved::ConstantFact {
+                symbol: "@tier5cost3".to_owned(),
+                field: Some("cost".to_owned()),
+                site: FactSite::Stream(definition.position.clone()),
+                outcome: ConstantOutcome::Unresolved(UnresolvedConstant::UndeclaredSymbol),
+            }]
+        );
+
+        // The value is still the reference text, not a resolved number and not a hole.
+        assert!(definition.states("cost"));
+        assert!(
+            definition.states("tier"),
+            "the literal fields are unaffected"
+        );
+    }
+
+    /// The positive twin: `r1` proved the game resolves a vanilla `@` constant read from a
+    /// mod file, and this is that case at the resolver seam. The vanilla file declares the
+    /// constant under `common/scripted_variables`, and the resolved fact carries the exact
+    /// value and names the vanilla file as its declaration site.
+    #[test]
+    fn a_scripted_constant_vanilla_declares_is_resolved_to_its_exact_value() {
         let vanilla = FixtureCorpus::new(SourceKind::VanillaContent)
-            .with_file("common/technology/00_empty.txt", b"")
+            .with_file(
+                "common/scripted_variables/00_base_constants.txt",
+                b"@tier5cost3 = 750\n",
+            )
             .build()
             .expect("a well-formed fixture corpus");
         let target = only_technology("tech_references = {\n\tcost = @tier5cost3\n\ttier = 1\n}\n");
@@ -222,10 +468,26 @@ mod tests {
             .registry("technologies")
             .expect("the declared row resolves");
         let definition = registry.get("tech_references").expect("the key resolves");
-        assert!(definition.states("cost"));
-        assert!(
-            definition.states("tier"),
-            "the literal fields are unaffected"
+
+        assert!(definition.references.is_empty());
+        assert_eq!(definition.constants.len(), 1, "{:?}", definition.constants);
+        let fact = &definition.constants[0];
+        assert_eq!(fact.symbol, "@tier5cost3");
+        assert_eq!(fact.field.as_deref(), Some("cost"));
+        let ConstantOutcome::Resolved { value, declaration } = &fact.outcome else {
+            panic!(
+                "expected the vanilla constant to resolve: {:?}",
+                fact.outcome
+            );
+        };
+        assert_eq!(
+            value.value(),
+            crate::canonical::numeric::SourceNumber::parse("750").value()
+        );
+        assert_eq!(
+            declaration.source(),
+            Some(SourceKind::VanillaContent),
+            "the declaration site must name the vanilla file that supplied the value"
         );
     }
 

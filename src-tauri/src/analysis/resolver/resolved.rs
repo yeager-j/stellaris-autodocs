@@ -16,6 +16,7 @@
 //! type, its faults, and the per-file evidence bookkeeping that belongs to the read rather
 //! than to the answer.
 
+use crate::canonical::numeric::SourceNumber;
 use crate::canonical::path::LogicalPath;
 use crate::source::SourceKind;
 use std::collections::BTreeMap;
@@ -166,6 +167,12 @@ pub(in crate::analysis) enum ReferenceKind {
     /// An `inline_script` inclusion, expanded textually into the consuming definition before
     /// it registers. Owned by the inline-scripts row (`r11`, `r12`).
     InlineScript,
+    /// A `$NAME$` parameter substitution. No record measures a parameterised scripted
+    /// trigger or effect call, so every row that can carry one declares this kind `Pending`
+    /// rather than answering for it (`docs/spikes/resolver-evaluation.md`, "Scripted
+    /// triggers" / "Scripted effects": "parameter behavior requires resolver-backed
+    /// investigation").
+    Parameter,
 }
 
 /// A reference found in an effective definition and deliberately not resolved here.
@@ -192,6 +199,73 @@ pub(in crate::analysis) struct FactProvenance {
     /// displaced duplicate, or a file shadowed before any key was read.
     pub field: Option<String>,
     pub site: FactSite,
+}
+
+/// Why a scripted-constant symbol does not have a resolved value.
+///
+/// Two different questions collapse into one enum only where they must: a declaration's own
+/// value can fail to resolve regardless of who reads it
+/// ([`DeclarationNeverResolves`](Self::DeclarationNeverResolves),
+/// [`Expression`](Self::Expression)), file-local scoping can fail in ways only a *consumer*
+/// can observe ([`LocalDeclarationFollowsConsumer`](Self::LocalDeclarationFollowsConsumer),
+/// [`DuplicateLocalDeclaration`](Self::DuplicateLocalDeclaration)), and the symbol can be
+/// missing entirely ([`UndeclaredSymbol`](Self::UndeclaredSymbol)) or contested across
+/// sources in a way no oracle record settles
+/// ([`CrossSourcePending`](Self::CrossSourcePending)).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::analysis) enum UnresolvedConstant {
+    /// No declaration of this symbol was found — not locally, not globally.
+    UndeclaredSymbol,
+    /// The declaration's own value is a `@name` reference that a forward reference or a
+    /// cycle prevented from ever settling. The game's own diagnostics do not reliably name
+    /// the constant (`r7`'s "unknown command 'tier' for MTTH"), which is why detection is
+    /// resolver-owned rather than read off the error log.
+    DeclarationNeverResolves,
+    /// The declaration's value is a `@[ … ]` expression. Not evaluated — that is a different
+    /// and unmeasured question from a plain reference chain.
+    Expression,
+    /// The consuming file declares this symbol locally, but only after the consumer reads
+    /// it. Once any local declaration exists there is no fall-through to the global binding
+    /// (decision 8), so a consumer here gets this fact rather than a value from elsewhere.
+    LocalDeclarationFollowsConsumer,
+    /// The consuming file declares this symbol locally more than once.
+    DuplicateLocalDeclaration,
+    /// This symbol's registrations span both Vanilla and the Target Mod. No oracle record
+    /// measures a cross-source scripted-constant repeat (the next capture, `r19`, would),
+    /// so a consumer reading this specific symbol is refused even when the constants row
+    /// overall resolves for every symbol that does not collide.
+    CrossSourcePending,
+}
+
+/// A scripted constant's evaluated chain outcome: its own value, or why it does not have one.
+///
+/// `Resolved` still carries a [`SourceNumber`] rather than a raw numeric type, because the
+/// same non-numeric-lexeme contract `SourceNumber` already states applies here too — `@flag
+/// = yes` is a resolved, valueless binding, not a resolver error.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::analysis) enum ConstantOutcome {
+    Resolved {
+        value: SourceNumber,
+        /// Where the value ultimately came from: the declaration whose own value is a
+        /// literal, followed to the end of whatever reference chain led to it.
+        declaration: FactSite,
+    },
+    Unresolved(UnresolvedConstant),
+}
+
+/// A fact about one scripted-constant symbol's evaluated outcome.
+///
+/// Separate from [`ReferenceFact`] because it carries a resolved answer rather than marking
+/// a value as still a reference: a consumer with a [`ConstantFact`] on a field learns
+/// *whether* `@name` resolved and to what, not merely that the field is not final yet.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::analysis) struct ConstantFact {
+    pub symbol: String,
+    /// The consuming field this fact is about, or `None` when it is about a constant
+    /// declaration's own value rather than something that read it.
+    pub field: Option<String>,
+    pub site: FactSite,
+    pub outcome: ConstantOutcome,
 }
 
 /// One field of the effective definition, and how it got there.
@@ -228,6 +302,11 @@ pub(in crate::analysis) struct ResolvedDefinition {
     /// References this definition carries that the row detected and did not resolve, in
     /// effective-field order. Empty when the row's definitions carry none.
     pub references: Vec<ReferenceFact>,
+    /// Scripted-constant evaluation outcomes: one per `@` reference the row resolved against
+    /// the constants environment, plus — for the constants row's own definitions — one fact
+    /// about the declaration's own value (`field: None`). Empty for a row with no resolving
+    /// handling declared.
+    pub constants: Vec<ConstantFact>,
 }
 
 impl ResolvedDefinition {

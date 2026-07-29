@@ -32,9 +32,11 @@ use crate::source::SourceKind;
 use std::collections::BTreeMap;
 use std::fmt;
 
+use super::constants;
 use super::resolved::{
-    DefinitionKey, EffectiveField, FactKind, FactProvenance, FactSite, ReferenceFact,
-    ReferenceKind, ResolvedDefinition, ResolvedRegistry, StreamPosition, body_fields,
+    ConstantFact, ConstantOutcome, DefinitionKey, EffectiveField, FactKind, FactProvenance,
+    FactSite, ReferenceFact, ReferenceKind, ResolvedDefinition, ResolvedRegistry, StreamPosition,
+    UnresolvedConstant, body_fields,
 };
 use super::selection::FileSelection;
 use super::stream::{ContentFamily, FileScope, StreamEntry};
@@ -181,10 +183,36 @@ pub(super) struct ReadDefinition {
 
 /// How a row finds its definitions inside one parsed file.
 ///
+/// A closed set rather than a function pointer. A function pointer was the first shape this
+/// took, and it was wrong: comparing two of them compares addresses, and a linker is free to
+/// merge or duplicate identical function bodies — so `is_constants_row`'s recognition of the
+/// constants row would go silently false on a build where `constant_declarations` got merged
+/// with another function of the same shape, and the row would resolve without ever attaching
+/// its own declarations' `ConstantFact`s. An enum decides the distinction once, at the type
+/// level, and `resolve` matches on it (never on an address).
+///
 /// A row hook rather than a fixed rule because the key is not always the block name: sprites
 /// live inside a `spriteTypes` block and key on an inner `name`, ship components on an inner
-/// `key`. A fixed "top-level field" rule would silently read zero definitions for those.
-pub(super) type DefinitionReader = fn(&ParsedFile) -> Vec<ReadDefinition>;
+/// `key`. A fixed "top-level field" rule would silently read zero definitions for those. Each
+/// variant dispatches to the reader function that already lives with its row —
+/// [`top_level_definitions`] here, and
+/// [`constants::constant_declarations`](super::constants::constant_declarations) in that
+/// module — so a new variant is a one-line addition rather than a reader migrating into this
+/// enum's own body.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum DefinitionReader {
+    TopLevelDefinitions,
+    ConstantDeclarations,
+}
+
+impl DefinitionReader {
+    pub(super) fn read(self, file: &ParsedFile) -> Vec<ReadDefinition> {
+        match self {
+            Self::TopLevelDefinitions => top_level_definitions(file),
+            Self::ConstantDeclarations => super::constants::constant_declarations(file),
+        }
+    }
+}
 
 /// Top-level `key = value` definitions, in source order. What most script registries use.
 ///
@@ -202,8 +230,9 @@ pub(super) type DefinitionReader = fn(&ParsedFile) -> Vec<ReadDefinition>;
 /// reference detection reads the same field: the dialect lexer is the authority on what an
 /// `@` token is, and a second rule would disagree with it the first time either changed.
 ///
-/// The complement — a reader yielding *only* these declarations — is what the scripted-
-/// constants row needs, and it belongs to that row's ticket rather than being pre-built here.
+/// The complement — a reader yielding *only* these declarations — is
+/// [`constants::constant_declarations`](super::constants::constant_declarations), which the
+/// scripted-constants row's key cell uses.
 ///
 /// Ordinals are the position in the parse, so they are assigned before the skip. A technology
 /// following a declaration keeps the ordinal its file gives it; provenance and Source Excerpts
@@ -220,7 +249,13 @@ pub(super) fn top_level_definitions(file: &ParsedFile) -> Vec<ReadDefinition> {
         .collect()
 }
 
-fn is_constant_declaration(field: &Field) -> bool {
+/// Whether `field` is a scripted-constant declaration (`@name = …` or `@[ … ] = …`), by the
+/// key's [`ScalarKind`] rather than a `@` byte-prefix test. Shared by
+/// [`top_level_definitions`], which skips these, and
+/// [`constants::constant_declarations`](super::constants::constant_declarations), which
+/// yields only these — one predicate, so the two readers cannot disagree about what a
+/// declaration is.
+pub(super) fn is_constant_declaration(field: &Field) -> bool {
     matches!(
         field.key.kind,
         ScalarKind::VariableRef | ScalarKind::VariableExpr
@@ -235,10 +270,11 @@ pub(super) enum ShadowUnit {
     CommonFileSelection,
 }
 
-/// Deliberately not `PartialEq`: it holds a function pointer, and comparing those compares
-/// addresses that a linker is free to merge or duplicate. Two rows are the same row because
-/// they have the same name, which `profile::declared_row_names_are_unique` enforces.
-#[derive(Debug, Clone, Copy)]
+/// `PartialEq` now that [`DefinitionReader`] is a closed enum rather than a function pointer
+/// — comparing it compares which variant, not an address. Two *rows* are still the same row
+/// because they have the same name, which `profile::declared_row_names_are_unique` enforces;
+/// this only lets one `KeyRule` be compared against another when something needs to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct KeyRule {
     pub reader: DefinitionReader,
     pub shadow: ShadowUnit,
@@ -329,18 +365,28 @@ pub(super) enum ReferenceHandling {
     /// is why this cell is per-kind rather than one verdict for the row: scripted variables
     /// and inline scripts are separate tickets with separate evidence.
     DetectedNotResolved,
+    /// Found, looked up in the constants environment, and recorded as a typed
+    /// [`ConstantFact`](super::resolved::ConstantFact) — never a guessed value, never a
+    /// silent pass-through, and never a [`ReferenceFact`]. Only [`ReferenceKind::ScriptedConstant`]
+    /// selects this; the engine builds the environment this handling reads from only when at
+    /// least one kind selects it (`registry::resolve`).
+    ResolvedAgainstConstants,
 }
 
 /// What a row does with the references its definitions carry.
 ///
 /// Per kind, and the list is a claim in both directions. A kind named here is handled as
-/// stated. A kind *not* named is the row's claim that its definitions never carry it — and
-/// the engine holds the row to that claim, because a reference nobody declared and nobody
-/// recorded is exactly the silent incompleteness this cell exists to prevent
+/// stated — `Pending` included, which defers the claim rather than settling it (decision 6):
+/// the engine still holds the row to having *named* the kind, but refuses only once a
+/// definition actually carries one, the same lazy consult the cross-source cell uses
+/// (`an_open_cross_source_cell_refuses_only_when_a_repeat_spans_two_sources`). A kind *not*
+/// named at all is the row's claim that its definitions never carry it — and the engine
+/// holds the row to that claim, because a reference nobody declared and nobody recorded is
+/// exactly the silent incompleteness this cell exists to prevent
 /// ([`Refusal::UndeclaredReferenceKind`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct ReferenceRule {
-    pub kinds: &'static [(ReferenceKind, ReferenceHandling)],
+    pub kinds: &'static [(ReferenceKind, CellStatus<ReferenceHandling>)],
 }
 
 /// A row whose definitions reference nothing that has to resolve here.
@@ -414,11 +460,28 @@ where
     let repeat = policy.consult(PolicyCell::DuplicateWithinStream, &policy.duplicates)?;
     let fields = policy.consult(PolicyCell::FieldRule, &policy.fields)?;
     let provenance = policy.consult(PolicyCell::Provenance, &policy.provenance)?;
-    let references = policy.consult(PolicyCell::UnresolvedReferences, &policy.references)?;
+    let reference_rule = policy.consult(PolicyCell::UnresolvedReferences, &policy.references)?;
     // Consulted but not branched on: it has exactly one resolved meaning today, and a row that
     // has not established it must still refuse rather than inherit the default.
     policy.consult(PolicyCell::Ordering, &policy.ordering)?;
     debug_assert!(matches!(key.shadow, ShadowUnit::CommonFileSelection));
+
+    // Whether this row *is* the constants registry, recognized structurally by its key
+    // reader variant rather than by name — the same reason `constants::constant_declarations`
+    // is recognized by `ScalarKind` rather than a name test. A row's name is the profile's
+    // business; the engine only needs to know which reader a row uses.
+    let is_constants_row = matches!(key.reader, DefinitionReader::ConstantDeclarations);
+    let consumes_constants = reference_rule.kinds.iter().any(|(_, status)| {
+        matches!(
+            status,
+            CellStatus::Resolved(ReferenceHandling::ResolvedAgainstConstants)
+        )
+    });
+    // Built once, before the winners walk (decision 10), and only when something in this
+    // resolution actually reads it: a consuming row that resolves scripted constants against
+    // it, or the constants row itself attaching a fact to its own declarations.
+    let mut environment = (is_constants_row || consumes_constants)
+        .then(|| constants::build_environment(selection, &read));
 
     let stream = super::stream::build(selection, scope.family, scope.scope);
     let mut winners: BTreeMap<DefinitionKey, Winner> = BTreeMap::new();
@@ -432,7 +495,33 @@ where
             debug_assert!(false, "a surviving file did not read back: {entry:?}");
             continue;
         };
-        for definition in (key.reader)(&file) {
+        if !is_constants_row && let Some(environment) = environment.as_mut() {
+            // Collected during this row's own stream walk (decision 10), not a second
+            // traversal: a consuming file's local `@` declarations have to be known before
+            // `Environment::lookup` can apply the file-local override rule, and this row is
+            // already reading the same file's bytes for its own definitions. Skipped for the
+            // constants row itself: it never calls `Environment::lookup`, only
+            // `declaration_outcome`, which does not consult locals at all.
+            let locals: Vec<constants::LocalDeclaration> = constants::constant_declarations(&file)
+                .into_iter()
+                .map(|declaration| {
+                    let site = FactSite::Stream(StreamPosition {
+                        order: entry.order,
+                        source: entry.source,
+                        logical: entry.logical.clone(),
+                        ordinal: declaration.ordinal,
+                    });
+                    constants::LocalDeclaration::new(
+                        declaration.key.as_str().to_owned(),
+                        declaration.ordinal,
+                        declaration.body,
+                        site,
+                    )
+                })
+                .collect();
+            environment.record_local_declarations(entry.logical.clone(), locals);
+        }
+        for definition in key.reader.read(&file) {
             let position = StreamPosition {
                 order: entry.order,
                 source: entry.source,
@@ -471,7 +560,31 @@ where
     // that went on to lose is not a fact about the answer, and recording one would tell a
     // consumer the effective value is unfinished when the value it names never survived.
     for definition in definitions.values_mut() {
-        definition.references = detect_references(definition, references, policy.name)?;
+        let (references, found_constants) = detect_references(
+            definition,
+            reference_rule,
+            policy.name,
+            environment.as_ref(),
+        )?;
+        definition.references = references;
+        definition.constants = found_constants;
+    }
+
+    // The constants row's own declarations get a fact about their *own* value (decision 9),
+    // separate from `detect_references`: a constant declaration's body is a bare scalar, so
+    // it states no effective fields and that walk never runs for it at all.
+    if is_constants_row {
+        let environment = environment
+            .as_ref()
+            .expect("built above whenever this row is the constants registry");
+        for (key, definition) in definitions.iter_mut() {
+            definition.constants = vec![ConstantFact {
+                symbol: key.as_str().to_owned(),
+                field: None,
+                site: FactSite::Stream(definition.position.clone()),
+                outcome: environment.declaration_outcome(key.as_str()),
+            }];
+        }
     }
 
     let registry = ResolvedRegistry {
@@ -585,6 +698,9 @@ impl Winner {
             displaced: self.displaced,
             // Attached by `detect_references` once the effective fields are final.
             references: Vec::new(),
+            // Attached by `detect_references` (a consuming reference) or, for the constants
+            // row's own definitions, by the constants-row post-pass in `resolve`.
+            constants: Vec::new(),
         }
     }
 }
@@ -613,12 +729,15 @@ fn detect_references(
     definition: &ResolvedDefinition,
     rule: ReferenceRule,
     registry: &'static str,
-) -> Result<Vec<ReferenceFact>, Refusal> {
+    environment: Option<&constants::Environment>,
+) -> Result<(Vec<ReferenceFact>, Vec<ConstantFact>), Refusal> {
     let mut scan = Scan {
         definition,
         rule,
         registry,
+        environment,
         found: Vec::new(),
+        constants: Vec::new(),
     };
     for field in &definition.fields {
         if field.field == INLINE_SCRIPT {
@@ -626,7 +745,7 @@ fn detect_references(
         }
         scan.walk_value(&field.value, field)?;
     }
-    Ok(scan.found)
+    Ok((scan.found, scan.constants))
 }
 
 /// One definition's walk. The definition, the row's rule, and the registry name are constant
@@ -635,7 +754,12 @@ struct Scan<'a> {
     definition: &'a ResolvedDefinition,
     rule: ReferenceRule,
     registry: &'static str,
+    /// Present exactly when some kind in `rule` resolves against it
+    /// (`ReferenceHandling::ResolvedAgainstConstants`), built once by `resolve` before this
+    /// walk runs.
+    environment: Option<&'a constants::Environment>,
     found: Vec<ReferenceFact>,
+    constants: Vec<ConstantFact>,
 }
 
 impl Scan<'_> {
@@ -662,7 +786,10 @@ impl Scan<'_> {
             scalar.kind,
             ScalarKind::VariableRef | ScalarKind::VariableExpr
         ) {
-            self.record(ReferenceKind::ScriptedConstant, field)?;
+            self.record_scripted_constant(scalar, field)?;
+        }
+        if matches!(scalar.kind, ScalarKind::Parameter) {
+            self.record(ReferenceKind::Parameter, field)?;
         }
         Ok(())
     }
@@ -674,6 +801,14 @@ impl Scan<'_> {
                     if nested.key.text() == INLINE_SCRIPT {
                         self.record(ReferenceKind::InlineScript, field)?;
                     }
+                    // A narrow check on the nested field's own KEY, not a general nested-key
+                    // walk: a `$PARAM$ = value` key is a real shape (`$PARAM$` substituted
+                    // before the block is read), while a nested `@`-key would be an
+                    // unmeasured claim this engine has no business making. Only `Parameter`
+                    // gets this treatment.
+                    if matches!(nested.key.kind, ScalarKind::Parameter) {
+                        self.record(ReferenceKind::Parameter, field)?;
+                    }
                     self.walk_value(&nested.value, field)?;
                 }
                 Item::Element(value) => self.walk_value(value, field)?,
@@ -683,18 +818,90 @@ impl Scan<'_> {
         Ok(())
     }
 
-    /// Records one detected reference, or refuses because the row did not declare its kind.
+    /// Records a scripted-constant reference: found and left as a [`ReferenceFact`], found
+    /// and resolved against the environment as a [`ConstantFact`], deferred by a `Pending`
+    /// cell, or refused because the row never declared the kind. Separate from [`Self::record`]
+    /// because only this kind ever looks a symbol up, and only this path needs the scalar's
+    /// own text to do it.
+    fn record_scripted_constant(
+        &mut self,
+        scalar: &Scalar,
+        field: &EffectiveField,
+    ) -> Result<(), Refusal> {
+        let declared = self
+            .rule
+            .kinds
+            .iter()
+            .find(|(declared, _)| *declared == ReferenceKind::ScriptedConstant)
+            .map(|(_, status)| *status);
+        match declared {
+            None => Err(Refusal::UndeclaredReferenceKind {
+                registry: self.registry,
+                kind: ReferenceKind::ScriptedConstant,
+                key: self.definition.key.as_str().to_owned(),
+                field: field.field.clone(),
+            }),
+            Some(CellStatus::Pending { reason, oracle_gap }) => Err(Refusal::UnresolvedCell {
+                registry: self.registry,
+                cell: PolicyCell::UnresolvedReferences,
+                reason,
+                oracle_gap,
+            }),
+            Some(CellStatus::Resolved(ReferenceHandling::DetectedNotResolved)) => {
+                self.found.push(ReferenceFact {
+                    kind: ReferenceKind::ScriptedConstant,
+                    field: field.field.clone(),
+                    site: field.site.clone(),
+                });
+                Ok(())
+            }
+            Some(CellStatus::Resolved(ReferenceHandling::ResolvedAgainstConstants)) => {
+                // A `@[ … ]` expression is not a symbol name, so it is never looked up as
+                // though its text were one — that would either miss and claim
+                // `UndeclaredSymbol` (false: an expression is not a *symbol* at all, declared
+                // or not) or, worse, coincidentally collide with a real declaration. The
+                // vocabulary already has `Expression` for exactly this shape.
+                let outcome = if let ScalarKind::VariableExpr = scalar.kind {
+                    ConstantOutcome::Unresolved(UnresolvedConstant::Expression)
+                } else {
+                    let environment = self.environment.expect(
+                        "resolve() builds the environment whenever a row declares \
+                         ResolvedAgainstConstants for any kind",
+                    );
+                    environment.lookup(
+                        &self.definition.position.logical,
+                        self.definition.position.ordinal,
+                        &scalar.text(),
+                    )
+                };
+                self.constants.push(ConstantFact {
+                    symbol: scalar.text().into_owned(),
+                    field: Some(field.field.clone()),
+                    site: field.site.clone(),
+                    outcome,
+                });
+                Ok(())
+            }
+        }
+    }
+
+    /// Records one detected reference, or refuses because the row did not declare its kind,
+    /// or defers because the kind's cell is `Pending`. Used by every kind except
+    /// `ScriptedConstant`, which needs the scalar's own text and so goes through
+    /// [`Self::record_scripted_constant`] instead.
     ///
     /// The match over [`ReferenceHandling`] is exhaustive on purpose: the ticket that teaches
     /// the engine to expand one of these kinds adds a variant, and this is where it must
-    /// decide what to do instead of recording.
+    /// decide what to do instead of recording. `ResolvedAgainstConstants` never reaches here
+    /// in practice — no shipped row declares it for a kind other than `ScriptedConstant` — and
+    /// the `unreachable!` says so rather than silently recording the wrong kind of fact.
     fn record(&mut self, kind: ReferenceKind, field: &EffectiveField) -> Result<(), Refusal> {
         let declared = self
             .rule
             .kinds
             .iter()
             .find(|(declared, _)| *declared == kind)
-            .map(|(_, handling)| *handling);
+            .map(|(_, status)| *status);
         match declared {
             None => Err(Refusal::UndeclaredReferenceKind {
                 registry: self.registry,
@@ -702,13 +909,25 @@ impl Scan<'_> {
                 key: self.definition.key.as_str().to_owned(),
                 field: field.field.clone(),
             }),
-            Some(ReferenceHandling::DetectedNotResolved) => {
+            Some(CellStatus::Pending { reason, oracle_gap }) => Err(Refusal::UnresolvedCell {
+                registry: self.registry,
+                cell: PolicyCell::UnresolvedReferences,
+                reason,
+                oracle_gap,
+            }),
+            Some(CellStatus::Resolved(ReferenceHandling::DetectedNotResolved)) => {
                 self.found.push(ReferenceFact {
                     kind,
                     field: field.field.clone(),
                     site: field.site.clone(),
                 });
                 Ok(())
+            }
+            Some(CellStatus::Resolved(ReferenceHandling::ResolvedAgainstConstants)) => {
+                unreachable!(
+                    "only ScriptedConstant routes through record_scripted_constant; no row \
+                     declares this handling for {kind:?}"
+                )
             }
         }
     }
@@ -1422,5 +1641,165 @@ mod tests {
         assert!(rendered.contains("scripted-constants"), "{rendered}");
         assert!(rendered.contains("cross-source collision"), "{rendered}");
         assert!(rendered.contains("Settled by:"), "{rendered}");
+    }
+
+    /// A `Pending` reference-kind cell refuses lazily, the same precedent the cross-source
+    /// cell already established: a row that leaves `Parameter` open still resolves a corpus
+    /// that never carries one, and refuses only once a definition actually does.
+    #[test]
+    fn an_open_reference_kind_cell_refuses_only_when_a_definition_carries_it() {
+        let plain = FixtureCorpus::new(SourceKind::TargetMod)
+            .with_file("descriptor.mod", b"name=\"plain-trigger\"")
+            .with_file(
+                "common/scripted_triggers/zz_plain.txt",
+                b"trig_only = { always = yes }",
+            )
+            .build()
+            .expect("a well-formed fixture corpus");
+        let resolved = resolve_with(&trial::TRIGGERS_DECLARING_PARAMETER, &plain)
+            .expect("a parameter-free corpus resolves under an open Parameter cell");
+        assert!(resolved.get("trig_only").is_some());
+
+        let parameterized = trial::corpus(SourceKind::TargetMod, trial::PARAMETERIZED);
+        assert_eq!(
+            resolve_with(&trial::TRIGGERS_DECLARING_PARAMETER, &parameterized),
+            Err(Refusal::UnresolvedCell {
+                registry: "trial-triggers-declaring-parameter",
+                cell: PolicyCell::UnresolvedReferences,
+                reason: "no record measures $PARAM$ substitution in a trigger or effect body",
+                oracle_gap: "a capture exercising a parameterised scripted trigger/effect call",
+            })
+        );
+    }
+
+    /// The control for the cell above: a row that does not name `Parameter` at all refuses
+    /// outright, because "not pending" and "not declared" are different claims.
+    #[test]
+    fn an_undeclared_parameter_kind_refuses() {
+        let parameterized = trial::corpus(SourceKind::TargetMod, trial::PARAMETERIZED);
+        assert_eq!(
+            resolve_with(&trial::TRIGGERS_NO_REFERENCES, &parameterized),
+            Err(Refusal::UndeclaredReferenceKind {
+                registry: "trial-triggers-no-references",
+                kind: ReferenceKind::Parameter,
+                key: "trig_param".to_owned(),
+                field: "check_variable".to_owned(),
+            })
+        );
+    }
+
+    /// `$PARAM$` used as a nested field's own *key* — a real shape, not a general nested-key
+    /// walk: only `Parameter` gets this treatment (decision 6), because a nested `@`-key would
+    /// be an unmeasured claim about scripted constants this engine has no business making.
+    #[test]
+    fn a_parameter_used_as_a_nested_field_key_is_detected() {
+        let target =
+            late_mod("tech_contested = {\n\tweight_modifier = {\n\t\t$FACTOR$ = 1\n\t}\n}\n");
+        let resolved = resolve_with(&trial::TECHNOLOGY_DETECTING_PARAMETER, &target)
+            .expect("a declared Parameter kind resolves");
+        let definition = resolved.get("tech_contested").expect("the key resolves");
+        assert_eq!(
+            definition
+                .references
+                .iter()
+                .map(|fact| (fact.kind, fact.field.as_str()))
+                .collect::<Vec<_>>(),
+            [(ReferenceKind::Parameter, "weight_modifier")],
+            "attributed to the effective field a consumer reads, not the nested key itself"
+        );
+    }
+
+    /// A row resolving `ScriptedConstant` against the constants environment records a typed
+    /// [`ConstantFact`] — resolved with the declaration's site for a known symbol, and a typed
+    /// `Unresolved(UndeclaredSymbol)` for a missing one — and never a [`ReferenceFact`].
+    #[test]
+    fn a_row_resolving_against_constants_records_a_constant_fact_never_a_reference_fact() {
+        let vanilla = FixtureCorpus::new(SourceKind::VanillaContent)
+            .with_file("common/scripted_variables/00_known.txt", b"@known = 5\n")
+            .build()
+            .expect("a well-formed fixture corpus");
+        let target = FixtureCorpus::new(SourceKind::TargetMod)
+            .with_file("descriptor.mod", b"name=\"resolving\"")
+            .with_file(
+                "common/technology/zz_resolving.txt",
+                b"tech_known = {\n\tcost = @known\n\ttier = 1\n}\n\
+                  tech_missing = {\n\tcost = @missing\n\ttier = 1\n}\n",
+            )
+            .build()
+            .expect("a well-formed fixture corpus");
+
+        let resolution = super::super::resolve(&vanilla, &target);
+        let resolved = resolution
+            .resolve_row(&trial::TECHNOLOGY_RESOLVING_CONSTANTS)
+            .expect("a settled row");
+
+        let known = resolved.get("tech_known").expect("resolves");
+        assert!(
+            known.references.is_empty(),
+            "never a ReferenceFact: {:?}",
+            known.references
+        );
+        assert_eq!(known.constants.len(), 1, "{:?}", known.constants);
+        let fact = &known.constants[0];
+        assert_eq!(fact.symbol, "@known");
+        assert_eq!(fact.field.as_deref(), Some("cost"));
+        let ConstantOutcome::Resolved { value, declaration } = &fact.outcome else {
+            panic!("expected @known to resolve: {:?}", fact.outcome);
+        };
+        assert_eq!(
+            value.value(),
+            crate::canonical::numeric::SourceNumber::parse("5").value()
+        );
+        assert_eq!(declaration.source(), Some(SourceKind::VanillaContent));
+
+        let missing = resolved.get("tech_missing").expect("resolves");
+        assert_eq!(
+            missing.constants,
+            vec![ConstantFact {
+                symbol: "@missing".to_owned(),
+                field: Some("cost".to_owned()),
+                site: FactSite::Stream(missing.position.clone()),
+                outcome: ConstantOutcome::Unresolved(UnresolvedConstant::UndeclaredSymbol),
+            }]
+        );
+    }
+
+    /// A `@[ … ]` expression consumed by a `ResolvedAgainstConstants` row is never looked up
+    /// as though its whole text were a symbol name — it carries `Unresolved(Expression)`
+    /// directly. `UndeclaredSymbol` claims "no declaration of this symbol was found", which
+    /// would be false here: an expression is not a symbol at all, declared or not.
+    #[test]
+    fn a_variable_expression_resolved_against_constants_is_never_an_undeclared_symbol() {
+        let vanilla = FixtureCorpus::new(SourceKind::VanillaContent)
+            .build()
+            .expect("an empty fixture corpus");
+        let target = FixtureCorpus::new(SourceKind::TargetMod)
+            .with_file("descriptor.mod", b"name=\"expression\"")
+            .with_file(
+                "common/technology/zz_expression.txt",
+                b"tech_expression = {\n\tcost = @[ 1 + 1 ]\n\ttier = 1\n}\n",
+            )
+            .build()
+            .expect("a well-formed fixture corpus");
+
+        let resolution = super::super::resolve(&vanilla, &target);
+        let resolved = resolution
+            .resolve_row(&trial::TECHNOLOGY_RESOLVING_CONSTANTS)
+            .expect("a settled row");
+        let definition = resolved.get("tech_expression").expect("resolves");
+
+        assert!(
+            definition.references.is_empty(),
+            "never a ReferenceFact: {:?}",
+            definition.references
+        );
+        assert_eq!(definition.constants.len(), 1, "{:?}", definition.constants);
+        let fact = &definition.constants[0];
+        assert_eq!(fact.field.as_deref(), Some("cost"));
+        assert_eq!(
+            fact.outcome,
+            ConstantOutcome::Unresolved(UnresolvedConstant::Expression),
+            "an expression is not a symbol, declared or not"
+        );
     }
 }

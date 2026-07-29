@@ -1,0 +1,13 @@
+# Original work; no Stellaris file is reproduced.
+#
+# `r1-target`'s effects half: scripted effects replace on repeat, and duplicates do not
+# accumulate — one definition-level `Shadowed` fact records the loss, not one per redefined
+# field, since a scripted effect's body has no field structure the resolver reads.
+
+eff_same_file = {
+	set_country_flag = flag_a
+}
+
+eff_same_file = {
+	set_country_flag = flag_b
+}

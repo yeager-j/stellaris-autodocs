@@ -1,0 +1,8 @@
+# Original work; no Stellaris file is reproduced.
+#
+# Redeclares `registration-vanilla/`'s `@shared_symbol`, which is what makes this the
+# cross-source repeat the scripted-constants row's cross-source cell is `Pending` for: asking
+# the row for itself by name refuses wholesale, while a consumer reading this one symbol gets
+# `CrossSourcePending` and a consumer reading an uncontested symbol still resolves.
+
+@shared_symbol = 99

@@ -1,0 +1,10 @@
+# Original work; no Stellaris file is reproduced.
+#
+# Consumes `@never_declared`, which no file in this corpus or its vanilla pair declares at
+# all — distinct from a forward reference or a cycle, and its own file so its failure cannot
+# be confused with either of theirs.
+
+tech_undeclared_consumer = {
+	cost = @never_declared
+	tier = 0
+}

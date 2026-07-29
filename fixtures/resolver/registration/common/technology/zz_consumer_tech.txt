@@ -1,0 +1,31 @@
+# Original work; no Stellaris file is reproduced.
+#
+# Three technologies, each consuming a scripted constant a different way:
+#
+#   tech_local_consumer     reads `@const_local`, which THIS file redeclares before the
+#                           consumer — the file-local override rule (decision 8), so the
+#                           effective value is 99, never the global 11.
+#   tech_vanilla_consumer   reads `@base_cost`, declared only in Vanilla — the cross-source
+#                           read `r1` proved resolves.
+#   tech_global_consumer    reads `@const_cross_file`, declared (and contested) only within
+#                           the Target Mod — resolves to the cross-file winner, 10.
+#
+# The local declaration comes first in this file, ahead of every consumer, which is the
+# valid-override shape; `risky-constants/` and its own fixtures cover the invalid ones.
+
+@const_local = 99
+
+tech_local_consumer = {
+	cost = @const_local
+	tier = 1
+}
+
+tech_vanilla_consumer = {
+	cost = @base_cost
+	tier = 1
+}
+
+tech_global_consumer = {
+	cost = @const_cross_file
+	tier = 1
+}
