@@ -341,6 +341,7 @@ use super::trial::{
 use super::{Resolution, profile, resolve};
 use crate::analysis::parser::Value;
 use crate::canonical::path::LogicalPath;
+use crate::source::fixture::FixtureCorpus;
 use crate::source::{SourceKind, SourceSnapshot};
 
 /// One captured run this suite holds the resolver to.
@@ -501,6 +502,17 @@ fn constants_collision() -> (SourceSnapshot, SourceSnapshot) {
 /// The `$PARAM$` reference open cell.
 fn parameterized() -> (SourceSnapshot, SourceSnapshot) {
     (vanilla(), corpus(SourceKind::TargetMod, PARAMETERIZED))
+}
+
+fn megastructure_target() -> SourceSnapshot {
+    FixtureCorpus::new(SourceKind::TargetMod)
+        .with_file("descriptor.mod", b"name=\"phase4h-megastructure\"")
+        .with_file(
+            "common/megastructures/zz_phase4h_megastructure.txt",
+            b"mega_phase4h = { icon = phase4h_icon }",
+        )
+        .build()
+        .expect("a well-formed megastructure fixture corpus")
 }
 
 /// Effective field names in order. The full field-by-field comparison, for the fields whose
@@ -1222,9 +1234,13 @@ fn ship_components_resolve_by_inner_key_and_refuse_at_a_repeat() {
 #[test]
 fn megastructures_refuse_on_the_eager_field_cell_before_a_file_is_read() {
     let vanilla = corpus(SourceKind::VanillaContent, &[]);
-    let target = corpus(SourceKind::TargetMod, &[]);
+    let target = megastructure_target();
+    let selection = super::selection::select(&vanilla, &target);
+    let policy = profile::declared("megastructures").expect("the row is declared");
     assert_eq!(
-        resolve(&vanilla, &target).registry("megastructures"),
+        super::registry::resolve(policy, &selection, |_| {
+            panic!("the eager megastructure field refusal must precede the first file read")
+        }),
         Err(Refusal::UnresolvedCell {
             registry: "megastructures",
             cell: PolicyCell::FieldRule,
@@ -1322,13 +1338,12 @@ fn phase_4h_row_copy_controls_flip_the_claimed_cells() {
         }),
         ..mega
     };
+    let mega_target = megastructure_target();
     assert!(
-        row(
-            &resolve(&empty, &corpus(SourceKind::TargetMod, &[])),
-            &mega_resolved
-        )
-        .keys()
-        .is_empty()
+        row(&resolve(&empty, &mega_target), &mega_resolved)
+            .get("mega_phase4h")
+            .is_some(),
+        "closing the copied field cell must read and resolve the non-empty megastructure corpus"
     );
 }
 

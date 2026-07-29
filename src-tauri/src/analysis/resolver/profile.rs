@@ -377,11 +377,25 @@ const REDEFINABLE_PROVENANCE: ProvenanceRule = ProvenanceRule {
     ],
 };
 
-/// Events register by the direct `id` child of each top-level block, not by `event`'s shared
-/// block name. r9's runtime result establishes first registration wins; r10 establishes the
-/// early-sorting Target Mod direction. The body is whole-object and no defaults are known.
-/// `Parameter` is deliberately absent: event bodies are not parameter-called, so one is a
-/// typed undeclared-reference refusal rather than a borrowed policy.
+/// Events, restated from r8, r9, and r10.
+///
+/// - **Key and shadow unit.** The direct scalar `id` child of every top-level event block;
+///   r8's collision says the identifier alone is what collides. Common file selection owns
+///   shadowing, not a block-label filter whose semantics no record measures.
+/// - **Stream.** `events/*.txt`, non-recursive, in the script family's global path order.
+///   The directory is flat in the measured corpus; no record settles nested event files.
+/// - **Duplicates and cross-source.** Reject on repeat: r9 fired the same-file subject and
+///   observed the first body. r9's late `zz_` redeclaration loses and r10's early `!!!_` one
+///   wins, so a cross-source repeat is likewise decided by stream position.
+/// - **Fields and defaults.** Whole-object replacement with no defaults. A rejected later
+///   definition contributes no effective fields, and no record establishes a supplied value.
+/// - **Ordering.** Source order is preserved; r9's first-registration observation depends on
+///   the order in which blocks appear in one file.
+/// - **References.** Scripted constants and inline scripts are detected, not resolved: r8/r9
+///   settle registration rather than either expansion mechanism. `Parameter` is not named;
+///   event bodies are not parameter-called, so one is a typed undeclared-reference refusal.
+/// - **Provenance.** Contributed, duplicate, and shadowed record the accepted event and the
+///   rejected registration r9 identified.
 const EVENTS: RegistryPolicy = RegistryPolicy {
     name: "events",
     key: CellStatus::Resolved(KeyRule {
@@ -407,8 +421,20 @@ const EVENTS: RegistryPolicy = RegistryPolicy {
     provenance: CellStatus::Resolved(REDEFINABLE_PROVENANCE),
 };
 
-/// Buildings use their top-level key. r8's duplicate diagnostics establish replacement and
-/// its `building_sets` comparative pair establishes whole-object replacement with no defaults.
+/// Buildings, restated from r8's log-only registry experiment.
+///
+/// - **Key and shadow unit.** The top-level building key, shadowed by common file selection.
+/// - **Stream.** `common/buildings/*.txt`, non-recursive in global script path order; r8
+///   measures that directory shape and does not settle a nested one.
+/// - **Duplicates and cross-source.** Replace on repeat. r8's duplicate diagnostic says it
+///   uses the new registration, and the same global path order decides cross-source repeats.
+/// - **Fields and defaults.** Whole-object replacement with no defaults: r8's `building_sets`
+///   comparative pair makes the omitted field genuinely absent rather than inherited.
+/// - **Ordering.** Source order is preserved, the enumeration order behind r8's replacement.
+/// - **References.** Scripted constants and inline scripts are detected, not resolved; r8 did
+///   not measure their evaluation in building bodies. `Parameter` is deliberately unnamed.
+/// - **Provenance.** Contributed, duplicate, and shadowed describe a replacement and its
+///   displaced definition.
 const BUILDINGS: RegistryPolicy = RegistryPolicy {
     name: "buildings",
     key: CellStatus::Resolved(KeyRule {
@@ -434,9 +460,22 @@ const BUILDINGS: RegistryPolicy = RegistryPolicy {
     provenance: CellStatus::Resolved(REDEFINABLE_PROVENANCE),
 };
 
-/// Megastructures share r8's replacement and stream-position evidence, but its missing-local
-/// diagnostics arise only for new keys and cannot distinguish replacement from inheritance.
-/// The eager field cell therefore refuses the registry until STE-22 captures that evidence.
+/// Megastructures, with r8's measured cells and its one explicit evidence gap.
+///
+/// - **Key and shadow unit.** The top-level megastructure key, shadowed by common file
+///   selection; r8 names `think_tank_0` and `oracle_mega_dup` by those keys.
+/// - **Stream.** `common/megastructures/*.txt`, non-recursive in global script path order;
+///   no nesting behavior was captured, so this is the measured shape.
+/// - **Duplicates and cross-source.** Replace on repeat, with cross-source collisions decided
+///   by stream position; r8's `think_tank_0` duplicate uses the new registration.
+/// - **Fields and defaults.** Pending. r8's missing-localization and sprite diagnostics fire
+///   only for new keys, so they cannot distinguish whole replacement from inheritance for a
+///   redefinition. No defaults are claimed; STE-22 must supply the discriminating runtime fact.
+/// - **Ordering.** Source order is preserved, as in r8's one stream experiment.
+/// - **References.** Scripted constants and inline scripts are detected, not resolved; r8 did
+///   not measure either mechanism in a megastructure body. `Parameter` is deliberately unnamed.
+/// - **Provenance.** Contributed, duplicate, and shadowed state the r8 replacement claim for
+///   when the eager field cell is closed; the row refuses before emitting them today.
 const MEGASTRUCTURES: RegistryPolicy = RegistryPolicy {
     name: "megastructures",
     key: CellStatus::Resolved(KeyRule {
@@ -462,9 +501,23 @@ const MEGASTRUCTURES: RegistryPolicy = RegistryPolicy {
     provenance: CellStatus::Resolved(REDEFINABLE_PROVENANCE),
 };
 
-/// Ship components use their direct `key` child; several templates share one block label.
-/// r8 establishes only their shape and whole object body. Its same-source and cross-source
-/// duplicate winner cells remain visibly open, so a clean corpus resolves and a repeat refuses.
+/// Ship components, with r8's shape evidence and explicitly open duplicate winner cells.
+///
+/// - **Key and shadow unit.** The direct scalar `key` child of a component template, not the
+///   shared block label; r8's component diagnostics identify quoted component keys. Common
+///   file selection supplies the shadow unit.
+/// - **Stream.** `common/component_templates/*.txt`, non-recursive in global script path
+///   order, the only directory shape r8 measured.
+/// - **Duplicates and cross-source.** Both are Pending. r8 reports same-source duplicate
+///   component keys but does not name a winner, and it provides no cross-source winner; the
+///   first actual repeat refuses at `DuplicateWithinStream` before cross-source can answer.
+/// - **Fields and defaults.** Whole-object replacement with no defaults: r8's `icon` parity
+///   establishes the body shape for a component definition.
+/// - **Ordering.** Source order is preserved for the clean, distinct-key templates.
+/// - **References.** Scripted constants and inline scripts are detected, not resolved; r8 did
+///   not evaluate either mechanism in component bodies. `Parameter` is deliberately unnamed.
+/// - **Provenance.** Contributed only: repeats refuse before any duplicate or shadowed fact is
+///   an established outcome.
 const SHIP_COMPONENTS: RegistryPolicy = RegistryPolicy {
     name: "ship-components",
     key: CellStatus::Resolved(KeyRule {
