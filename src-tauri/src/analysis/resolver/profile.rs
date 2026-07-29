@@ -63,7 +63,11 @@ pub(super) const SUPPORTED_STELLARIS_BUILD: StellarisBuild = StellarisBuild {
 /// (`docs/spikes/resolver-evaluation.md`, "Resolution matrix"):
 ///
 /// - **Key and shadow unit.** The block name, shadowed by the common file and directory
-///   rules. Technologies declare no inner identifier the way ship components do.
+///   rules. Technologies declare no inner identifier the way ship components do. What the
+///   reader does *not* return is a file-local scripted-constant declaration: vanilla's
+///   `00_fallen_empire_tech.txt` opens with `@EnigmaticEngineeringDraw = 0.025`, and reading
+///   that as a definition would publish a technology the game does not have
+///   ([`top_level_definitions`]).
 /// - **Stream.** `common/technology/*.txt` in the script family's one global path order.
 ///   Non-recursive: vanilla ships the directory flat and no record settles what a
 ///   subdirectory under it would do, so this is the measured shape rather than a guess about

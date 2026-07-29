@@ -39,7 +39,7 @@ use super::resolved::{
 use super::selection::FileSelection;
 use super::stream::{ContentFamily, FileScope, StreamEntry};
 
-use super::super::parser::{Item, ParsedFile, Scalar, ScalarKind, SourceIdentity, Value};
+use super::super::parser::{Field, Item, ParsedFile, Scalar, ScalarKind, SourceIdentity, Value};
 
 /// The eight policies D-098 requires of every row.
 ///
@@ -171,7 +171,10 @@ impl fmt::Display for Refusal {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct ReadDefinition {
     pub key: DefinitionKey,
-    /// Ordinal within the file, in the order the reader yields definitions.
+    /// Position within the file, as the parse produced it. Not the index in this vector: a
+    /// reader that skips something — [`top_level_definitions`] skips file-local constant
+    /// declarations — leaves a gap rather than renumbering, because provenance and Source
+    /// Excerpts mean the position in the source.
     pub ordinal: u32,
     pub body: Value,
 }
@@ -184,15 +187,44 @@ pub(super) struct ReadDefinition {
 pub(super) type DefinitionReader = fn(&ParsedFile) -> Vec<ReadDefinition>;
 
 /// Top-level `key = value` definitions, in source order. What most script registries use.
+///
+/// **A file-local scripted-constant declaration is not a definition of the enclosing
+/// registry.** `@EnigmaticEngineeringDraw = 0.025` opens vanilla's
+/// `common/technology/00_fallen_empire_tech.txt`, and `00_soc_tech.txt` declares two more
+/// mid-file; the evaluation records the construct as "declared in the consuming script file —
+/// a file-local declaration overrides the global for that file"
+/// (`docs/spikes/resolver-evaluation.md`, "Scripted constants"). A reader that took every
+/// top-level field would publish `@EnigmaticEngineeringDraw` as a technology — a definition
+/// the game does not have, in a shipped vanilla file, and a silent one: its body is a bare
+/// scalar, so it states no effective fields and no reference fact would mark it either.
+///
+/// Recognized by the key's [`ScalarKind`] rather than by a `@` prefix here, for the reason
+/// reference detection reads the same field: the dialect lexer is the authority on what an
+/// `@` token is, and a second rule would disagree with it the first time either changed.
+///
+/// The complement — a reader yielding *only* these declarations — is what the scripted-
+/// constants row needs, and it belongs to that row's ticket rather than being pre-built here.
+///
+/// Ordinals are the position in the parse, so they are assigned before the skip. A technology
+/// following a declaration keeps the ordinal its file gives it; provenance and Source Excerpts
+/// mean the position in the source, not the index in this vector.
 pub(super) fn top_level_definitions(file: &ParsedFile) -> Vec<ReadDefinition> {
     file.definitions()
         .enumerate()
+        .filter(|(_, (field, _))| !is_constant_declaration(field))
         .map(|(ordinal, (field, _))| ReadDefinition {
             key: DefinitionKey::new(field.key.text().into_owned()),
             ordinal: ordinal as u32,
             body: field.value.clone(),
         })
         .collect()
+}
+
+fn is_constant_declaration(field: &Field) -> bool {
+    matches!(
+        field.key.kind,
+        ScalarKind::VariableRef | ScalarKind::VariableExpr
+    )
 }
 
 /// The unit at which a row's definitions are shadowed.
@@ -1272,6 +1304,70 @@ mod tests {
         let definition = resolved.get("tech_contested").expect("the key resolves");
         assert!(definition.references.is_empty());
         assert!(definition.states("tag"));
+    }
+
+    /// A file-local constant declaration is not a technology, and does not become one.
+    ///
+    /// The shape is vanilla's, not invented: `common/technology/00_fallen_empire_tech.txt`
+    /// opens with `@EnigmaticEngineeringDraw = 0.025` and a later technology reads it, and
+    /// `00_soc_tech.txt` declares two more mid-file. A reader taking every top-level field
+    /// publishes `@EnigmaticEngineeringDraw` as a technology the game does not have.
+    ///
+    /// Three assertions, because the failure is quiet in three different ways: the declaration
+    /// must not appear as a key, the technologies around it must still resolve, and the
+    /// technology *consuming* it must still carry its reference fact — skipping the
+    /// declaration must not also skip the consumption.
+    #[test]
+    fn a_file_local_constant_declaration_is_not_read_as_a_definition() {
+        let declaring = late_mod(concat!(
+            "@late_draw = 0.025\n",
+            "tech_contested = {\n\tcost = 20\n\tweight = @late_draw\n}\n",
+            "tech_after_declaration = {\n\tcost = 30\n}\n",
+        ));
+        let resolved = resolve_with(&trial::TECHNOLOGY_DETECTING_REFERENCES, &declaring)
+            .expect("a declaration is skipped, not refused");
+
+        assert!(
+            !resolved.keys().contains(&"@late_draw"),
+            "a scripted-constant declaration was published as a technology: {:?}",
+            resolved.keys()
+        );
+        assert!(resolved.get("tech_after_declaration").is_some());
+
+        let contested = resolved.get("tech_contested").expect("the key resolves");
+        assert_eq!(contested.position.source, SourceKind::TargetMod);
+        assert_eq!(
+            contested
+                .references
+                .iter()
+                .map(|fact| (fact.kind, fact.field.as_str()))
+                .collect::<Vec<_>>(),
+            [(ReferenceKind::ScriptedConstant, "weight")],
+            "the declaration is skipped; the consumption is still recorded"
+        );
+    }
+
+    /// The ordinal is the position in the file, not the index among what the reader kept.
+    ///
+    /// Stated on its own because it is invisible in every other assertion: renumbering would
+    /// give `tech_contested` ordinal 0 here and 0 in a file with no declaration, so two
+    /// different source positions would report the same provenance.
+    #[test]
+    fn skipping_a_declaration_leaves_a_gap_rather_than_renumbering() {
+        let declaring = late_mod(concat!(
+            "@late_draw = 0.025\n",
+            "tech_contested = {\n\tcost = 20\n}\n",
+        ));
+        let resolved = resolve_with(&REPLACE_ON_REPEAT, &declaring).expect("resolves");
+        assert_eq!(
+            resolved
+                .get("tech_contested")
+                .expect("the key resolves")
+                .position
+                .ordinal,
+            1,
+            "the technology is the file's second top-level field and says so"
+        );
     }
 
     /// The walk reaches every shape a value can take, not only nested objects.

@@ -17,9 +17,10 @@ use crate::source::snapshot::SourceSnapshot;
 
 use super::registry::{
     CellStatus, CrossSourceRule, FieldRule, KeyRule, NO_REFERENCES, OrderingRule, ProvenanceRule,
-    RegistryPolicy, RepeatRule, Replacement, ShadowUnit, StreamScope, top_level_definitions,
+    ReferenceHandling, ReferenceRule, RegistryPolicy, RepeatRule, Replacement, ShadowUnit,
+    StreamScope, top_level_definitions,
 };
-use super::resolved::FactKind;
+use super::resolved::{FactKind, ReferenceKind};
 use super::stream::{ContentFamily, FileScope};
 
 macro_rules! fixture {
@@ -246,6 +247,32 @@ pub(super) const fn with_fields(
         kinds,
     )
 }
+
+/// The same scope as [`REPLACE_ON_REPEAT`] with both reference kinds declared.
+///
+/// The undeclaring rows above refuse when a definition carries a reference, which is the right
+/// answer for them and the wrong shape for a test that needs to see a reference *recorded*.
+pub(super) const TECHNOLOGY_DETECTING_REFERENCES: RegistryPolicy = RegistryPolicy {
+    references: CellStatus::Resolved(ReferenceRule {
+        kinds: &[
+            (
+                ReferenceKind::ScriptedConstant,
+                ReferenceHandling::DetectedNotResolved,
+            ),
+            (
+                ReferenceKind::InlineScript,
+                ReferenceHandling::DetectedNotResolved,
+            ),
+        ],
+    }),
+    ..settled(
+        "trial-technology-detecting-references",
+        TECHNOLOGY_SCOPE,
+        RepeatRule::ReplaceOnRepeat,
+        WHOLE_OBJECT,
+        CONTESTED_KINDS,
+    )
+};
 
 /// The technologies row's field rule inverted, for the control that separates whole-object
 /// replacement from inheritance.

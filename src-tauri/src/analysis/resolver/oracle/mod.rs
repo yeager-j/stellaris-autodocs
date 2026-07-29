@@ -88,6 +88,12 @@
 //! registry::tests::a_reference_kind_the_row_did_not_declare_refuses
 //! ```
 //!
+//! - **A reader that took every top-level field.** Dropping the constant-declaration skip from
+//!   `registry::top_level_definitions` failed
+//!   `a_file_local_constant_declaration_is_not_read_as_a_definition`, and filtering *before*
+//!   assigning ordinals — renumbering rather than leaving a gap — failed
+//!   `skipping_a_declaration_leaves_a_gap_rather_than_renumbering`. Two faults, two tests, one
+//!   for each.
 //! - **A walk with a blind spot.** Dropping the tagged container from
 //!   `registry::Scan::walk_value` failed `a_reference_inside_a_tagged_container_is_found`,
 //!   which is what says that test exercises the tagged path rather than passing through some
