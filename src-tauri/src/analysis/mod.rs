@@ -3,6 +3,8 @@
 //! resolution, documentation generation, and Source Excerpt capture remain internal
 //! submodules (docs/technical-design.md, "Analysis module"). Populated from Phase 4.
 
+#[cfg(test)]
+mod corpora;
 #[allow(dead_code)]
 mod parser;
 #[allow(dead_code)]

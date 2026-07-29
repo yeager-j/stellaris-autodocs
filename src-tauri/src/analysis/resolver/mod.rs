@@ -48,6 +48,8 @@
 //! - [`profile`] — the profile's version, its pinned game build, and its declared rows.
 //! - `oracle` (tests) — the captured oracle records, consumed as machine-checked
 //!   expectations, with the drift gate that blocks a silent game-build change.
+//! - `census` (tests) — the embedded-`$PARAM$` measurement over the installed corpora, which
+//!   is what bounds the one shape [`inline_scripts`] passes through without a fact (D-132).
 //!
 //! # What does not leave
 //!
@@ -67,6 +69,8 @@ mod selection;
 mod sprites;
 mod stream;
 
+#[cfg(test)]
+mod census;
 #[cfg(test)]
 mod golden;
 #[cfg(test)]

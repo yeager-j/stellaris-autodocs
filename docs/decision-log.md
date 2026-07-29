@@ -1,6 +1,6 @@
 # Decision Log
 
-Last updated: 2026-07-26
+Last updated: 2026-07-29
 
 This log preserves the current product and technical decisions from the design interview. ADRs remain the authoritative record for hard-to-reverse architectural choices; this file also captures reversible product decisions, provisional choices, deferred work, and the next open question.
 
@@ -1226,6 +1226,22 @@ Recorded 2026-07-29 on completion of Phase 4G (STE-28), inline-script expansion.
 **What would settle each.** A capture exercising a `[[PARAM] … ]` conditional inside a fragment, with and without the parameter bound, would replace `ConditionalUnmeasured` with a measured rule. A capture supplying a fragment with a parameter the call omits would do the same for `UnboundParameter`. Until then each variant names its own gap, the same discipline `UnresolvedConstant` follows.
 
 **Scope.** Technologies only. `scripted-triggers` and `scripted-effects` keep `DetectedNotResolved` for this kind: `r11` measured a technology consumer, and per-row evidence is what a row may declare from.
+
+**D-132 — An embedded `$PARAM$` earns a typed omission, not silence; the corpus says the silence costs nothing yet**
+
+Recorded 2026-07-29 on completion of STE-34, the embedded-parameter census. It settles the shape D-131 named but did not cover. Nothing in D-131 changes.
+
+**What was unmeasured.** The lexer calls a token `ScalarKind::Parameter` only when `$` is the first and last byte, so `tech_$TIER$` is an ordinary `Unquoted` scalar, `substitute` never touches it, and it reaches an effective field as literal text with no fact attached. Unlike D-131's two shapes, this one was not detected at all — the single place the inline-script mechanism was silent rather than typed.
+
+**What the census measured.** [Inline-script parameter census](./spikes/inline-parameter-census.md), reproducible as `embedded_parameter_census`. Across 624 surviving fragments of Vanilla `Pegasus v4.4.6 (fdde)` and ACOT `1419304439`: 789 embedded occurrences (657 `Unquoted`, 69 `Quoted`, 63 inside `@` references) against 1,469 whole-token ones. The shape is real and abundant. But the technologies row — the only row that expands inline scripts — reaches exactly four fragments across its 1,436 definitions and 158 inclusion sites, and those four hold one parameter between them: the whole-token `$TECHNOLOGY$` that `r11` measured. Zero embedded. Zero conditional blocks, anywhere in the fragment corpus, which makes D-131's `ConditionalUnmeasured` vacuous by the same measurement.
+
+**The decision.** `UnresolvedInline` gains `EmbeddedParameterUnmeasured { token }`: an inclusion whose fragment still holds a closed `$…$` run in a token the lexer did not classify as `Parameter` is omitted, and the site carries that reason. This is D-131's rule applied without an exception — the alternatives are the same two it already rejected. Substituting textually would put content into a technology page on a rule no record measures, and the corpus's own intent is not a measurement. Leaving the token in place would publish `has_technology = tech_$TIER$`, an identifier naming nothing, and would do it *invisibly*: the undeclared-kind refusal cannot catch it either, because `Scan::walk_scalar` reads `ScalarKind` too, so an embedded run in an `Unquoted` token is outside its reach exactly as it is outside `substitute`'s.
+
+**Detection does not wait for a record; substitution does.** The variant is the honest omission, and D-130 already draws this line — `DetectedNotResolved` exists "because detection exists". So `r19-inline-embedded` (drafted in the note) is what would let the resolver *substitute* an embedded parameter, not what permits it to notice one. This is a deliberate reading of STE-34's "implemented only with a record behind it": that condition governs the handling, not the detection.
+
+**Why the code does not change here.** STE-34 is a measurement whose stated scope touches no resolver code, and the census is what makes the interval safe rather than merely unexamined: no reachable fragment carries the shape, and a committed run fails the moment one does. The same run's negative control has been shown to go red on exactly that condition. Adding the variant is a follow-up ticket, not a thing to slip into a spike.
+
+**Scope.** The variant is vocabulary shared by every row that expands, so it is not per row. What is per row is exposure: `scripted-triggers`, `scripted-effects`, and the Phase 4H rows hold `InlineScript` at `DetectedNotResolved` and reach no fragment today. The 65 distinct embedded occurrences under `ship_components` and 119 under `grand_archive` are what one of those cells flipping would walk into, which is the reason the variant is specified now instead of being rediscovered then.
 
 ## Open decisions
 
