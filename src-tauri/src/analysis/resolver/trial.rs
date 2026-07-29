@@ -288,6 +288,69 @@ pub(super) fn registration_vanilla() -> SourceSnapshot {
     corpus(SourceKind::VanillaContent, REGISTRATION_VANILLA)
 }
 
+// --- Phase 4H: events, buildings, megastructures, and ship components ---
+
+pub(super) const EVENTS_VANILLA: &[(&str, &[u8])] = &[(
+    "events/00_phase4h_events.txt",
+    fixture!("events-vanilla/events/00_phase4h_events.txt"),
+)];
+
+pub(super) const EVENTS: &[(&str, &[u8])] = &[
+    ("descriptor.mod", fixture!("events/descriptor.mod")),
+    (
+        "events/zz_phase4h_events.txt",
+        fixture!("events/events/zz_phase4h_events.txt"),
+    ),
+];
+
+pub(super) const EVENTS_EARLY: &[(&str, &[u8])] = &[
+    ("descriptor.mod", fixture!("events-early/descriptor.mod")),
+    (
+        "events/!!!_phase4h_events.txt",
+        fixture!("events-early/events/!!!_phase4h_events.txt"),
+    ),
+];
+
+pub(super) const BUILDINGS_VANILLA: &[(&str, &[u8])] = &[(
+    "common/buildings/00_phase4h_buildings.txt",
+    fixture!("buildings-vanilla/common/buildings/00_phase4h_buildings.txt"),
+)];
+
+pub(super) const BUILDINGS: &[(&str, &[u8])] = &[
+    ("descriptor.mod", fixture!("buildings/descriptor.mod")),
+    (
+        "common/buildings/zz_phase4h_buildings.txt",
+        fixture!("buildings/common/buildings/zz_phase4h_buildings.txt"),
+    ),
+];
+
+pub(super) const COMPONENTS: &[(&str, &[u8])] = &[
+    ("descriptor.mod", fixture!("components/descriptor.mod")),
+    (
+        "common/component_templates/zz_phase4h_components.txt",
+        fixture!("components/common/component_templates/zz_phase4h_components.txt"),
+    ),
+];
+
+pub(super) const COMPONENTS_REPEAT: &[(&str, &[u8])] = &[
+    (
+        "descriptor.mod",
+        fixture!("components-repeat/descriptor.mod"),
+    ),
+    (
+        "common/component_templates/zz_phase4h_components_repeat.txt",
+        fixture!("components-repeat/common/component_templates/zz_phase4h_components_repeat.txt"),
+    ),
+];
+
+pub(super) fn events_vanilla() -> SourceSnapshot {
+    corpus(SourceKind::VanillaContent, EVENTS_VANILLA)
+}
+
+pub(super) fn buildings_vanilla() -> SourceSnapshot {
+    corpus(SourceKind::VanillaContent, BUILDINGS_VANILLA)
+}
+
 // --- Phase 4G: inline scripts ---
 
 /// The base-game side [`INLINE`] expands against: the inline script whose path the mod

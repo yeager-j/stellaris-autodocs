@@ -50,7 +50,10 @@ use super::stream::{ContentFamily, FileScope};
 ///   typed `InlineScriptFact` instead of marking the value unfinished. Triggers and effects
 ///   are unchanged: `r11` measured a technology consumer, and per-row evidence is what a row
 ///   may declare from.
-pub(in crate::analysis) const RESOLUTION_PROFILE_VERSION: u32 = 4;
+/// - 5 (Phase 4H, STE-29): events, buildings, megastructures, and ship-components are
+///   declared. Duplicate-winner cells are consulted only on an actual repeat, allowing the
+///   ship-components clean corpus to resolve while its open repeat cell still refuses.
+pub(in crate::analysis) const RESOLUTION_PROFILE_VERSION: u32 = 5;
 
 /// The Stellaris build every oracle record behind this profile was captured against.
 ///
@@ -351,6 +354,150 @@ const SCRIPTED_CONSTANTS: RegistryPolicy = RegistryPolicy {
     }),
 };
 
+/// References detected in these bodies are retained rather than expanded: r8 and r9 settle
+/// registration, not constant evaluation or inline-script expansion in these registries.
+const DETECTED_SCRIPT_REFERENCES: ReferenceRule = ReferenceRule {
+    kinds: &[
+        (
+            ReferenceKind::ScriptedConstant,
+            CellStatus::Resolved(ReferenceHandling::DetectedNotResolved),
+        ),
+        (
+            ReferenceKind::InlineScript,
+            CellStatus::Resolved(ReferenceHandling::DetectedNotResolved),
+        ),
+    ],
+};
+
+const REDEFINABLE_PROVENANCE: ProvenanceRule = ProvenanceRule {
+    kinds: &[
+        FactKind::Contributed,
+        FactKind::Duplicate,
+        FactKind::Shadowed,
+    ],
+};
+
+/// Events register by the direct `id` child of each top-level block, not by `event`'s shared
+/// block name. r9's runtime result establishes first registration wins; r10 establishes the
+/// early-sorting Target Mod direction. The body is whole-object and no defaults are known.
+/// `Parameter` is deliberately absent: event bodies are not parameter-called, so one is a
+/// typed undeclared-reference refusal rather than a borrowed policy.
+const EVENTS: RegistryPolicy = RegistryPolicy {
+    name: "events",
+    key: CellStatus::Resolved(KeyRule {
+        reader: DefinitionReader::InnerField { field: "id" },
+        shadow: ShadowUnit::CommonFileSelection,
+    }),
+    stream: CellStatus::Resolved(StreamScope {
+        family: ContentFamily::Script,
+        scope: FileScope {
+            directory: "events",
+            extensions: &["txt"],
+            recursive: false,
+        },
+    }),
+    duplicates: CellStatus::Resolved(RepeatRule::RejectOnRepeat),
+    cross_source: CellStatus::Resolved(CrossSourceRule::DecidedByStreamPosition),
+    fields: CellStatus::Resolved(FieldRule {
+        replacement: Replacement::WholeObject,
+        defaults: &[],
+    }),
+    ordering: CellStatus::Resolved(OrderingRule::SourceOrderPreserved),
+    references: CellStatus::Resolved(DETECTED_SCRIPT_REFERENCES),
+    provenance: CellStatus::Resolved(REDEFINABLE_PROVENANCE),
+};
+
+/// Buildings use their top-level key. r8's duplicate diagnostics establish replacement and
+/// its `building_sets` comparative pair establishes whole-object replacement with no defaults.
+const BUILDINGS: RegistryPolicy = RegistryPolicy {
+    name: "buildings",
+    key: CellStatus::Resolved(KeyRule {
+        reader: DefinitionReader::TopLevelDefinitions,
+        shadow: ShadowUnit::CommonFileSelection,
+    }),
+    stream: CellStatus::Resolved(StreamScope {
+        family: ContentFamily::Script,
+        scope: FileScope {
+            directory: "common/buildings",
+            extensions: &["txt"],
+            recursive: false,
+        },
+    }),
+    duplicates: CellStatus::Resolved(RepeatRule::ReplaceOnRepeat),
+    cross_source: CellStatus::Resolved(CrossSourceRule::DecidedByStreamPosition),
+    fields: CellStatus::Resolved(FieldRule {
+        replacement: Replacement::WholeObject,
+        defaults: &[],
+    }),
+    ordering: CellStatus::Resolved(OrderingRule::SourceOrderPreserved),
+    references: CellStatus::Resolved(DETECTED_SCRIPT_REFERENCES),
+    provenance: CellStatus::Resolved(REDEFINABLE_PROVENANCE),
+};
+
+/// Megastructures share r8's replacement and stream-position evidence, but its missing-local
+/// diagnostics arise only for new keys and cannot distinguish replacement from inheritance.
+/// The eager field cell therefore refuses the registry until STE-22 captures that evidence.
+const MEGASTRUCTURES: RegistryPolicy = RegistryPolicy {
+    name: "megastructures",
+    key: CellStatus::Resolved(KeyRule {
+        reader: DefinitionReader::TopLevelDefinitions,
+        shadow: ShadowUnit::CommonFileSelection,
+    }),
+    stream: CellStatus::Resolved(StreamScope {
+        family: ContentFamily::Script,
+        scope: FileScope {
+            directory: "common/megastructures",
+            extensions: &["txt"],
+            recursive: false,
+        },
+    }),
+    duplicates: CellStatus::Resolved(RepeatRule::ReplaceOnRepeat),
+    cross_source: CellStatus::Resolved(CrossSourceRule::DecidedByStreamPosition),
+    fields: CellStatus::Pending {
+        reason: "r8 cannot distinguish whole replacement from inherited fields for a megastructure redefinition",
+        oracle_gap: "STE-22 stretch: a runtime observable comparing a redefinition's omitted field",
+    },
+    ordering: CellStatus::Resolved(OrderingRule::SourceOrderPreserved),
+    references: CellStatus::Resolved(DETECTED_SCRIPT_REFERENCES),
+    provenance: CellStatus::Resolved(REDEFINABLE_PROVENANCE),
+};
+
+/// Ship components use their direct `key` child; several templates share one block label.
+/// r8 establishes only their shape and whole object body. Its same-source and cross-source
+/// duplicate winner cells remain visibly open, so a clean corpus resolves and a repeat refuses.
+const SHIP_COMPONENTS: RegistryPolicy = RegistryPolicy {
+    name: "ship-components",
+    key: CellStatus::Resolved(KeyRule {
+        reader: DefinitionReader::InnerField { field: "key" },
+        shadow: ShadowUnit::CommonFileSelection,
+    }),
+    stream: CellStatus::Resolved(StreamScope {
+        family: ContentFamily::Script,
+        scope: FileScope {
+            directory: "common/component_templates",
+            extensions: &["txt"],
+            recursive: false,
+        },
+    }),
+    duplicates: CellStatus::Pending {
+        reason: "no runtime observation names the winner of a repeated ship-component key",
+        oracle_gap: "STE-22 stretch: a runtime observable for a repeated component key",
+    },
+    cross_source: CellStatus::Pending {
+        reason: "no runtime observation names the winner of a cross-source ship-component key",
+        oracle_gap: "STE-22 stretch: a runtime observable for a repeated component key",
+    },
+    fields: CellStatus::Resolved(FieldRule {
+        replacement: Replacement::WholeObject,
+        defaults: &[],
+    }),
+    ordering: CellStatus::Resolved(OrderingRule::SourceOrderPreserved),
+    references: CellStatus::Resolved(DETECTED_SCRIPT_REFERENCES),
+    provenance: CellStatus::Resolved(ProvenanceRule {
+        kinds: &[FactKind::Contributed],
+    }),
+};
+
 /// The registry rows this profile declares.
 ///
 /// One row per ticket, because each is a unit of evidence that deserves its own review
@@ -363,6 +510,10 @@ pub(super) const DECLARED: &[RegistryPolicy] = &[
     SCRIPTED_TRIGGERS,
     SCRIPTED_EFFECTS,
     SCRIPTED_CONSTANTS,
+    EVENTS,
+    BUILDINGS,
+    MEGASTRUCTURES,
+    SHIP_COMPONENTS,
 ];
 
 pub(super) fn declared(name: &str) -> Option<&'static RegistryPolicy> {

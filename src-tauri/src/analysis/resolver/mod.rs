@@ -153,11 +153,8 @@ mod tests {
 
     #[test]
     fn an_undeclared_registry_refuses_by_name() {
-        // Megastructures, because the row is genuinely undeclared and will stay that way for
-        // a while: its field cell is *inconclusive* rather than open — the registry's
-        // diagnostics cannot detect field inheritance — so no ticket can close it without new
-        // evidence. "A content type may be claimed as supported only when every policy it
-        // requires is explicit and oracle-backed."
+        // Sprites remain a future row. A content type may be claimed as supported only when
+        // every policy it requires is explicit and oracle-backed.
         let vanilla = FixtureCorpus::new(SourceKind::VanillaContent)
             .with_file("common/technology/00_vanilla.txt", b"tech_a = {}")
             .build()
@@ -169,9 +166,9 @@ mod tests {
 
         let resolution = resolve(&vanilla, &target);
         assert_eq!(
-            resolution.registry("megastructures"),
+            resolution.registry("sprites"),
             Err(Refusal::UndeclaredRegistry {
-                registry: "megastructures".to_owned()
+                registry: "sprites".to_owned()
             })
         );
     }

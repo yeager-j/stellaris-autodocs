@@ -43,6 +43,9 @@ Stellaris installed.
 | `inline-vanilla/` | the base-game side `inline/` expands against | One inline script at `technologies/rare_weight_modifiers`, gated so that expanding it contributes nothing, plus one technology naming no inline script — the scoping control that separates "expansion broke the row" from "this definition was displaced". |
 | `inline/` | `r11-inline` | The record's six subjects, every one written to expand to the same shape so a subject that does not produce it did not expand: a hand-written literal positive control, a no-modifier negative control, a quoted single-argument call, a block call binding `$F$`, a block call at `inline-vanilla/`'s exact script path (with an unused binding), and — in its own file, so a nesting failure cannot reach the others — a fragment whose whole body is a second inclusion. |
 | `inline-missing/` | `r12-inline-missing` | An inline reference to a path no file supplies, plus a sibling definition after it in the same file: the game diagnoses the reference and registers the technology anyway with the inclusion absent, so the resolver owes survival with an explicit fact rather than silence. |
+| `events-vanilla/`, `events/`, `events-early/` | `r9-events-runtime`, `r10-loadorder` | Real event-block syntax with `namespace` and direct `id` keys. The mod has a same-file first-wins pair, a late `zz_` collision vanilla retains, and a separate early `!!!_` collision the mod registers first. |
+| `buildings-vanilla/`, `buildings/` | `r8-registries` | A vanilla building states `building_sets`; its late mod redefinition omits it and adds a new-key control, so whole-object replacement cannot pass by loading no mod file. |
+| `components/`, `components-repeat/` | `r8-registries` | Real component-template blocks share their top-level label and differ by quoted direct `key`; the clean corpus proves inner-key reading and the separate repeat corpus reaches the unresolved duplicate-winner cell. |
 
 ## Reading them
 

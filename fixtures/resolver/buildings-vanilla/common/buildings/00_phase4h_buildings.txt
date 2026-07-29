@@ -1,0 +1,4 @@
+building_phase4h_subject = {
+	building_sets = { phase4h_set }
+	icon = phase4h_subject_vanilla
+}

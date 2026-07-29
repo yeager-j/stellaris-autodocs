@@ -1,0 +1,11 @@
+namespace = phase4h
+
+country_event = {
+	id = phase4h.late
+	title = phase4h_late_vanilla
+}
+
+country_event = {
+	id = phase4h.early
+	title = phase4h_early_vanilla
+}

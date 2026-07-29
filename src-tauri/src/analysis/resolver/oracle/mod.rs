@@ -305,20 +305,37 @@
 //!
 //!   `inline_scripts::tests::legitimate_nesting_stays_far_below_the_expansion_budget` stayed
 //!   green under the same break, and `r11_nested_inclusion_expands_recursively` with it.
+//!
+//! Phase 4H (STE-29) added four hand-broken controls against the shipped paths, each restored
+//! before the next control:
+//!
+//! - Forcing the declared events row to `ReplaceOnRepeat` failed
+//!   `r9_events_keep_the_first_same_source_registration_and_record_the_loser`: the second
+//!   same-file event became ordinal 2 instead of the retained first event at ordinal 1.
+//! - Reading an inner-key row by its top-level block label failed
+//!   `an_inner_field_reader_uses_the_direct_identifier_not_the_shared_block_name`: two
+//!   `event` blocks produced `event`, `event` rather than `story.1`, `story.2`.
+//! - Moving the duplicate-cell consult back before the stream failed
+//!   `an_open_duplicate_cell_is_lazy_but_refuses_at_the_first_repeat`: its clean corpus could
+//!   no longer resolve before a duplicate decision was needed.
+//! - Changing buildings to `InheritAbsentFields` failed `r8_buildings_replace_the_whole_object`
+//!   at the provenance contract: the engine produced an undeclared `Inherited` fact, before it
+//!   could silently publish the inherited `building_sets` field.
 
 mod record;
 
-use super::registry::{PolicyCell, Refusal};
+use super::registry::{CellStatus, FieldRule, PolicyCell, Refusal, RepeatRule, Replacement};
 use super::resolved::{
     ConstantOutcome, FactKind, FactSite, InlineOutcome, Removal, ResolvedDefinition,
     ResolvedRegistry, UnresolvedConstant, UnresolvedInline,
 };
 use super::trial::{
-    self, CONSTANTS_A_BODY, CONSTANTS_A_FLIPPED_BODY, CONSTANTS_B_BODY, CONSTANTS_B_FLIPPED_BODY,
-    CONSTANTS_COLLISION, EARLY_MOD, INLINE, INLINE_MISSING, NO_REDEFINITION, PARAMETERIZED,
-    PATH_COLLISION, REDEFINITION, REDEFINITION_BODY, REDEFINITION_FLIPPED,
-    REDEFINITION_FLIPPED_BODY, REGISTRATION, REGISTRATION_FLIPPED, REPLACE_PATH, RISKY_CONSTANTS,
-    TRIGGERS_A_BODY, TRIGGERS_A_FLIPPED_BODY, TRIGGERS_B_BODY, TRIGGERS_B_FLIPPED_BODY, corpus,
+    self, BUILDINGS, COMPONENTS, COMPONENTS_REPEAT, CONSTANTS_A_BODY, CONSTANTS_A_FLIPPED_BODY,
+    CONSTANTS_B_BODY, CONSTANTS_B_FLIPPED_BODY, CONSTANTS_COLLISION, EARLY_MOD, EVENTS,
+    EVENTS_EARLY, INLINE, INLINE_MISSING, NO_REDEFINITION, PARAMETERIZED, PATH_COLLISION,
+    REDEFINITION, REDEFINITION_BODY, REDEFINITION_FLIPPED, REDEFINITION_FLIPPED_BODY, REGISTRATION,
+    REGISTRATION_FLIPPED, REPLACE_PATH, RISKY_CONSTANTS, TRIGGERS_A_BODY, TRIGGERS_A_FLIPPED_BODY,
+    TRIGGERS_B_BODY, TRIGGERS_B_FLIPPED_BODY, buildings_vanilla, corpus, events_vanilla,
     inline_vanilla, redefinition_vanilla, registration_vanilla, vanilla,
 };
 use super::{Resolution, profile, resolve};
@@ -339,6 +356,17 @@ struct Expectation {
 /// not an expectation below reads it in detail — `r0-baseline` is the clearest case, since its
 /// value is the measured *absence* the r1 result is a delta against.
 const EXPECTATIONS: &[Expectation] = &[
+    Expectation {
+        run: "r8-registries",
+        rule: "building and megastructure duplicate diagnostics use the new registration, while \
+               event and component diagnostics identify collisions without naming a component winner; \
+               the building comparison's omitted building_sets is whole-object replacement",
+    },
+    Expectation {
+        run: "r9-events-runtime",
+        rule: "the first registration of an event id actually evaluates at runtime; a later \
+               same-file event with that id is rejected rather than replacing it",
+    },
     Expectation {
         run: "r3-replace-path",
         rule: "replace_path excludes every other source's files in the directory; the \
@@ -1080,13 +1108,227 @@ fn an_undeclared_registry_is_a_typed_refusal() {
     let (vanilla, target) = against(EARLY_MOD);
     let resolution = resolve(&vanilla, &target);
     assert_eq!(
-        resolution.registry("megastructures"),
+        resolution.registry("sprites"),
         Err(Refusal::UndeclaredRegistry {
-            registry: "megastructures".to_owned()
+            registry: "sprites".to_owned()
         }),
-        "technologies is declared and megastructures is not, and the difference must be the \
+        "technologies is declared and sprites is not, and the difference must be the \
          declaration rather than which registry the corpus happens to hold definitions for — \
          this corpus's technology files would resolve under either row's stream"
+    );
+}
+
+// --- Phase 4H (STE-29): events, buildings, megastructures, and ship components ---
+
+#[test]
+fn r9_events_keep_the_first_same_source_registration_and_record_the_loser() {
+    let vanilla = events_vanilla();
+    let target = corpus(SourceKind::TargetMod, EVENTS);
+    let registry = named(&resolve(&vanilla, &target), "events");
+    let definition = registry
+        .get("phase4h.same_file")
+        .expect("the event resolves");
+    assert_eq!(
+        definition.position.ordinal, 1,
+        "the first event block is retained"
+    );
+    assert_eq!(
+        scalar_fields(definition),
+        [
+            ("id", "phase4h.same_file".to_owned()),
+            ("title", "phase4h_same_first".to_owned())
+        ]
+    );
+    assert_eq!(
+        definition
+            .displaced
+            .iter()
+            .filter(|fact| fact.field.is_none())
+            .map(|fact| fact.kind)
+            .collect::<Vec<_>>(),
+        [FactKind::Duplicate, FactKind::Shadowed]
+    );
+}
+
+#[test]
+fn r9_and_r10_events_follow_stream_position_in_both_directions() {
+    let vanilla = events_vanilla();
+    let late = corpus(SourceKind::TargetMod, EVENTS);
+    let late_registry = named(&resolve(&vanilla, &late), "events");
+    assert_eq!(
+        late_registry
+            .get("phase4h.late")
+            .expect("resolves")
+            .position
+            .source,
+        SourceKind::VanillaContent,
+        "a late zz_ event loses to the vanilla first registration"
+    );
+
+    let early = corpus(SourceKind::TargetMod, EVENTS_EARLY);
+    let early_registry = named(&resolve(&vanilla, &early), "events");
+    assert_eq!(
+        early_registry
+            .get("phase4h.early")
+            .expect("resolves")
+            .position
+            .source,
+        SourceKind::TargetMod,
+        "an early !!!_ event wins before vanilla registers the same id"
+    );
+}
+
+#[test]
+fn r8_buildings_replace_the_whole_object() {
+    let vanilla = buildings_vanilla();
+    let target = corpus(SourceKind::TargetMod, BUILDINGS);
+    let registry = named(&resolve(&vanilla, &target), "buildings");
+    let subject = registry
+        .get("building_phase4h_subject")
+        .expect("the redefinition resolves");
+    assert_eq!(subject.position.source, SourceKind::TargetMod);
+    assert!(
+        subject.field("building_sets").is_none(),
+        "the omitted field is absent, not inherited"
+    );
+    assert!(
+        registry.get("building_phase4h_new").is_some(),
+        "the same file contributed its new-key control"
+    );
+}
+
+#[test]
+fn ship_components_resolve_by_inner_key_and_refuse_at_a_repeat() {
+    let empty = corpus(SourceKind::VanillaContent, &[]);
+    let clean = corpus(SourceKind::TargetMod, COMPONENTS);
+    let clean_registry = named(&resolve(&empty, &clean), "ship-components");
+    assert_eq!(
+        clean_registry.keys(),
+        ["PHASE4H_COMPONENT_A", "PHASE4H_COMPONENT_B"]
+    );
+
+    let repeated = corpus(SourceKind::TargetMod, COMPONENTS_REPEAT);
+    assert_eq!(
+        resolve(&empty, &repeated).registry("ship-components"),
+        Err(Refusal::UnresolvedCell {
+            registry: "ship-components",
+            cell: PolicyCell::DuplicateWithinStream,
+            reason: "no runtime observation names the winner of a repeated ship-component key",
+            oracle_gap: "STE-22 stretch: a runtime observable for a repeated component key",
+        })
+    );
+}
+
+#[test]
+fn megastructures_refuse_on_the_eager_field_cell_before_a_file_is_read() {
+    let vanilla = corpus(SourceKind::VanillaContent, &[]);
+    let target = corpus(SourceKind::TargetMod, &[]);
+    assert_eq!(
+        resolve(&vanilla, &target).registry("megastructures"),
+        Err(Refusal::UnresolvedCell {
+            registry: "megastructures",
+            cell: PolicyCell::FieldRule,
+            reason: "r8 cannot distinguish whole replacement from inherited fields for a megastructure redefinition",
+            oracle_gap: "STE-22 stretch: a runtime observable comparing a redefinition's omitted field",
+        })
+    );
+}
+
+#[test]
+fn phase_4h_row_copy_controls_flip_the_claimed_cells() {
+    const INHERITING_PROVENANCE: super::registry::ProvenanceRule =
+        super::registry::ProvenanceRule {
+            kinds: &[
+                FactKind::Contributed,
+                FactKind::Inherited,
+                FactKind::Duplicate,
+                FactKind::Shadowed,
+            ],
+        };
+    const REPEATING_PROVENANCE: super::registry::ProvenanceRule = super::registry::ProvenanceRule {
+        kinds: &[
+            FactKind::Contributed,
+            FactKind::Duplicate,
+            FactKind::Shadowed,
+        ],
+    };
+    let events = *profile::declared("events").expect("declared");
+    let events_flipped = super::registry::RegistryPolicy {
+        duplicates: CellStatus::Resolved(RepeatRule::ReplaceOnRepeat),
+        ..events
+    };
+    let vanilla = events_vanilla();
+    let late = corpus(SourceKind::TargetMod, EVENTS);
+    assert_eq!(
+        row(&resolve(&vanilla, &late), &events_flipped)
+            .get("phase4h.late")
+            .expect("resolves")
+            .position
+            .source,
+        SourceKind::TargetMod,
+        "inverting events changes the late winner"
+    );
+    let early = corpus(SourceKind::TargetMod, EVENTS_EARLY);
+    assert_eq!(
+        row(&resolve(&vanilla, &early), &events_flipped)
+            .get("phase4h.early")
+            .expect("resolves")
+            .position
+            .source,
+        SourceKind::VanillaContent,
+        "inverting events changes the early winner"
+    );
+
+    let buildings = *profile::declared("buildings").expect("declared");
+    let inheriting = super::registry::RegistryPolicy {
+        fields: CellStatus::Resolved(FieldRule {
+            replacement: Replacement::InheritAbsentFields,
+            defaults: &[],
+        }),
+        provenance: CellStatus::Resolved(INHERITING_PROVENANCE),
+        ..buildings
+    };
+    let vanilla = buildings_vanilla();
+    let target = corpus(SourceKind::TargetMod, BUILDINGS);
+    assert!(
+        row(&resolve(&vanilla, &target), &inheriting)
+            .get("building_phase4h_subject")
+            .expect("resolves")
+            .states("building_sets")
+    );
+
+    let components = *profile::declared("ship-components").expect("declared");
+    let components_resolved = super::registry::RegistryPolicy {
+        duplicates: CellStatus::Resolved(RepeatRule::ReplaceOnRepeat),
+        provenance: CellStatus::Resolved(REPEATING_PROVENANCE),
+        ..components
+    };
+    let empty = corpus(SourceKind::VanillaContent, &[]);
+    let repeated = corpus(SourceKind::TargetMod, COMPONENTS_REPEAT);
+    assert_eq!(
+        row(&resolve(&empty, &repeated), &components_resolved)
+            .get("PHASE4H_COMPONENT_REPEAT")
+            .expect("resolves")
+            .position
+            .ordinal,
+        1
+    );
+
+    let mega = *profile::declared("megastructures").expect("declared");
+    let mega_resolved = super::registry::RegistryPolicy {
+        fields: CellStatus::Resolved(FieldRule {
+            replacement: Replacement::WholeObject,
+            defaults: &[],
+        }),
+        ..mega
+    };
+    assert!(
+        row(
+            &resolve(&empty, &corpus(SourceKind::TargetMod, &[])),
+            &mega_resolved
+        )
+        .keys()
+        .is_empty()
     );
 }
 
