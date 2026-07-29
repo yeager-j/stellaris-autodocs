@@ -350,7 +350,7 @@ fn corpus(kind: SourceKind, files: &[(&str, &[u8])]) -> SourceSnapshot {
         .expect("a committed fixture corpus establishes")
 }
 
-/// The gate that makes the tables above safe to state twice.
+/// This target's half of the gate that makes the tables above safe to state twice.
 ///
 /// `analysis::resolver::trial` names the same six trees for the in-crate expectations, and it is
 /// crate-private, so this target cannot borrow its tables and the file lists are genuinely
@@ -358,8 +358,14 @@ fn corpus(kind: SourceKind, files: &[(&str, &[u8])]) -> SourceSnapshot {
 /// and silently skipped by the other — and a *skipped* file is the failure mode that hides, since
 /// every corpus still builds and every case still passes.
 ///
-/// So the committed directory is the authority and both tables are derivations of it. This walks
-/// the tree with `std::fs`, which is a test-time read of a compile-time-included fixture and not a
+/// **Each side needs its own gate, and this one is only half.** A file added to the tree and to
+/// `trial`'s table but not to the tables above fails here; the reverse omission fails in
+/// `trial::every_committed_fixture_file_reaches_its_corpus_table` instead. Neither implies the
+/// other, which is exactly the mistake the first version of this gate made.
+///
+/// So the committed directory is the authority and both tables are derivations of it — rather than
+/// a shared manifest, which would be a third artifact whose own drift would need a gate too. This
+/// walks the tree with `std::fs`, a test-time read of a compile-time-included fixture and not a
 /// widening of `source::fixture`'s no-`from_directory` rule: nothing here builds a snapshot from
 /// what it finds.
 #[test]

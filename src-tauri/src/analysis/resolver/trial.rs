@@ -599,6 +599,79 @@ pub(super) fn enigmalith_vanilla() -> SourceSnapshot {
     corpus(SourceKind::VanillaContent, ENIGMALITH_VANILLA)
 }
 
+/// One corpus table, with the fixture directory it claims to be the whole of.
+type FixtureTree = (&'static str, &'static [(&'static str, &'static [u8])]);
+
+/// The Phase 4K trees, paired with their directory names.
+///
+/// Scoped to these six rather than to every corpus in this file, because "every committed file
+/// reaches this table" is only true of a table that claims a whole tree. Several above claim
+/// subsets on purpose — [`NO_REDEFINITION`] names one file of `redefinition/` and nothing else,
+/// which is the `r0-baseline` shape — so a gate over all of them would report a deliberate
+/// omission as drift.
+const TREES: &[FixtureTree] = &[
+    ("malformed", MALFORMED),
+    ("malformed-vanilla", MALFORMED_VANILLA),
+    ("zero-weight", ZERO_WEIGHT),
+    ("zero-weight-vanilla", ZERO_WEIGHT_VANILLA),
+    ("enigmalith", ENIGMALITH),
+    ("enigmalith-vanilla", ENIGMALITH_VANILLA),
+];
+
+/// This file's half of the gate over the Phase 4K tables.
+///
+/// The acceptance target names the same six trees for its own corpora and cannot borrow these,
+/// because this module is crate-private — so the tables are genuinely duplicated and *each* side
+/// needs checking. `corpora::every_committed_fixture_file_reaches_a_corpus` is the other half, and
+/// on its own it leaves the hole this closes: a file added to the tree and to the acceptance table
+/// but not here passes there, and [`super::golden`] then resolves an incomplete corpus while every
+/// assertion it makes still holds. Neither gate implies the other.
+///
+/// Two gates rather than a shared manifest, because the committed directory is already the
+/// authority: a manifest would be a third artifact, and its own drift would need a gate too.
+#[test]
+fn every_committed_fixture_file_reaches_its_corpus_table() {
+    for (tree, declared) in TREES {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../fixtures/resolver")
+            .join(tree);
+        let mut committed = Vec::new();
+        collect_committed(&root, &root, &mut committed);
+        committed.sort();
+
+        let mut named: Vec<String> = declared
+            .iter()
+            .map(|(logical, _)| (*logical).to_owned())
+            .collect();
+        named.sort();
+
+        assert_eq!(
+            committed, named,
+            "fixtures/resolver/{tree}/ and its corpus table disagree about which files exist",
+        );
+    }
+}
+
+/// A test-time directory read of fixtures this file otherwise includes at compile time. Not a
+/// widening of `source::fixture`'s no-`from_directory` rule: nothing here builds a snapshot from
+/// what it finds, and the same read already backs the parser's own fixture suites.
+fn collect_committed(root: &std::path::Path, directory: &std::path::Path, found: &mut Vec<String>) {
+    for entry in std::fs::read_dir(directory).expect("a committed fixture directory is readable") {
+        let path = entry.expect("a readable directory entry").path();
+        if path.is_dir() {
+            collect_committed(root, &path, found);
+        } else {
+            let logical = path
+                .strip_prefix(root)
+                .expect("every entry is under the tree root")
+                .to_str()
+                .expect("a fixture path is UTF-8")
+                .replace('\\', "/");
+            found.push(logical);
+        }
+    }
+}
+
 const TECHNOLOGY_SCOPE: FileScope = FileScope {
     directory: "common/technology",
     extensions: &["txt"],
