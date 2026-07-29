@@ -53,7 +53,11 @@ use super::stream::{ContentFamily, FileScope};
 /// - 5 (Phase 4H, STE-29): events, buildings, megastructures, and ship-components are
 ///   declared. Duplicate-winner cells are consulted only on an actual repeat, allowing the
 ///   ship-components clean corpus to resolve while its open repeat cell still refuses.
-pub(in crate::analysis) const RESOLUTION_PROFILE_VERSION: u32 = 5;
+/// - 6 (Phase 4I, STE-30): the sprites row is declared. Sprite definitions resolve by nested
+///   `name`, replace on repeat in the global sprite path stream, and follow
+///   `sprite_sheet_sprite_type` only after final winners are known, recording the effective
+///   primary texture and every reference edge.
+pub(in crate::analysis) const RESOLUTION_PROFILE_VERSION: u32 = 6;
 
 /// The Stellaris build every oracle record behind this profile was captured against.
 ///
@@ -552,6 +556,63 @@ const SHIP_COMPONENTS: RegistryPolicy = RegistryPolicy {
     }),
 };
 
+/// Sprite definitions, restated from r17 and r18.
+///
+/// - **Key and shadow unit.** The direct scalar `name` of every named block inside a
+///   top-level `spriteTypes` container. The enclosing block label is not the registry key;
+///   shipped files use several labels besides `spriteType`. Common file selection owns
+///   whole-file shadowing.
+/// - **Stream.** `interface/*.gfx`, non-recursive, in the sprite family's one global path
+///   order across both contributors. r17 and r18 measure that flat scope and opposite sides
+///   of Vanilla's `alerts.gfx`.
+/// - **Duplicates and cross-source.** Replace on repeat. r17 establishes last-wins within
+///   one file, across files, and against Vanilla from a late-sorting mod file; r18's
+///   early-sorting file loses, so source never outranks stream position.
+/// - **Fields and defaults.** Whole-object replacement with no defaults.
+/// - **Ordering.** Source order is preserved, including the order of blocks nested inside
+///   each `spriteTypes` container.
+/// - **References.** `sprite_sheet_sprite_type` resolves against the final sprite winners.
+///   Scripted constants in other sprite fields remain detected and explicitly unresolved;
+///   they do not participate in primary texture selection.
+/// - **Provenance.** Contributed, duplicate, and shadowed facts describe the winning and
+///   displaced definitions. The sprite-specific payload separately records every sheet edge
+///   and the source of the texture reached through it.
+const SPRITES: RegistryPolicy = RegistryPolicy {
+    name: "sprites",
+    key: CellStatus::Resolved(KeyRule {
+        reader: DefinitionReader::SpriteDefinitions,
+        shadow: ShadowUnit::CommonFileSelection,
+    }),
+    stream: CellStatus::Resolved(StreamScope {
+        family: ContentFamily::Sprite,
+        scope: FileScope {
+            directory: "interface",
+            extensions: &["gfx"],
+            recursive: false,
+        },
+    }),
+    duplicates: CellStatus::Resolved(RepeatRule::ReplaceOnRepeat),
+    cross_source: CellStatus::Resolved(CrossSourceRule::DecidedByStreamPosition),
+    fields: CellStatus::Resolved(FieldRule {
+        replacement: Replacement::WholeObject,
+        defaults: &[],
+    }),
+    ordering: CellStatus::Resolved(OrderingRule::SourceOrderPreserved),
+    references: CellStatus::Resolved(ReferenceRule {
+        kinds: &[
+            (
+                ReferenceKind::ScriptedConstant,
+                CellStatus::Resolved(ReferenceHandling::DetectedNotResolved),
+            ),
+            (
+                ReferenceKind::SpriteSheet,
+                CellStatus::Resolved(ReferenceHandling::ResolvedAgainstSprites),
+            ),
+        ],
+    }),
+    provenance: CellStatus::Resolved(REDEFINABLE_PROVENANCE),
+};
+
 /// The registry rows this profile declares.
 ///
 /// One row per ticket, because each is a unit of evidence that deserves its own review
@@ -568,6 +629,7 @@ pub(super) const DECLARED: &[RegistryPolicy] = &[
     BUILDINGS,
     MEGASTRUCTURES,
     SHIP_COMPONENTS,
+    SPRITES,
 ];
 
 pub(super) fn declared(name: &str) -> Option<&'static RegistryPolicy> {

@@ -208,6 +208,12 @@ pub(super) enum DefinitionReader {
     InnerField {
         field: &'static str,
     },
+    /// Every named block nested directly inside a top-level `spriteTypes` container.
+    ///
+    /// The block label is deliberately irrelevant: shipped files use `spriteType`,
+    /// `progressbarType`, `corneredTileSpriteType`, and more. The registry key is their
+    /// direct scalar `name` field.
+    SpriteDefinitions,
     ConstantDeclarations,
 }
 
@@ -216,6 +222,7 @@ impl DefinitionReader {
         match self {
             Self::TopLevelDefinitions => top_level_definitions(file),
             Self::InnerField { field } => inner_field_definitions(file, field),
+            Self::SpriteDefinitions => sprite_definitions(file),
             Self::ConstantDeclarations => super::constants::constant_declarations(file),
         }
     }
@@ -281,6 +288,46 @@ fn inner_field_definitions(file: &ParsedFile, wanted: &str) -> Vec<ReadDefinitio
             })
         })
         .collect()
+}
+
+/// Named definitions nested inside every top-level `spriteTypes` block.
+///
+/// Ordinals flatten the fields of all matching containers in source order. A field that is
+/// not a named block still advances the ordinal, leaving the same kind of gap
+/// [`top_level_definitions`] leaves for a file-local constant: provenance says where a
+/// definition sat in the source stream, not where it landed in a filtered result vector.
+fn sprite_definitions(file: &ParsedFile) -> Vec<ReadDefinition> {
+    let mut definitions = Vec::new();
+    let mut ordinal = 0u32;
+
+    for (outer, _) in file.definitions() {
+        if outer.key.text() != "spriteTypes" {
+            continue;
+        }
+        let Value::Container(container) = &outer.value else {
+            continue;
+        };
+        for candidate in container.fields() {
+            let candidate_ordinal = ordinal;
+            ordinal += 1;
+            let Value::Container(body) = &candidate.value else {
+                continue;
+            };
+            let Some(name) = body.fields().find(|field| field.key.text() == "name") else {
+                continue;
+            };
+            let Value::Scalar(name) = &name.value else {
+                continue;
+            };
+            definitions.push(ReadDefinition {
+                key: DefinitionKey::new(name.text().into_owned()),
+                ordinal: candidate_ordinal,
+                body: candidate.value.clone(),
+            });
+        }
+    }
+
+    definitions
 }
 
 /// Whether `field` is a scripted-constant declaration (`@name = …` or `@[ … ] = …`), by the
@@ -417,6 +464,11 @@ pub(super) enum ReferenceHandling {
     /// — a `@constant`, a literal — is scanned by the row's declared kinds like any other
     /// content the definition states (`r11`, `r12`).
     ExpandedFromInlineScripts,
+    /// `sprite_sheet_sprite_type` resolves against the final winners of the same registry
+    /// and produces a [`SpriteResolution`](super::resolved::SpriteResolution). The generic
+    /// reference scan recognizes the field, while [`super::sprites`] follows it only after
+    /// registration is complete.
+    ResolvedAgainstSprites,
 }
 
 /// What a row does with the references its definitions carry.
@@ -537,6 +589,13 @@ where
         )
     });
     let library = expands_inline.then(|| inline_scripts::build_library(selection, &read));
+    let resolves_sprites = reference_rule.kinds.iter().any(|(kind, status)| {
+        *kind == ReferenceKind::SpriteSheet
+            && matches!(
+                status,
+                CellStatus::Resolved(ReferenceHandling::ResolvedAgainstSprites)
+            )
+    });
 
     let stream = super::stream::build(selection, scope.family, scope.scope);
     let mut winners: BTreeMap<DefinitionKey, Winner> = BTreeMap::new();
@@ -637,6 +696,9 @@ where
         )?;
         definition.references = references;
         definition.constants = found_constants;
+    }
+    if resolves_sprites {
+        super::sprites::attach(&mut definitions);
     }
 
     // The constants row's own declarations get a fact about their *own* value (decision 9),
@@ -772,6 +834,8 @@ impl Winner {
             constants: Vec::new(),
             // Attached by `inline_scripts::expand`, which runs before both of the above.
             inline_expansions: Vec::new(),
+            // Attached by `sprites::attach` for the sprites row after all winners exist.
+            sprite: None,
         }
     }
 }
@@ -841,6 +905,9 @@ fn detect_references(
         }
     }
     for field in &definition.fields {
+        if field.field == super::sprites::SPRITE_SHEET {
+            scan.record(ReferenceKind::SpriteSheet, field)?;
+        }
         if field.field == INLINE_SCRIPT {
             scan.record(ReferenceKind::InlineScript, field)?;
         }
@@ -993,6 +1060,12 @@ impl Scan<'_> {
                      ReferenceKind::InlineScript"
                 )
             }
+            Some(CellStatus::Resolved(ReferenceHandling::ResolvedAgainstSprites)) => {
+                unreachable!(
+                    "only SpriteSheet routes through record; no row declares sprite \
+                     resolution for ScriptedConstant"
+                )
+            }
         }
     }
 
@@ -1054,6 +1127,16 @@ impl Scan<'_> {
                     "inline_scripts::expand removes or omits every site before the scan runs, \
                      so no {kind:?} reference can survive to be recorded"
                 )
+            }
+            Some(CellStatus::Resolved(ReferenceHandling::ResolvedAgainstSprites)) => {
+                if kind == ReferenceKind::SpriteSheet {
+                    Ok(())
+                } else {
+                    unreachable!(
+                        "ResolvedAgainstSprites is only ever declared for \
+                         ReferenceKind::SpriteSheet, not {kind:?}"
+                    )
+                }
             }
         }
     }
@@ -1232,6 +1315,32 @@ mod tests {
         assert_eq!(definitions.len(), 1);
         assert_eq!(definitions[0].key.as_str(), "story.4");
         assert_eq!(definitions[0].ordinal, 2);
+    }
+
+    #[test]
+    fn the_sprite_reader_flattens_every_named_block_and_preserves_gaps() {
+        let definitions = DefinitionReader::SpriteDefinitions.read(&parsed(
+            "outside = { name = GFX_outside }\n\
+             spriteTypes = {\n\
+               spriteType = { name = GFX_first texturefile = first.dds }\n\
+               @size = 4\n\
+               progressbarType = { name = \"GFX_second\" texturefile1 = second.dds }\n\
+               unnamedType = { texturefile = ignored.dds }\n\
+             }\n\
+             spriteTypes = {\n\
+               corneredTileSpriteType = { name = GFX_third texturefile = third.dds }\n\
+             }",
+        ));
+
+        assert_eq!(
+            definitions
+                .iter()
+                .map(|definition| (definition.key.as_str(), definition.ordinal))
+                .collect::<Vec<_>>(),
+            [("GFX_first", 0), ("GFX_second", 2), ("GFX_third", 4)],
+            "the block label is irrelevant, skipped fields leave gaps, and a second \
+             spriteTypes container continues the same file ordinal"
+        );
     }
 
     #[test]

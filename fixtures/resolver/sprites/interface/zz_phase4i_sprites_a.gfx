@@ -1,0 +1,57 @@
+spriteTypes = {
+	spriteType = {
+		name = "GFX_phase4i_same_file"
+		texturefile = "gfx/interface/icons/phase4i_same_file_first.dds"
+	}
+
+	spriteType = {
+		name = "GFX_phase4i_same_file"
+		texturefile = "gfx/interface/icons/phase4i_same_file_last.dds"
+	}
+
+	progressbarType = {
+		name = "GFX_phase4i_cross_file"
+		texturefile = "gfx/interface/icons/phase4i_cross_file_first.dds"
+	}
+
+	spriteType = {
+		name = "GFX_alerticons"
+		texturefile = "gfx/interface/icons/phase4i_mod.dds"
+		noOfFrames = 2
+	}
+
+	sprite_without_name = {
+		texturefile = "gfx/interface/icons/not_a_definition.dds"
+	}
+
+	@local_size = 4
+
+	spriteType = {
+		name = "GFX_phase4i_chain_middle"
+		sprite_sheet_sprite_type = "GFX_alerticons"
+	}
+
+	spriteType = {
+		name = "GFX_phase4i_chain_start"
+		sprite_sheet_sprite_type = "GFX_phase4i_chain_middle"
+	}
+
+	spriteType = {
+		name = "GFX_phase4i_missing_target"
+		sprite_sheet_sprite_type = "GFX_phase4i_absent"
+	}
+
+	spriteType = {
+		name = "GFX_phase4i_missing_texture"
+	}
+
+	spriteType = {
+		name = "GFX_phase4i_cycle_a"
+		sprite_sheet_sprite_type = "GFX_phase4i_cycle_b"
+	}
+
+	spriteType = {
+		name = "GFX_phase4i_cycle_b"
+		sprite_sheet_sprite_type = "GFX_phase4i_cycle_a"
+	}
+}

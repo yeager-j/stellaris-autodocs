@@ -64,6 +64,7 @@ mod profile;
 mod registry;
 mod resolved;
 mod selection;
+mod sprites;
 mod stream;
 
 #[cfg(test)]
@@ -81,6 +82,7 @@ pub(in crate::analysis) use registry::Refusal;
 pub(in crate::analysis) use resolved::{
     ConstantFact, ConstantOutcome, FactKind, FactProvenance, FactSite, InlineOutcome,
     InlineScriptFact, ReferenceFact, ReferenceKind, ResolvedDefinition, ResolvedRegistry,
+    ResolvedSpriteTexture, SpriteReferenceEdge, SpriteResolution, SpriteTextureOutcome,
     StreamPosition, UnresolvedConstant, UnresolvedInline,
 };
 
@@ -153,8 +155,8 @@ mod tests {
 
     #[test]
     fn an_undeclared_registry_refuses_by_name() {
-        // Sprites remain a future row. A content type may be claimed as supported only when
-        // every policy it requires is explicit and oracle-backed.
+        // Localization remains a future row. A content type may be claimed as supported only
+        // when every policy it requires is explicit and oracle-backed.
         let vanilla = FixtureCorpus::new(SourceKind::VanillaContent)
             .with_file("common/technology/00_vanilla.txt", b"tech_a = {}")
             .build()
@@ -166,9 +168,9 @@ mod tests {
 
         let resolution = resolve(&vanilla, &target);
         assert_eq!(
-            resolution.registry("sprites"),
+            resolution.registry("localization"),
             Err(Refusal::UndeclaredRegistry {
-                registry: "sprites".to_owned()
+                registry: "localization".to_owned()
             })
         );
     }

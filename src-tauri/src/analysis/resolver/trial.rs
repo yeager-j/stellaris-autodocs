@@ -1,12 +1,11 @@
 //! The corpora and registry rows the core proves itself against.
 //!
-//! Test-only, and deliberately **not** the real registries. Technologies, events, sprites,
-//! and localization are each their own ticket because each is a unit of oracle evidence that
-//! deserves its own review (`docs/implementation-plan.md`, "Ticketing"). What the core has to
-//! demonstrate is narrower and prior to all of them: that one accept-on-repeat and one
-//! reject-on-repeat registry, given the same early-sorting mod file, produce *opposite*
-//! winners. Two synthetic rows show that without pre-empting a row ticket's judgment, and
-//! the real rows re-assert it later with their own evidence.
+//! Test-only. The synthetic registry policies remain deliberately separate from the real
+//! rows: each real row is a unit of oracle evidence that deserves its own review
+//! (`docs/implementation-plan.md`, "Ticketing"). The core's original demonstration is
+//! narrower: one accept-on-repeat and one reject-on-repeat registry, given the same
+//! early-sorting mod file, produce *opposite* winners. Two synthetic rows show that without
+//! borrowing any real row's judgment, and the real rows re-assert it with their own evidence.
 //!
 //! The corpora are committed under `fixtures/resolver/` and read with `include_bytes!` — a
 //! compile-time read, so nothing here traverses a filesystem or depends on a host.
@@ -349,6 +348,37 @@ pub(super) fn events_vanilla() -> SourceSnapshot {
 
 pub(super) fn buildings_vanilla() -> SourceSnapshot {
     corpus(SourceKind::VanillaContent, BUILDINGS_VANILLA)
+}
+
+// --- Phase 4I: sprite definitions ---
+
+pub(super) const SPRITES_VANILLA: &[(&str, &[u8])] = &[(
+    "interface/alerts.gfx",
+    fixture!("sprites-vanilla/interface/alerts.gfx"),
+)];
+
+pub(super) const SPRITES: &[(&str, &[u8])] = &[
+    ("descriptor.mod", fixture!("sprites/descriptor.mod")),
+    (
+        "interface/zz_phase4i_sprites_a.gfx",
+        fixture!("sprites/interface/zz_phase4i_sprites_a.gfx"),
+    ),
+    (
+        "interface/zz_phase4i_sprites_b.gfx",
+        fixture!("sprites/interface/zz_phase4i_sprites_b.gfx"),
+    ),
+];
+
+pub(super) const SPRITES_EARLY: &[(&str, &[u8])] = &[
+    ("descriptor.mod", fixture!("sprites-early/descriptor.mod")),
+    (
+        "interface/00_phase4i_sprites.gfx",
+        fixture!("sprites-early/interface/00_phase4i_sprites.gfx"),
+    ),
+];
+
+pub(super) fn sprites_vanilla() -> SourceSnapshot {
+    corpus(SourceKind::VanillaContent, SPRITES_VANILLA)
 }
 
 // --- Phase 4G: inline scripts ---
