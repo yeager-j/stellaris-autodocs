@@ -87,7 +87,15 @@ pub(super) fn drift(manifest: &Manifest, pinned: StellarisBuild) -> Vec<String> 
     for (artifact, digest) in &manifest.artifacts {
         match fs::read(directory.join(artifact)) {
             Ok(bytes) if ContentHash::of(&bytes).to_hex() == *digest => {}
-            Ok(_) => reasons.push(format!("{run}: artifact {artifact} edited after capture")),
+            // "Content differs" is all a digest can say. Naming the second cause here
+            // because the two are indistinguishable from the bytes and only one of them is
+            // about the evidence: a checkout that translated line endings produces exactly
+            // this failure on one platform while the same commit passes on another.
+            // `.gitattributes` marks these paths `-text` to prevent it.
+            Ok(_) => reasons.push(format!(
+                "{run}: artifact {artifact} does not match its recorded digest — edited \
+                 after capture, or checked out with translated line endings"
+            )),
             Err(error) => reasons.push(format!("{run}: artifact {artifact} unreadable ({error})")),
         }
     }
@@ -97,12 +105,14 @@ pub(super) fn drift(manifest: &Manifest, pinned: StellarisBuild) -> Vec<String> 
 
 /// What a drifted run must be told, since the instruction is the whole value of the gate.
 pub(super) const INSTRUCTION: &str = "\
-A record was re-captured, or the profile's pinned build moved. This is not automatically \
-wrong — a Stellaris update belongs here — but it means every resolved cell behind these \
-records is unverified until somebody re-reads them. Re-run the affected oracle runs, revise \
-the expectations against what they now say, and bump both SUPPORTED_STELLARIS_BUILD and \
-RESOLUTION_PROFILE_VERSION together. Re-pinning the build alone would make the expectations \
-claim evidence that no longer exists.";
+A record was re-captured, the profile's pinned build moved, or a checkout rewrote the \
+recorded bytes. This is not automatically wrong — a Stellaris update belongs here — but it \
+means every resolved cell behind these records is unverified until somebody re-reads them. \
+Re-run the affected oracle runs, revise the expectations against what they now say, and bump \
+both SUPPORTED_STELLARIS_BUILD and RESOLUTION_PROFILE_VERSION together. Re-pinning the build \
+alone would make the expectations claim evidence that no longer exists. If only the artifact \
+digests moved and the build did not, suspect the working tree before the record: check \
+`.gitattributes` still marks docs/spikes/oracle-records as -text.";
 
 #[cfg(test)]
 mod tests {
@@ -148,9 +158,20 @@ mod tests {
             "oracle-facts.txt".to_owned(),
             ContentHash::of(b"not what was captured").to_hex(),
         );
-        assert_eq!(
-            drift(&manifest, pinned()),
-            ["r10-loadorder: artifact oracle-facts.txt edited after capture"]
+        let reasons = drift(&manifest, pinned());
+        assert_eq!(reasons.len(), 1, "{reasons:?}");
+        assert!(
+            reasons[0].starts_with("r10-loadorder: artifact oracle-facts.txt does not match"),
+            "{}",
+            reasons[0]
+        );
+        // The message must name both causes. A digest cannot tell an edit from a checkout
+        // that rewrote line endings, and a reader told only the first will go looking in the
+        // wrong place — as the Windows leg of this PR's first CI run did.
+        assert!(
+            reasons[0].contains("translated line endings"),
+            "{}",
+            reasons[0]
         );
     }
 

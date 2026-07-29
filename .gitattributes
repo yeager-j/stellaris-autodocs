@@ -1,0 +1,20 @@
+# Evidence is bytes, and git must not rewrite it.
+#
+# Captured records pin the SHA-256 of every artifact beside them, and the resolver's oracle
+# gate and `tools/oracle/verify.py` re-hash those files from disk. A checkout that translated
+# line endings would change the bytes without changing the repository, so the digest check
+# would report "edited after capture" on one platform and pass on another — a false failure
+# that says the evidence was tampered with when the checkout was.
+#
+# This is not a Windows workaround. A recorded digest is a claim about exact bytes; a working
+# tree whose bytes depend on the host makes that claim unverifiable in both directions, and
+# the same rule would apply if the translation ran the other way.
+#
+# `-text` rather than `binary`, so these stay diffable in review. They are meant to be read.
+
+docs/spikes/oracle-records/** -text
+docs/conformance/** -text
+
+# Fixture corpora are parsed byte-exactly, and their hashes are recorded in the manifests of
+# the runs that produced them. A CRLF checkout is a different corpus.
+fixtures/** -text
