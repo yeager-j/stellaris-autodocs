@@ -348,7 +348,7 @@ use super::trial::{
     vanilla,
 };
 use super::{Resolution, profile, resolve};
-use crate::analysis::parser::Value;
+use crate::analysis::parser::{ScalarKind, Value};
 use crate::canonical::path::LogicalPath;
 use crate::source::fixture::FixtureCorpus;
 use crate::source::{SourceKind, SourceSnapshot};
@@ -1546,8 +1546,24 @@ fn sprite_reference_chains_and_failures_are_total_and_typed() {
             .iter()
             .map(|edge| edge.sprite.as_deref())
             .collect::<Vec<_>>(),
-        [Some("GFX_phase4i_chain_middle"), Some("GFX_alerticons")]
+        [Some("GFX_phase4i_chain_middle")]
     );
+    let middle = registry
+        .get("GFX_phase4i_chain_middle")
+        .expect("the middle definition survives")
+        .sprite
+        .as_ref()
+        .expect("sprite resolution");
+    assert_eq!(
+        middle
+            .references
+            .iter()
+            .map(|edge| edge.sprite.as_deref())
+            .collect::<Vec<_>>(),
+        [Some("GFX_alerticons")],
+        "each transitive edge remains on its owning definition"
+    );
+    assert_eq!(middle.texture, chain.texture);
 
     let missing_target = registry
         .get("GFX_phase4i_missing_target")
@@ -1585,13 +1601,110 @@ fn sprite_reference_chains_and_failures_are_total_and_typed() {
             sprite: "GFX_phase4i_cycle_a".to_owned()
         }
     );
-    assert_eq!(cycle.references.len(), 2);
+    assert_eq!(cycle.references.len(), 1);
     assert!(
         cycle
             .references
             .iter()
             .all(|edge| edge.outcome == cycle.texture)
     );
+}
+
+#[test]
+fn sprite_reference_expansion_materializes_only_one_edge_per_definition() {
+    const CHAIN_LENGTH: usize = 512;
+
+    let mut source = String::from("spriteTypes = {\n");
+    for index in 0..CHAIN_LENGTH {
+        source.push_str(&format!("  spriteType = {{ name = GFX_linear_{index:04} "));
+        if index + 1 == CHAIN_LENGTH {
+            source.push_str("texturefile = \"gfx/interface/icons/linear.dds\" }\n");
+        } else {
+            source.push_str(&format!(
+                "sprite_sheet_sprite_type = GFX_linear_{next:04} }}\n",
+                next = index + 1
+            ));
+        }
+    }
+    source.push_str("}\n");
+
+    let registry = sprites(&[("interface/zz_linear.gfx", source.as_bytes())]);
+    assert_eq!(
+        registry
+            .definitions
+            .iter()
+            .filter(|(key, _)| key.as_str().starts_with("GFX_linear_"))
+            .map(|(_, definition)| {
+                definition
+                    .sprite
+                    .as_ref()
+                    .expect("sprite resolution")
+                    .references
+                    .len()
+            })
+            .sum::<usize>(),
+        CHAIN_LENGTH - 1,
+        "transitive suffixes must not be copied onto every upstream definition"
+    );
+    assert_eq!(
+        texture(
+            registry
+                .get("GFX_linear_0000")
+                .expect("the chain start resolves")
+        )
+        .0,
+        "gfx/interface/icons/linear.dds"
+    );
+}
+
+#[test]
+fn non_literal_sprite_scalars_remain_typed_unresolved_values() {
+    let registry = sprites(&[(
+        "interface/zz_scripted_values.gfx",
+        b"spriteTypes = {
+            spriteType = {
+                name = GFX_scripted_texture
+                texturefile = @path
+            }
+            spriteType = {
+                name = GFX_scripted_sheet
+                sprite_sheet_sprite_type = @sheet
+            }
+        }",
+    )]);
+
+    let scripted_texture = registry
+        .get("GFX_scripted_texture")
+        .expect("the scripted texture definition survives")
+        .sprite
+        .as_ref()
+        .expect("sprite resolution");
+    assert_eq!(
+        scripted_texture.texture,
+        SpriteTextureOutcome::UnresolvedScalar {
+            kind: ScalarKind::VariableRef
+        }
+    );
+
+    let scripted_sheet = registry
+        .get("GFX_scripted_sheet")
+        .expect("the scripted sheet definition survives")
+        .sprite
+        .as_ref()
+        .expect("sprite resolution");
+    assert_eq!(
+        scripted_sheet.texture,
+        SpriteTextureOutcome::UnresolvedScalar {
+            kind: ScalarKind::VariableRef
+        }
+    );
+    let edge = scripted_sheet
+        .references
+        .first()
+        .expect("the unresolved direct edge remains visible");
+    assert_eq!(edge.sprite, None);
+    assert_eq!(edge.target, None);
+    assert_eq!(edge.outcome, scripted_sheet.texture);
 }
 
 #[test]

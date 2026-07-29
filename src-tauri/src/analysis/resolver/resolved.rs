@@ -391,15 +391,26 @@ pub(in crate::analysis) struct ResolvedSpriteTexture {
 pub(in crate::analysis) enum SpriteTextureOutcome {
     Resolved(ResolvedSpriteTexture),
     MissingTexture,
-    MissingTarget { sprite: Option<String> },
-    CyclicReference { sprite: String },
+    MissingTarget {
+        sprite: Option<String>,
+    },
+    /// The effective field is a scalar, but not a quoted or unquoted literal. Its kind is
+    /// retained so a scripted constant cannot masquerade as either an asset path or a sprite
+    /// registry key.
+    UnresolvedScalar {
+        kind: super::super::parser::ScalarKind,
+    },
+    CyclicReference {
+        sprite: String,
+    },
 }
 
-/// One `sprite_sheet_sprite_type` edge followed while resolving a sprite's texture.
+/// One sprite definition's direct `sprite_sheet_sprite_type` edge.
 ///
 /// `target` names the winning referenced definition when one exists. `outcome` is the final
 /// value reached through this edge, including that value's own source site, so a Vanilla
-/// dependent can truthfully attribute a texture supplied by the Target Mod.
+/// dependent can truthfully attribute a texture supplied by the Target Mod. Transitive edges
+/// remain on their owning definitions instead of being copied onto every upstream sprite.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::analysis) struct SpriteReferenceEdge {
     pub sprite: Option<String>,
@@ -412,7 +423,7 @@ pub(in crate::analysis) struct SpriteReferenceEdge {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::analysis) struct SpriteResolution {
     pub texture: SpriteTextureOutcome,
-    /// Edges from the definition outward, in reference order.
+    /// This definition's direct edge, when it has one.
     pub references: Vec<SpriteReferenceEdge>,
 }
 
