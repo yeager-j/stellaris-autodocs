@@ -306,9 +306,12 @@ fn localization_lexical_census() {
     // Every condition, named. There are few enough to read: a corpus that produced hundreds
     // would be telling you the grammar is wrong, and the first twenty would say so too.
     for condition in tables.conditions().iter().take(20) {
+        // Debug rather than `name()`, so the payload the variants carry — the key a malformed
+        // line named, the header that could not be read — reaches the report. That payload is
+        // the difference between a count and something a reader can act on.
         println!(
-            "condition {} at {}:{}",
-            condition.kind.name(),
+            "condition {:?} at {}:{}",
+            condition.kind,
             tables.file(condition.file).logical.as_str(),
             condition
                 .line

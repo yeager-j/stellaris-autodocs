@@ -204,9 +204,22 @@ impl KeyEntry {
         &self.shadowed
     }
 
-    /// Whether more than one file stated this key. The Analysis Issue's "a mod renamed this".
+    /// Whether more than one *file* stated this key. The floor under "a mod renamed this".
+    ///
+    /// A file that states a key twice is not a contest — it is one file's own redundancy, and
+    /// the base game has 144 such statements across its own localization. Reporting those as
+    /// contests would bury the case an Analysis Issue is for under the case it is not: a
+    /// second file deliberately overriding a name. So the comparison is against the winner's
+    /// file, not against the mere existence of a loser.
+    ///
+    /// A floor rather than the whole answer, deliberately. Cross-*source* is a narrower
+    /// question again, and one a caller can ask from [`shadowed`](Self::shadowed) plus
+    /// [`EffectiveTables::file`]; naming that judgement here would decide for a consumer that
+    /// does not exist yet.
     pub fn is_contested(&self) -> bool {
-        !self.shadowed.is_empty()
+        self.shadowed
+            .iter()
+            .any(|occurrence| occurrence.file != self.winner.file)
     }
 }
 
@@ -490,6 +503,25 @@ mod tests {
             "the demotion order is what keeps `shadowed` ascending without the caller sorting"
         );
         assert!(entry.is_contested());
+    }
+
+    #[test]
+    fn a_key_one_file_states_twice_is_not_contested() {
+        // The distinction the accessor's name claims. Vanilla holds 144 shadowed statements of
+        // its own, and reporting a file's internal redundancy as a rename would bury the case
+        // an Analysis Issue exists for under the case it is not.
+        let mut table = LanguageTable::default();
+        table.record_streamed("k".to_owned().into(), occurrence("first", 0, 2));
+        table.record_streamed("k".to_owned().into(), occurrence("second", 0, 9));
+
+        let entry = table.get("k").expect("an entry");
+        assert_eq!(entry.shadowed().len(), 1, "the loser is still retained");
+        assert!(!entry.is_contested());
+
+        // The same key restated from a second file is a contest, so the guard is a comparison
+        // and not a blanket false.
+        table.record_streamed("k".to_owned().into(), occurrence("third", 1, 1));
+        assert!(table.get("k").unwrap().is_contested());
     }
 
     #[test]

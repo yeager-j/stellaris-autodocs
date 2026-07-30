@@ -65,7 +65,7 @@ The base game produced **no condition of any kind** across 1.5 million key lines
 | `UnterminatedValue` | `acot_00_herculean_events_l_english.yml:219` | `acot_herculean_built_score: "§EHerculean Built§!` |
 | `UnquotedValue` | `acot_05_the_shadow_events_l_english.yml:40` | `acot_omegan_blessed: Blessed By Light` |
 
-Each is a typed condition carrying the file and line, and each costs exactly one key: the line after it parses normally. That is the whole reason ingestion is total. Refusing a build over these three lines would refuse documentation for a 16,727-key mod, and dropping them silently would leave three names rendering as raw keys with nothing anywhere to say why.
+Each is a typed condition carrying the file, the line, **and the key the line named** — `ACOT_SC_GUNSHIP_4_DESC`, `acot_herculean_built_score`, `acot_omegan_blessed` — and each costs exactly one key: the line after it parses normally. The key is retained because a consumer holding only a file and a line could not tell a malformed definition from a key nobody ever defined without reparsing the source, and "the definition of `x` is malformed at line n" is the whole content of the Analysis Issue this is for. That is the whole reason ingestion is total. Refusing a build over these three lines would refuse documentation for a 16,727-key mod, and dropping them silently would leave three names rendering as raw keys with nothing anywhere to say why.
 
 ### Two structural shapes that are not errors
 

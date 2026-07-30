@@ -124,11 +124,21 @@ pub enum ConditionKind {
     /// An opening quote with no closing quote. Measured in ACOT:
     /// `acot_herculean_built_score: "§EHerculean Built§!`. Dropped rather than repaired — no
     /// record measures what the game does with it, and inventing a value fabricates a name.
-    UnterminatedValue,
+    ///
+    /// The key is carried because the line named one and the parse read it. A consumer that
+    /// only had a file and a line could not tell this from a key nobody ever defined without
+    /// reparsing the source, and "the definition of `x` is malformed at line n" is the whole
+    /// content of the Analysis Issue this is for — the standard `r12` set on the resolver
+    /// side, where a typed fact that did not name what failed could not be surfaced.
+    UnterminatedValue { key: String },
     /// A key with a value that is not quoted at all. Measured in ACOT:
-    /// `acot_omegan_blessed: Blessed By Light`. Dropped, for the same reason.
-    UnquotedValue,
+    /// `acot_omegan_blessed: Blessed By Light`. Dropped, and named, for the same reasons.
+    UnquotedValue { key: String },
     /// A line that is not blank, a comment, a header, or anything with a `key:` shape.
+    ///
+    /// Carries no key, and the asymmetry is the point: this is the one malformed shape where
+    /// the parse could not identify one, so a variant that offered a key here would be
+    /// offering a guess.
     Unparsable,
     /// Text after the closing quote that is neither blank nor a `#` comment.
     ///
@@ -149,8 +159,8 @@ impl ConditionKind {
             Self::NotUtf8 { .. } => "NotUtf8",
             Self::UnreadableLanguageHeader { .. } => "UnreadableLanguageHeader",
             Self::EntryBeforeHeader { .. } => "EntryBeforeHeader",
-            Self::UnterminatedValue => "UnterminatedValue",
-            Self::UnquotedValue => "UnquotedValue",
+            Self::UnterminatedValue { .. } => "UnterminatedValue",
+            Self::UnquotedValue { .. } => "UnquotedValue",
             Self::Unparsable => "Unparsable",
             Self::TrailingContentAfterValue => "TrailingContentAfterValue",
         }
@@ -309,12 +319,16 @@ fn key_line(line: &str) -> Result<KeyLine<'_>, ConditionKind> {
         .trim_start_matches(|c: char| c.is_ascii_digit())
         .trim_start();
     if !quoted.starts_with('"') {
-        return Err(ConditionKind::UnquotedValue);
+        return Err(ConditionKind::UnquotedValue {
+            key: key.to_owned(),
+        });
     }
     let close = quoted
         .rfind('"')
         .filter(|index| *index > 0)
-        .ok_or(ConditionKind::UnterminatedValue)?;
+        .ok_or_else(|| ConditionKind::UnterminatedValue {
+            key: key.to_owned(),
+        })?;
 
     let after = quoted[close + 1..].trim();
     Ok(KeyLine {
@@ -443,7 +457,17 @@ mod tests {
     fn an_unterminated_value_is_typed_and_the_next_line_still_parses() {
         // ACOT ships `acot_herculean_built_score: "§EHerculean Built§!`.
         let source = "l_english:\n bad:0 \"§EHerculean Built§!\n good:0 \"kept\"\n".as_bytes();
-        assert_eq!(kinds(source), [(Some(2), ConditionKind::UnterminatedValue)]);
+        assert_eq!(
+            kinds(source),
+            [(
+                Some(2),
+                ConditionKind::UnterminatedValue {
+                    key: "bad".to_owned()
+                }
+            )],
+            "the key the line named is retained: a consumer with only a file and a line could \
+             not tell a malformed definition from a key nobody ever defined"
+        );
         assert_eq!(entries(source).len(), 1);
         assert_eq!(entries(source)[0].1, "good");
     }
@@ -452,7 +476,15 @@ mod tests {
     fn an_unquoted_value_is_typed_and_the_next_line_still_parses() {
         // ACOT ships `acot_omegan_blessed: Blessed By Light`.
         let source = b"l_english:\n bad: Blessed By Light\n good:0 \"kept\"\n";
-        assert_eq!(kinds(source), [(Some(2), ConditionKind::UnquotedValue)]);
+        assert_eq!(
+            kinds(source),
+            [(
+                Some(2),
+                ConditionKind::UnquotedValue {
+                    key: "bad".to_owned()
+                }
+            )]
+        );
         assert_eq!(entries(source)[0].1, "good");
     }
 

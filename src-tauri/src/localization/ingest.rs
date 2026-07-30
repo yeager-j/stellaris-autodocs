@@ -421,7 +421,10 @@ mod tests {
         assert_eq!(tables.conditions().len(), 1);
         assert_eq!(
             tables.conditions()[0].kind,
-            ConditionKind::UnterminatedValue
+            ConditionKind::UnterminatedValue {
+                key: "broken".to_owned()
+            },
+            "the condition names the definition that was lost, not only where it sat"
         );
         assert_eq!(
             tables.file(tables.conditions()[0].file).logical.as_str(),
