@@ -5,6 +5,7 @@
 use super::model::{AppState, CURRENT_SCHEMA};
 use super::replace::{RealIo, ReplaceOutcome, ReplacementIo, replace_state, sweep_stale_temps};
 use crate::canonical::hex;
+use crate::localization::LanguageTag;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::fmt;
@@ -42,6 +43,13 @@ pub enum OpenReport {
     },
 }
 
+/// One `Ready` variant carries the whole store, so the enum is as large as a store. That is
+/// what `clippy::large_enum_variant` reports, and it is accepted rather than boxed: this value is
+/// constructed once per process, moved twice, and destructured immediately, so boxing it would
+/// buy a smaller move at the cost of an allocation and a pointer indirection on **every** state
+/// lock for the life of the process. The lint's premise — an enum copied often — does not hold
+/// here (D-135).
+#[allow(clippy::large_enum_variant)]
 pub enum OpenOutcome {
     Ready {
         store: StateStore,
@@ -213,6 +221,16 @@ impl StateStore {
 
     pub fn publication_recovery_unresolved(&self) -> Option<String> {
         self.lock().state.unresolved_quarantine.clone()
+    }
+
+    /// The explicit override alone, deliberately not the effective language: `state` is the
+    /// authority for what the user chose and for nothing else in the derivation. Computing the
+    /// chain here would put a filesystem read behind the state lock and give it a second home.
+    ///
+    /// A narrow reader rather than [`snapshot`](Self::snapshot) because the derivation caches
+    /// nothing and so reads this per query, and a snapshot clones every publication reference.
+    pub fn language_override(&self) -> Option<LanguageTag> {
+        self.lock().state.language_override.clone()
     }
 
     pub(super) fn state_path(&self) -> &Path {
@@ -388,5 +406,34 @@ mod tests {
         fs::write(dir.path().join(STATE_FILE), br#"{"schema":0}"#).unwrap();
         let (_store, report) = ready(StateStore::open(dir.path()).unwrap());
         assert!(matches!(report, OpenReport::Quarantined { .. }));
+    }
+
+    #[test]
+    fn a_document_written_before_the_override_existed_still_loads() {
+        // The language override was added without bumping CURRENT_SCHEMA, and this is the
+        // control for that decision: bump it without adding a schema-1 arm at the dispatch
+        // above and every existing user's document arrives here as Quarantined instead —
+        // losing their Discovery Locations and publication references to add a preference.
+        let dir = TempDir::new().unwrap();
+        let before = br#"{"schema":1,"discovery_locations":[],"publication_references":{}}"#;
+        fs::write(dir.path().join(STATE_FILE), before).unwrap();
+
+        let (store, report) = ready(StateStore::open(dir.path()).unwrap());
+        assert_eq!(report, OpenReport::Loaded);
+        assert_eq!(store.language_override(), None);
+    }
+
+    #[test]
+    fn a_document_holding_an_unreadable_override_loads_rather_than_quarantining() {
+        let dir = TempDir::new().unwrap();
+        fs::write(
+            dir.path().join(STATE_FILE),
+            br#"{"schema":1,"language_override":"english"}"#,
+        )
+        .unwrap();
+
+        let (store, report) = ready(StateStore::open(dir.path()).unwrap());
+        assert_eq!(report, OpenReport::Loaded);
+        assert_eq!(store.language_override(), None);
     }
 }

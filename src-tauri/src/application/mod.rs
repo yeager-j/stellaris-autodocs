@@ -15,12 +15,14 @@
 
 pub mod candidates;
 pub mod host;
+pub mod language;
 pub mod publish;
 pub mod read;
 pub mod target;
 
 pub use candidates::{CandidateUnavailable, NoAnalysisSource, RevisionCandidateSource};
 pub use host::DocumentationHost;
+pub use language::effective_language;
 pub use publish::{
     AnalysisFailure, BuildGuard, BundleEntryDurability, DocumentationPublished,
     PublicationRecordDurability, PublishDocumentationError, PublishedDurability, StorageFailure,
