@@ -50,6 +50,8 @@
 //!   expectations, with the drift gate that blocks a silent game-build change.
 //! - `census` (tests) — the embedded-`$PARAM$` measurement over the installed corpora, which
 //!   is what bounds the one shape [`inline_scripts`] passes through without a fact (D-132).
+//! - `conformance` (tests) — the drift-checked parse-and-resolve run over the installed
+//!   corpora (Phase 4M), recording every row's outcome and per-cell visible-failure counts.
 //!
 //! # What does not leave
 //!
@@ -71,6 +73,8 @@ mod stream;
 
 #[cfg(test)]
 mod census;
+#[cfg(test)]
+mod conformance;
 #[cfg(test)]
 mod golden;
 #[cfg(test)]

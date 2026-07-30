@@ -19,6 +19,12 @@ Run these from `src-tauri/` unless noted otherwise.
   upgrade, or any edit to the dialect lexer** — the same standard `docs/adr/0008` holds for a
   texture-decoder upgrade. Records and drift live in `docs/conformance/parser/`; see
   `src/analysis/parser/conformance/` for the contract.
+- `cargo test --features test-support parse_and_resolve_conformance -- --ignored --nocapture`
+  — the drift-checked parse-and-resolve run (Phase 4M) against the same installed corpora:
+  every declared Resolution Profile row and the localization file stream, with refusals and
+  per-cell visible-failure counts recorded rather than erroring. **Re-run it whenever the
+  parser run re-runs, and additionally on an ACOT update or any Resolution Profile change.**
+  Same record directory; see `src/analysis/resolver/conformance.rs` for the contract.
 - `cargo clippy --all-targets --features test-support -- -D warnings` — lint, matching CI.
 - `cargo fmt` — format.
 - `npm run app:dev` (from the repo root) — run the desktop app with hot reload, under the

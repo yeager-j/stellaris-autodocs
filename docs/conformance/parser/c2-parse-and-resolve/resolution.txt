@@ -1,0 +1,36 @@
+# row technologies: resolved — 1436 definitions, 0 files removed by selection
+  fact constants.Resolved: 3075
+  fact inline.Expanded: 158
+  fact provenance.Contributed: 14657
+  fact provenance.Duplicate: 4
+  fact provenance.Shadowed: 43
+# row scripted-triggers: refused at unresolved references
+  registry `scripted-triggers` has no policy for its unresolved references cell: no record measures $PARAM$ substitution in a trigger or effect body. Settled by: a capture exercising a parameterised scripted trigger/effect call
+# row scripted-effects: refused at unresolved references
+  registry `scripted-effects` has no policy for its unresolved references cell: no record measures $PARAM$ substitution in a trigger or effect body. Settled by: a capture exercising a parameterised scripted trigger/effect call
+# row scripted-constants: resolved — 3367 definitions, 0 files removed by selection
+  fact constants.Resolved: 3367
+# row events: refused at undeclared reference kind
+  registry `events` claims its definitions carry no Parameter reference, but `nomads.605` carries one in `title`
+# row buildings: resolved — 602 definitions, 1 files removed by selection
+  fact provenance.Contributed: 8770
+  fact provenance.Duplicate: 3
+  fact provenance.Shadowed: 58
+  fact reference.InlineScript: 800
+  fact reference.ScriptedConstant: 2571
+# row megastructures: refused at field replacement, inheritance, and defaults
+  registry `megastructures` has no policy for its field replacement, inheritance, and defaults cell: r8 cannot distinguish whole replacement from inherited fields for a megastructure redefinition. Settled by: STE-22 stretch: a runtime observable comparing a redefinition's omitted field
+# row ship-components: refused at duplicate within one semantic stream
+  registry `ship-components` has no policy for its duplicate within one semantic stream cell: no runtime observation names the winner of a repeated ship-component key. Settled by: STE-22 stretch: a runtime observable for a repeated component key
+# row sprites: resolved — 9593 definitions, 0 files removed by selection
+  fact provenance.Contributed: 27360
+  fact provenance.Duplicate: 36
+  fact provenance.Shadowed: 111
+  fact reference.ScriptedConstant: 74
+  fact sprite.edge.MissingTexture: 214
+  fact sprite.edge.Resolved: 190
+  fact sprite.texture.MissingTexture: 2786
+  fact sprite.texture.Resolved: 6807
+  visible failure sprite.edge.MissingTexture: 214
+  visible failure sprite.texture.MissingTexture: 2786
+# localization: Streamed { files: 2364, shadowed_files: 0 }
