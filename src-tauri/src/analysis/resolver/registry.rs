@@ -2160,13 +2160,13 @@ mod tests {
         );
     }
 
-    /// The consuming-side half of the alias-propagation fix
-    /// (`constants::tests::cross_source_invalidation_propagates_through_an_alias` is the
-    /// required unit test): a technology reading `@alias` must see the same
-    /// `CrossSourcePending` its dependency `@base` carries, not the value `@alias` copied
-    /// before `@base`'s cross-source collision was known.
+    /// The consuming-side twin of
+    /// `constants::tests::an_alias_of_a_cross_source_contested_symbol_keeps_the_first_value`:
+    /// a technology reading `@alias` sees the value `@alias` copied from `@base`'s first
+    /// declaration, because `r19` settled that a later cross-source redeclaration never
+    /// contributes a value (Phase 4L, STE-35).
     #[test]
-    fn a_consumer_reading_an_alias_of_a_contested_symbol_is_pending() {
+    fn a_consumer_reading_an_alias_of_a_contested_symbol_gets_the_first_value() {
         let vanilla = FixtureCorpus::new(SourceKind::VanillaContent)
             .with_file(
                 "common/scripted_variables/00_alias.txt",
@@ -2190,10 +2190,17 @@ mod tests {
             .expect("a settled row");
         let definition = resolved.get("tech_alias_consumer").expect("resolves");
         let fact = definition.constants.first().expect("a constant fact");
+        let ConstantOutcome::Resolved { value, declaration } = &fact.outcome else {
+            panic!("the alias resolves under r19's first-wins rule: {fact:?}");
+        };
         assert_eq!(
-            fact.outcome,
-            ConstantOutcome::Unresolved(UnresolvedConstant::CrossSourcePending),
-            "a consumer of the alias must not see a value derived from a pending dependency"
+            value.value(),
+            crate::canonical::numeric::SourceNumber::parse("5").value()
+        );
+        assert_eq!(
+            declaration.source(),
+            Some(SourceKind::VanillaContent),
+            "provenance names the first declaration, not the rejected redeclaration"
         );
     }
 }

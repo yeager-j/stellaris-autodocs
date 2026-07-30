@@ -158,6 +158,9 @@
 //!   collision`; resolving `PARAMETER_OPEN` to `DetectedNotResolved` failed exactly
 //!   `the_parameter_open_cell_refuses_only_when_a_definition_carries_one`. Neither touched
 //!   the other cell's test, which is what says the two open cells are independent claims.
+//!   (Phase 4L, STE-35, later closed the cross-source cell *with* evidence — `r19` — and
+//!   retired that refusal test in favour of the r19 seam tests below; the parameter cell and
+//!   its control remain open and live.)
 //! - **Parameter detection removed from `Scan::walk_scalar`.** Failed the parameter refusal
 //!   and the undeclared-kind control, and the oracle open-cell test built on the same path:
 //!
@@ -204,6 +207,11 @@
 //! constants::tests::cross_source_invalidation_propagates_through_an_alias
 //! registry::tests::a_consumer_reading_an_alias_of_a_contested_symbol_is_pending
 //! ```
+//!
+//!   (Historical: Phase 4L, STE-35, consumed `r19` and removed the pass *by design* — under
+//!   first-wins the copied value is simply correct. The two tests became their resolved-value
+//!   twins, `an_alias_of_a_cross_source_contested_symbol_keeps_the_first_value` and
+//!   `a_consumer_reading_an_alias_of_a_contested_symbol_gets_the_first_value`.)
 //!
 //! - **Global seeding restored for local bodies** (`constants::Environment::lookup`). Passing
 //!   the global environment back into a local declaration's own evaluation — the shape before
@@ -356,14 +364,15 @@ use super::resolved::{
 };
 use super::trial::{
     self, BUILDINGS, COMPONENTS, COMPONENTS_REPEAT, CONSTANTS_A_BODY, CONSTANTS_A_FLIPPED_BODY,
-    CONSTANTS_B_BODY, CONSTANTS_B_FLIPPED_BODY, CONSTANTS_COLLISION, EARLY_MOD, EVENTS,
-    EVENTS_EARLY, INLINE, INLINE_MISSING, LOCALIZATION_METHODS, LOCALIZATION_SAME_PATH,
-    LOCALIZATION_VANILLA, NO_REDEFINITION, PARAMETERIZED, PATH_COLLISION, REDEFINITION,
-    REDEFINITION_BODY, REDEFINITION_FLIPPED, REDEFINITION_FLIPPED_BODY, REGISTRATION,
-    REGISTRATION_FLIPPED, REPLACE_PATH, RISKY_CONSTANTS, SPRITES, SPRITES_EARLY, TRIGGERS_A_BODY,
-    TRIGGERS_A_FLIPPED_BODY, TRIGGERS_B_BODY, TRIGGERS_B_FLIPPED_BODY, buildings_vanilla, corpus,
-    events_vanilla, inline_vanilla, localization_vanilla, named, redefinition_vanilla,
-    registration_vanilla, sprites_vanilla, vanilla,
+    CONSTANTS_B_BODY, CONSTANTS_B_FLIPPED_BODY, CONSTANTS_COLLISION, CONSTANTS_CROSS_SOURCE,
+    CONSTANTS_CROSS_SOURCE_VANILLA, EARLY_MOD, EVENTS, EVENTS_EARLY, INLINE, INLINE_MISSING,
+    LOCALIZATION_METHODS, LOCALIZATION_SAME_PATH, LOCALIZATION_VANILLA, NO_REDEFINITION,
+    PARAMETERIZED, PATH_COLLISION, REDEFINITION, REDEFINITION_BODY, REDEFINITION_FLIPPED,
+    REDEFINITION_FLIPPED_BODY, REGISTRATION, REGISTRATION_FLIPPED, REPLACE_PATH, RISKY_CONSTANTS,
+    SPRITES, SPRITES_EARLY, TRIGGERS_A_BODY, TRIGGERS_A_FLIPPED_BODY, TRIGGERS_B_BODY,
+    TRIGGERS_B_FLIPPED_BODY, buildings_vanilla, corpus, events_vanilla, inline_vanilla,
+    localization_vanilla, named, redefinition_vanilla, registration_vanilla, sprites_vanilla,
+    vanilla,
 };
 use super::{Resolution, profile, resolve};
 use crate::analysis::parser::{ScalarKind, Value};
@@ -475,6 +484,14 @@ const EXPECTATIONS: &[Expectation] = &[
                no-modifier control did not",
     },
     Expectation {
+        run: "r19-constants-cross-source",
+        rule: "a scripted-constant repeat spanning Vanilla and the Target Mod resolves to \
+               the first declaration in the one global path order in both directions — the \
+               early-sorting mod file wins and the late-sorting one loses — with the second \
+               registration rejected as a duplicate, so cross-source repeats follow the same \
+               first-wins rule as same-source ones and no source-layer precedence exists",
+    },
+    Expectation {
         run: "r12-inline-missing",
         rule: "an inline reference that does not resolve is diagnosed with the consuming file \
                and line, and the technology still registers with the inclusion silently \
@@ -535,11 +552,19 @@ fn risky_constants() -> (SourceSnapshot, SourceSnapshot) {
     )
 }
 
-/// The scripted-constants cross-source open cell.
+/// A single cross-source scripted-constant collision, with consumers.
 fn constants_collision() -> (SourceSnapshot, SourceSnapshot) {
     (
         registration_vanilla(),
         corpus(SourceKind::TargetMod, CONSTANTS_COLLISION),
+    )
+}
+
+/// `r19-constants-cross-source`'s matched pair, restated.
+fn constants_cross_source() -> (SourceSnapshot, SourceSnapshot) {
+    (
+        corpus(SourceKind::VanillaContent, CONSTANTS_CROSS_SOURCE_VANILLA),
+        corpus(SourceKind::TargetMod, CONSTANTS_CROSS_SOURCE),
     )
 }
 
@@ -2192,53 +2217,118 @@ fn r5_and_r7_a_forward_reference_and_a_cycle_never_present_a_fabricated_value() 
     assert!(matches!(fact.outcome, ConstantOutcome::Resolved { .. }));
 }
 
-/// The scripted-constants cross-source open cell. Asking the shipped row for itself by name
-/// refuses wholesale on the collision; the same row over a same-source corpus resolves.
+/// **`r19-constants-cross-source`**, at the resolver seam: the matched pair, both
+/// directions. The shipped row is asked by name — the public seam a consumer uses — and a
+/// cross-source repeat resolves to the first declaration in the one global path order:
+/// `@early_redeclared` to the Target Mod's early-sorting 111 (`speed_slow|111_mod_early`)
+/// and `@late_redeclared` to Vanilla's earlier 100 (`outpost_cost|100_vanilla`), each with
+/// the second registration recorded as the rejected duplicate the game's error log named.
 #[test]
-fn the_scripted_constants_cross_source_cell_refuses_only_on_a_collision() {
-    let (vanilla, target) = constants_collision();
+fn r19_a_cross_source_repeat_resolves_to_the_first_declaration_in_both_directions() {
+    let (vanilla, target) = constants_cross_source();
     let resolution = resolve(&vanilla, &target);
-    assert_eq!(
-        resolution.registry("scripted-constants"),
-        Err(Refusal::UnresolvedCell {
-            registry: "scripted-constants",
-            cell: PolicyCell::CrossSourceCollision,
-            reason: "no record measures a scripted-constant repeat spanning Vanilla and the \
-                     Target Mod",
-            oracle_gap: "the next capture, r19: a run redefining a vanilla scripted constant \
-                         from an early-sorting Target Mod file",
-        })
-    );
+    let registry = resolution
+        .registry("scripted-constants")
+        .expect("the cross-source cell is resolved, so the row answers by name");
 
-    let (vanilla, target) = registration();
-    let resolution = resolve(&vanilla, &target);
-    assert!(
-        resolution.registry("scripted-constants").is_ok(),
-        "no symbol in this corpus repeats across sources, so the row resolves"
+    let assert_direction = |symbol: &str, value: &str, winner: SourceKind, loser: SourceKind| {
+        let definition = registry.get(symbol).unwrap_or_else(|| panic!("{symbol}"));
+        assert_eq!(definition.position.source, winner, "{symbol}: winner");
+        let fact = definition.constants.first().expect("a declaration fact");
+        let ConstantOutcome::Resolved {
+            value: resolved, ..
+        } = &fact.outcome
+        else {
+            panic!("{symbol} resolves: {:?}", fact.outcome);
+        };
+        assert_eq!(
+            resolved.value(),
+            crate::canonical::numeric::SourceNumber::parse(value).value(),
+            "{symbol}: effective value"
+        );
+        // "There were two" is recorded whichever way it resolved: the duplicate and the
+        // shadowed definition both name the rejected registration's source.
+        assert!(
+            definition.displaced.iter().any(|provenance| {
+                provenance.kind == FactKind::Duplicate && provenance.site.source() == Some(loser)
+            }),
+            "{symbol}: the rejected registration is a recorded duplicate"
+        );
+    };
+    assert_direction(
+        "@early_redeclared",
+        "111",
+        SourceKind::TargetMod,
+        SourceKind::VanillaContent,
+    );
+    assert_direction(
+        "@late_redeclared",
+        "100",
+        SourceKind::VanillaContent,
+        SourceKind::TargetMod,
     );
 }
 
-/// The consuming side of the same open cell: one contested symbol is pending, one clean
-/// symbol still resolves, from the same corpus and the same technologies row.
+/// The negative control for the r19 expectation: the same corpus under an inverted repeat
+/// rule resolves both subjects to the *other* declaration, so the assertions above
+/// discriminate direction rather than passing under any rule that resolves.
 #[test]
-fn the_technologies_row_marks_only_the_colliding_symbol_pending() {
+fn r19_the_expectation_fails_under_an_inverted_repeat_rule() {
+    let (vanilla, target) = constants_cross_source();
+    let resolution = resolve(&vanilla, &target);
+    let inverted = resolution
+        .resolve_row(&trial::CONSTANTS_ROW_REPLACING)
+        .expect("the inverted row resolves");
+
+    assert_eq!(
+        inverted
+            .get("@early_redeclared")
+            .expect("resolves")
+            .position
+            .source,
+        SourceKind::VanillaContent,
+        "under last-wins the early subject's winner flips to Vanilla"
+    );
+    assert_eq!(
+        inverted
+            .get("@late_redeclared")
+            .expect("resolves")
+            .position
+            .source,
+        SourceKind::TargetMod,
+        "under last-wins the late subject's winner flips to the Target Mod"
+    );
+}
+
+/// The consuming side of the closed cell: a technology reading a cross-source-contested
+/// symbol resolves it to the first declaration with provenance naming the winning source,
+/// and a clean symbol resolves exactly as before.
+#[test]
+fn the_technologies_row_resolves_a_contested_symbol_to_the_first_declaration() {
     let (vanilla, target) = constants_collision();
     let resolution = resolve(&vanilla, &target);
     let registry = technologies(&resolution);
 
     let collision = registry.get("tech_collision_consumer").expect("resolves");
+    let fact = collision.constants.first().expect("a constant fact");
+    let ConstantOutcome::Resolved { value, declaration } = &fact.outcome else {
+        panic!(
+            "the contested symbol resolves under r19: {:?}",
+            fact.outcome
+        );
+    };
     assert_eq!(
-        collision.constants.first().map(|fact| &fact.outcome),
-        Some(&ConstantOutcome::Unresolved(
-            UnresolvedConstant::CrossSourcePending
-        ))
+        value.value(),
+        crate::canonical::numeric::SourceNumber::parse("5").value(),
+        "Vanilla's first declaration wins over the mod's late-sorting redeclaration"
     );
+    assert_eq!(declaration.source(), Some(SourceKind::VanillaContent));
 
     let clean = registry.get("tech_clean_consumer").expect("resolves");
     let ConstantOutcome::Resolved { .. } =
         &clean.constants.first().expect("a constant fact").outcome
     else {
-        panic!("a clean symbol must still resolve while a colliding one is pending");
+        panic!("the clean symbol resolves as before");
     };
 }
 

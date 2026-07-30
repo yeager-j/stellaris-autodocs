@@ -268,8 +268,10 @@ pub(super) const RISKY_CONSTANTS: &[(&str, &[u8])] = &[
     ),
 ];
 
-/// The scripted-constants cross-source open cell: `@shared_symbol` redeclared from the
-/// Target Mod, plus one consumer of the colliding symbol and one of an uncontested one.
+/// A cross-source scripted-constant repeat: `@shared_symbol` redeclared from the Target
+/// Mod's late-sorting file, plus one consumer of the contested symbol and one of an
+/// uncontested one. Under `r19`'s rule the vanilla declaration wins by stream position and
+/// both consumers resolve.
 pub(super) const CONSTANTS_COLLISION: &[(&str, &[u8])] = &[
     (
         "descriptor.mod",
@@ -282,6 +284,32 @@ pub(super) const CONSTANTS_COLLISION: &[(&str, &[u8])] = &[
     (
         "common/technology/zz_collision_consumer.txt",
         fixture!("constants-collision/common/technology/zz_collision_consumer.txt"),
+    ),
+];
+
+/// `r19-constants-cross-source`'s stand-in base game: the matched pair's two constants,
+/// with one shared original value, declared in one file the way Vanilla declares the
+/// record's two subjects in one `scripted_variables` file.
+pub(super) const CONSTANTS_CROSS_SOURCE_VANILLA: &[(&str, &[u8])] = &[(
+    "common/scripted_variables/03_pair_constants.txt",
+    fixture!("constants-cross-source-vanilla/common/scripted_variables/03_pair_constants.txt"),
+)];
+
+/// `r19-constants-cross-source`'s Target Mod, restated: `@early_redeclared` from a file
+/// sorting before the Vanilla declaration, `@late_redeclared` from one sorting after, both
+/// with the record's treatment value.
+pub(super) const CONSTANTS_CROSS_SOURCE: &[(&str, &[u8])] = &[
+    (
+        "descriptor.mod",
+        fixture!("constants-cross-source/descriptor.mod"),
+    ),
+    (
+        "common/scripted_variables/!!!_cross_source_early.txt",
+        fixture!("constants-cross-source/common/scripted_variables/!!!_cross_source_early.txt"),
+    ),
+    (
+        "common/scripted_variables/zz_cross_source_late.txt",
+        fixture!("constants-cross-source/common/scripted_variables/zz_cross_source_late.txt"),
     ),
 ];
 
@@ -945,12 +973,7 @@ pub(super) const CONSTANTS_ROW: RegistryPolicy = RegistryPolicy {
         scope: constants::SCOPE,
     }),
     duplicates: CellStatus::Resolved(RepeatRule::RejectOnRepeat),
-    cross_source: CellStatus::Pending {
-        reason: "no record measures a scripted-constant repeat spanning Vanilla and the \
-                 Target Mod",
-        oracle_gap: "the next capture, r19: a run redefining a vanilla scripted constant \
-                     from an early-sorting Target Mod file",
-    },
+    cross_source: CellStatus::Resolved(CrossSourceRule::DecidedByStreamPosition),
     fields: CellStatus::Resolved(WHOLE_OBJECT),
     ordering: CellStatus::Resolved(OrderingRule::SourceOrderPreserved),
     references: CellStatus::Resolved(NO_REFERENCES),
@@ -963,12 +986,11 @@ pub(super) const CONSTANTS_ROW: RegistryPolicy = RegistryPolicy {
     }),
 };
 
-/// [`CONSTANTS_ROW`] with its repeat rule inverted — the other half of the `r1`/`r4`
-/// direction negative control. `cross_source` is resolved rather than left `Pending`: the
-/// `registration/` corpus this control runs over has no cross-source repeat, so the cell is
-/// never consulted, and leaving it open would test nothing about this control's purpose.
+/// [`CONSTANTS_ROW`] with its repeat rule inverted — the direction negative control for both
+/// `r1`/`r4` (same-source repeats) and `r19` (cross-source repeats): under replacement the
+/// last declaration wins everywhere first-wins is claimed, so an expectation that passed
+/// under both rules would be discriminating nothing.
 pub(super) const CONSTANTS_ROW_REPLACING: RegistryPolicy = RegistryPolicy {
     duplicates: CellStatus::Resolved(RepeatRule::ReplaceOnRepeat),
-    cross_source: CellStatus::Resolved(CrossSourceRule::DecidedByStreamPosition),
     ..CONSTANTS_ROW
 };

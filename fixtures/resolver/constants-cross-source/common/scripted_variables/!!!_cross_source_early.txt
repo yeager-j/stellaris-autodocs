@@ -1,0 +1,8 @@
+# Original work; no Stellaris file is reproduced.
+#
+# The early side of the r19 matched pair, restated: this file sorts before the stand-in
+# Vanilla declaration of `@early_redeclared`, so under first-wins this value survives and
+# Vanilla's later 100 is the rejected duplicate — the direction r19 observed as
+# `speed_slow|111_mod_early`.
+
+@early_redeclared = 111

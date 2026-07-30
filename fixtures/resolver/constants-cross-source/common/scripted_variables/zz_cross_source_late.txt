@@ -1,0 +1,8 @@
+# Original work; no Stellaris file is reproduced.
+#
+# The late side of the r19 matched pair, restated: this file sorts after the stand-in
+# Vanilla declaration of `@late_redeclared`, so under first-wins Vanilla's 100 survives and
+# this value is the rejected duplicate — the direction r19 observed as
+# `outpost_cost|100_vanilla`.
+
+@late_redeclared = 111

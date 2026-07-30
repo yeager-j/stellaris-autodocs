@@ -1,0 +1,9 @@
+# Stand-in Vanilla Content. Original work; no Stellaris file is reproduced.
+#
+# The r19 matched pair's base-game side, restated: two constants with the same original
+# value declared in one file, the way Vanilla declares @speed_slow and @outpost_cost in
+# 03_scripted_variables_ships.txt. `@early_redeclared` is redeclared by the Target Mod's
+# early-sorting file and `@late_redeclared` by its late-sorting one.
+
+@early_redeclared = 100
+@late_redeclared = 100
