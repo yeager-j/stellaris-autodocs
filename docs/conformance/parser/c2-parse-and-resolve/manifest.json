@@ -29,7 +29,7 @@
     }
   ],
   "resolution": {
-    "profile_version": 8,
+    "profile_version": 9,
     "rows": [
       {
         "registry": "technologies",
@@ -80,9 +80,19 @@
       {
         "registry": "events",
         "outcome": {
-          "status": "refused",
-          "cell": "undeclared reference kind",
-          "message": "registry `events` claims its definitions carry no Parameter reference, but `nomads.605` carries one in `title`"
+          "status": "resolved",
+          "definitions": 10793,
+          "removed_files": 0,
+          "semantic_digest": "4025068c4b9100d0850ada3e236b60fb755ab329648fb83213002ef283ed3013",
+          "facts": {
+            "provenance.Contributed": 96460,
+            "provenance.Duplicate": 36,
+            "provenance.Shadowed": 441,
+            "reference.InlineScript": 650,
+            "reference.Parameter": 5,
+            "reference.ScriptedConstant": 8869
+          },
+          "visible_failures": {}
         }
       },
       {
@@ -150,7 +160,7 @@
     }
   },
   "artifacts": {
-    "resolution.txt": "06867a5515fc89c80fc996b1ae09d8ddbeef4072d52de7dd0d5b467a12d1d8c5"
+    "resolution.txt": "30e36167a6e752272db0dafb343aba5723b890d05cdcbd8452f3f7ffe02d80ed"
   },
   "warnings": []
 }

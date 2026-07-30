@@ -66,7 +66,13 @@ use super::stream::{ContentFamily, FileScope};
 ///   directions of a Vanilla-versus-Target repeat resolving to the first declaration in the
 ///   one global path order. A contested symbol now resolves for consumers instead of
 ///   carrying `CrossSourcePending`, and that variant retired with the cell.
-pub(in crate::analysis) const RESOLUTION_PROFILE_VERSION: u32 = 8;
+/// - 9 (STE-36): the events row's references cell names `Parameter` as
+///   `DetectedNotResolved`. The corpus shape is a bare `$KEY$` localization reference in
+///   localization-text position (`nomads.605`'s `title = $TRANSMISSION$`, a v4.4.x
+///   addition; four `set_name` siblings) — not substitution machinery, since nothing
+///   parameter-calls an event. The fact retains the text for Phase 5's localization module,
+///   which owns `$KEY$` interpretation (`r16-loc-reference`).
+pub(in crate::analysis) const RESOLUTION_PROFILE_VERSION: u32 = 9;
 
 /// The Stellaris build every oracle record behind this profile was captured against.
 ///
@@ -398,8 +404,18 @@ const REDEFINABLE_PROVENANCE: ProvenanceRule = ProvenanceRule {
 /// - **Ordering.** Source order is preserved; r9's first-registration observation depends on
 ///   the order in which blocks appear in one file.
 /// - **References.** Scripted constants and inline scripts are detected, not resolved: r8/r9
-///   settle registration rather than either expansion mechanism. `Parameter` is not named;
-///   event bodies are not parameter-called, so one is a typed undeclared-reference refusal.
+///   settle registration rather than either expansion mechanism. `Parameter` is likewise
+///   detected, not resolved — but the shape it names here is not substitution machinery.
+///   Nothing parameter-calls an event; the corpus shape is a *localization reference written
+///   bare in script*, in localization-text position: a v4.4.x update gave `nomads.605`
+///   `title = $TRANSMISSION$`, and a 2026-07 census over the installed `events/` found
+///   exactly five bare occurrences in two shapes (`title = $KEY$`, `set_name = $KEY$`), all
+///   in localization-text position. The `ReferenceFact` retains the text and marks the value
+///   not final; interpreting `$KEY$` in display text is `r16-loc-reference`'s measured
+///   territory and belongs to Phase 5's localization module
+///   (`docs/implementation-plan.md`, Phase 5 task 1). The parse-and-resolve conformance
+///   record (`c2`) pins the per-row `reference.Parameter` count, so a game update that moves
+///   or multiplies the shape surfaces as drift.
 /// - **Provenance.** Contributed, duplicate, and shadowed record the accepted event and the
 ///   rejected registration r9 identified.
 const EVENTS: RegistryPolicy = RegistryPolicy {
@@ -423,7 +439,22 @@ const EVENTS: RegistryPolicy = RegistryPolicy {
         defaults: &[],
     }),
     ordering: CellStatus::Resolved(OrderingRule::SourceOrderPreserved),
-    references: CellStatus::Resolved(DETECTED_SCRIPT_REFERENCES),
+    references: CellStatus::Resolved(ReferenceRule {
+        kinds: &[
+            (
+                ReferenceKind::ScriptedConstant,
+                CellStatus::Resolved(ReferenceHandling::DetectedNotResolved),
+            ),
+            (
+                ReferenceKind::InlineScript,
+                CellStatus::Resolved(ReferenceHandling::DetectedNotResolved),
+            ),
+            (
+                ReferenceKind::Parameter,
+                CellStatus::Resolved(ReferenceHandling::DetectedNotResolved),
+            ),
+        ],
+    }),
     provenance: CellStatus::Resolved(REDEFINABLE_PROVENANCE),
 };
 
@@ -845,6 +876,49 @@ mod tests {
     #[test]
     fn a_technology_with_only_literal_values_carries_no_references() {
         assert!(references("tech_references = {\n\tcost = 100\n\ttier = 1\n}\n").is_empty());
+    }
+
+    /// The events row's `Parameter` entry (STE-36), restating `nomads.605`'s
+    /// `title = $TRANSMISSION$`: a bare `$KEY$` localization reference in an event body is
+    /// recorded as a `ReferenceFact` with the value retained — never a refusal (the pre-v9
+    /// behavior) and never a silent skip. Interpretation belongs to Phase 5's localization
+    /// module (`docs/implementation-plan.md`, Phase 5 task 4).
+    #[test]
+    fn an_event_title_holding_a_bare_localization_reference_is_detected_and_retained() {
+        let vanilla = FixtureCorpus::new(SourceKind::VanillaContent)
+            .with_file("events/00_empty.txt", b"")
+            .build()
+            .expect("a well-formed fixture corpus");
+        let target = FixtureCorpus::new(SourceKind::TargetMod)
+            .with_file("descriptor.mod", b"name=\"loc-reference\"")
+            .with_file(
+                "events/zz_loc_reference.txt",
+                b"fleet_event = {\n\tid = locref.1\n\ttitle = $TRANSMISSION$\n\tdesc = locref.1.desc\n}\n",
+            )
+            .build()
+            .expect("a well-formed fixture corpus");
+
+        let registry = resolve(&vanilla, &target)
+            .registry("events")
+            .expect("the declared row resolves");
+        let definition = registry.get("locref.1").expect("the id resolves");
+
+        assert_eq!(
+            definition.references.len(),
+            1,
+            "{:?}",
+            definition.references
+        );
+        let fact = &definition.references[0];
+        assert_eq!(fact.kind, ReferenceKind::Parameter);
+        assert_eq!(
+            fact.field, "title",
+            "attributed to the effective field a consumer reads"
+        );
+        assert!(
+            definition.states("title"),
+            "the reference text stays in the effective field; detection never blanks a value"
+        );
     }
 
     #[test]

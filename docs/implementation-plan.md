@@ -147,7 +147,12 @@ Blocking relations encode the dependency DAG so parallelizable work is visible. 
    `r14-loc-samepath`, and `r15-loc-modvmod`; Phase 4 pins only their file-level facts.
 2. Markup tokenization into application-owned display tokens; style/color markers, known inline icons, visibly raw runtime tokens and unknown markup.
 3. Selected-language → English → raw-key fallback.
-4. Static Localization Reference resolution with cycle detection.
+4. Static Localization Reference resolution with cycle detection. This includes the bare
+   `$KEY$` references Phase 4's events row records as `Parameter`-kind `ReferenceFact`s in
+   *script* (a v4.4.x update gave `nomads.605` `title = $TRANSMISSION$`, plus four
+   `set_name = $KEY$` siblings; STE-36): the resolver retains the text and marks the value
+   not final, and display text reached through those facts resolves here like any other
+   Static Localization Reference.
 5. Cited-key transitive closure across all languages (build stage owned by `analysis`, semantics owned by `localization`), with the truncated-closure negative controls.
 6. Plain-text projection for search indexing.
 7. Effective-language derivation: explicit override → detected Stellaris language → English; macOS Documents-denial behavior as a typed condition.

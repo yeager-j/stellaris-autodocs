@@ -167,11 +167,15 @@ pub(in crate::analysis) enum ReferenceKind {
     /// An `inline_script` inclusion, expanded textually into the consuming definition before
     /// it registers. Owned by the inline-scripts row (`r11`, `r12`).
     InlineScript,
-    /// A `$NAME$` parameter substitution. No record measures a parameterised scripted
-    /// trigger or effect call, so every row that can carry one declares this kind `Pending`
-    /// rather than answering for it (`docs/spikes/resolver-evaluation.md`, "Scripted
-    /// triggers" / "Scripted effects": "parameter behavior requires resolver-backed
-    /// investigation").
+    /// A whole token of `ScalarKind::Parameter` — `$NAME$`. Two different corpus shapes
+    /// answer to it, and each row declares for the shape its stream actually carries. In
+    /// trigger and effect bodies it is live substitution machinery, and no record measures a
+    /// parameterised call, so those rows declare it `Pending`
+    /// (`docs/spikes/resolver-evaluation.md`: "parameter behavior requires resolver-backed
+    /// investigation"). In event bodies it is a localization reference written bare in
+    /// script (`nomads.605`'s `title = $TRANSMISSION$`), so the events row declares it
+    /// `DetectedNotResolved` and Phase 5's localization module interprets it
+    /// (`r16-loc-reference`).
     Parameter,
     /// A sprite definition's `sprite_sheet_sprite_type` field. Unlike the generic script
     /// references above, this resolves against the final winners of the sprites registry:

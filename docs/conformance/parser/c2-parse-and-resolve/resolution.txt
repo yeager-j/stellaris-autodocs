@@ -12,8 +12,14 @@
 # row scripted-constants: resolved — 3367 definitions, 0 files removed by selection
   semantic digest 2a39cf0d613a48e8dd340702d03ef868e8a9d385e5fb23b145e0e016339563f1
   fact constants.Resolved: 3367
-# row events: refused at undeclared reference kind
-  registry `events` claims its definitions carry no Parameter reference, but `nomads.605` carries one in `title`
+# row events: resolved — 10793 definitions, 0 files removed by selection
+  semantic digest 4025068c4b9100d0850ada3e236b60fb755ab329648fb83213002ef283ed3013
+  fact provenance.Contributed: 96460
+  fact provenance.Duplicate: 36
+  fact provenance.Shadowed: 441
+  fact reference.InlineScript: 650
+  fact reference.Parameter: 5
+  fact reference.ScriptedConstant: 8869
 # row buildings: resolved — 602 definitions, 1 files removed by selection
   semantic digest a69a4304d2e4be21dfc5b14a7b8b8c0963129369b389f700c4c36e5981e370ad
   fact provenance.Contributed: 8770
