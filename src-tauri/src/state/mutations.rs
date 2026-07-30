@@ -9,6 +9,7 @@ use super::model::{AppState, DiscoveryLocation, PublicationReference, RevisionId
 use super::replace::{ReplaceOutcome, replace_state};
 use super::store::{Inner, StateStore, encode};
 use crate::discovery::identity::{DiscoveryLocationId, ModInstallationId};
+use crate::localization::LanguageTag;
 use std::fmt;
 use std::path::PathBuf;
 use std::sync::MutexGuard;
@@ -131,6 +132,27 @@ impl StateStore {
                     revision: next.clone(),
                 },
             );
+            Ok(())
+        })
+    }
+
+    /// Sets or clears the explicit desktop language override — the only durable part of the
+    /// effective-language derivation (D-097).
+    ///
+    /// One method rather than a setter and a clearer, because `Option` already carries the
+    /// distinction: `None` hands the language back to detection and is not a choice of English.
+    ///
+    /// No `storable_*` guard and no new [`MutationError`] variant, unlike
+    /// [`add_discovery_location`](StateStore::add_discovery_location): a
+    /// [`LanguageTag`](crate::localization::LanguageTag) is ASCII by construction, so there is
+    /// no unrepresentable value for a guard to reject and `encode`'s totality argument is
+    /// unchanged.
+    pub fn set_language_override(
+        &self,
+        language: Option<LanguageTag>,
+    ) -> Result<MutationCommit, MutationError> {
+        self.commit_mutation(|state| {
+            state.language_override = language;
             Ok(())
         })
     }
@@ -512,6 +534,16 @@ mod tests {
         assert!(matches!(result, Err(MutationError::StorageFailed { .. })));
         assert!(store.snapshot().discovery_locations.is_empty());
         assert_eq!(fs::read(dir.path().join(STATE_FILE)).unwrap(), before);
+
+        // The same guarantee for the language override, through the same seam: a mutation is
+        // applied to memory only after replacement commits, so a failed one leaves the prior
+        // preference rather than a half-applied one.
+        assert!(matches!(
+            store.set_language_override(Some(LanguageTag::parse("l_german").unwrap())),
+            Err(MutationError::StorageFailed { .. })
+        ));
+        assert_eq!(store.language_override(), None);
+        assert_eq!(fs::read(dir.path().join(STATE_FILE)).unwrap(), before);
     }
 
     #[test]
@@ -545,6 +577,29 @@ mod tests {
             store.confirm_discard_unrecovered_references(),
             Err(MutationError::RecoveryRequired)
         ));
+        assert!(matches!(
+            store.set_language_override(None),
+            Err(MutationError::RecoveryRequired)
+        ));
+    }
+
+    #[test]
+    fn a_language_override_persists_across_reopen_and_clearing_is_not_choosing_english() {
+        let dir = TempDir::new().unwrap();
+        let store = open(dir.path());
+        let german = LanguageTag::parse("l_german").unwrap();
+        store.set_language_override(Some(german.clone())).unwrap();
+        assert_eq!(store.language_override(), Some(german.clone()));
+        drop(store);
+
+        let store = open(dir.path());
+        assert_eq!(store.language_override(), Some(german));
+        // Clearing hands the language back to detection. `None`, never Some(l_english): the
+        // difference is whether a later game-language change moves the documentation language.
+        store.set_language_override(None).unwrap();
+        assert_eq!(store.language_override(), None);
+        drop(store);
+        assert_eq!(open(dir.path()).language_override(), None);
     }
 
     /// Fails the protocol steps the test switches on, so one store can be driven

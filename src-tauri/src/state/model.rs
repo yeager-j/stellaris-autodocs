@@ -3,6 +3,7 @@
 //! interpret them. Everything else about the Mod Library is derived at scan time.
 
 use crate::discovery::identity::{DiscoveryLocationId, ModInstallationId};
+use crate::localization::{LanguageTag, language_override_from_document};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -47,6 +48,21 @@ pub struct AppState {
     /// evolution and recovery").
     #[serde(default)]
     pub unresolved_quarantine: Option<String>,
+    /// The user's explicit desktop language choice, and the **only** durable part of the
+    /// effective-language derivation (docs/technical-design.md, "Localization module"; D-097).
+    /// `None` means "derive it", which is not the same as choosing English: cleared, the
+    /// currently detected game language governs again.
+    ///
+    /// The detected game language is deliberately absent from this document. It "is refreshed
+    /// from current game configuration during startup and explicit Refresh rather than copied
+    /// into the mutable-state authority", so persisting it would create the second authority
+    /// that sentence forbids.
+    ///
+    /// Adding this field did **not** bump [`CURRENT_SCHEMA`]: it is optional with a read-side
+    /// default, so a document written before it existed decodes unchanged, and a build without
+    /// it ignores the key rather than refusing to start (D-135).
+    #[serde(default, deserialize_with = "language_override_from_document")]
+    pub language_override: Option<LanguageTag>,
 }
 
 impl AppState {
@@ -56,6 +72,7 @@ impl AppState {
             discovery_locations: Vec::new(),
             publication_references: BTreeMap::new(),
             unresolved_quarantine: None,
+            language_override: None,
         }
     }
 }
@@ -71,6 +88,28 @@ mod tests {
         // (docs/technical-design.md, "Materialized JSON read model").
         let minimal: AppState = serde_json::from_str(r#"{"schema":1}"#).unwrap();
         assert_eq!(minimal, AppState::first_launch());
+        assert_eq!(minimal.language_override, None);
+    }
+
+    #[test]
+    fn round_trips_a_state_with_every_optional_field_absent() {
+        // Through `encode` rather than `to_vec`, because `encode` is the real writer — pretty
+        // printing plus a trailing newline — and the round trip that matters is the one the
+        // replacement path performs.
+        let state = AppState::first_launch();
+        let decoded: AppState =
+            serde_json::from_slice(&crate::state::store::encode(&state)).unwrap();
+        assert_eq!(decoded, state);
+    }
+
+    #[test]
+    fn an_unreadable_persisted_override_is_ignored_rather_than_quarantining_the_document() {
+        // A hand-edited language name must cost the user their preference and nothing else;
+        // quarantine would also cost them their publication references and orphan cleanup.
+        let edited: AppState =
+            serde_json::from_str(r#"{"schema":1,"language_override":"english"}"#)
+                .expect("a document with an unreadable override still decodes");
+        assert_eq!(edited.language_override, None);
     }
 
     #[test]
@@ -95,6 +134,7 @@ mod tests {
                 },
             )]),
             unresolved_quarantine: Some("state.json.quarantine-1-deadbeef".to_owned()),
+            language_override: Some(LanguageTag::parse("l_simp_chinese").unwrap()),
         };
         let encoded = serde_json::to_vec(&state).unwrap();
         let decoded: AppState = serde_json::from_slice(&encoded).unwrap();

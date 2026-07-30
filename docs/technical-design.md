@@ -361,6 +361,7 @@ Revision-level completeness is the union of registry-wide and otherwise unscoped
 `localization` is the deep module that owns the Stellaris localization language and its reusable interpretations:
 
 - Localization-file ingestion and locale identity.
+- Detection of the currently configured Stellaris language, and the effective-language derivation over an explicit override.
 - Markup tokenization.
 - Selected-language, English, then raw-key fallback.
 - Static Localization Reference resolution and cycle detection.

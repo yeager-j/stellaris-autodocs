@@ -97,7 +97,7 @@ quotes are section headers in the technical design doc.
 | `state` | The durable mutable state document: schema, atomic replacement, quarantine recovery, the narrow publication-reference capability. |
 | `analysis` | Turns Source Snapshots plus asset-materialization outcomes into a finalized Revision Candidate: parser adaptation, content-type resolution, documentation generation, Source Excerpt capture. |
 | `assets` | Byte-conversion mechanics behind the shared content-addressed Asset Store: DDS classification, the pinned conversion recipe, typed materialization outcomes, blob publication. |
-| `localization` | The Stellaris localization language: ingestion, markup tokenization, fallback, Static Localization Reference resolution, plain-text projection, display tokens. |
+| `localization` | The Stellaris localization language: ingestion, markup tokenization, fallback, Static Localization Reference resolution, plain-text projection, display tokens, detection of the configured game language, and the effective-language derivation. |
 | `search` | Both sides of the persisted search contract: deterministic index construction, the versioned index representation, query normalization/matching/ranking. |
 | `revisions` | Sole owner of Documentation Revision bundle I/O: staging, validation, atomic publication (two commit points: durable bundle move, then compare-and-swap of the state publication reference), and the read side — pinned typed Revision Readers, and the retirement claim Phase 9's retention sweep will drive. |
 | `companion` | Pairing secrets, Companion Sessions, listener lifecycle, Companion-Ready access policy, trusted companion revision handles. |

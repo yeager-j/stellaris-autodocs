@@ -229,7 +229,7 @@ Phase 9's Ensure/Rebuild coordinator is what replaces the caller: `application` 
 
 **Deliverable:** The complete desktop experience over the documentation client.
 
-1. First-launch setup wizard: detection, path correction, confirmation, macOS Documents-access notice and retry.
+1. First-launch setup wizard: detection, path correction, confirmation, macOS Documents-access notice and retry. Two existing conflations are this task's to fix, using the typed vocabulary Phase 5F established: `discovery::proposals::propose_locations` decides with `Path::is_dir()`, which returns `false` for a denial as readily as for an absence, so a denied Documents folder silently withholds the local-mod proposal; and `discovery::LocationOutcome::Unavailable` discards `error.kind()`, so a scan cannot report "gone" apart from "unreadable". Both make a denial "look like an empty mod library", which the design forbids. The fix needs a typed proposal outcome and the wizard's retry affordance, which is why it lands here rather than in Phase 5.
 2. Mod Library page: unified locations, per-installation status states, advisory compatibility/dependency warnings, unavailable locations.
 3. Search combobox: lazy bounded requests, generation suppression, category/Vanilla filters, result typing and disambiguation, narrow-screen dialog presentation.
 4. Technology page: localized name/description/icon via display tokens, structured requirement groups, weight sections with `×0` prominence, unlock content, route cards with summaries and technical trace, provenance, entry-scoped issues, excerpt viewer.
