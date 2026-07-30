@@ -5,6 +5,7 @@
 
 use super::resolver::RESOLUTION_PROFILE_VERSION;
 use crate::canonical::encode::{CanonicalDigest, DigestBytes, ENCODING_VERSION};
+use crate::localization::LOCALIZATION_INTERPRETATION_VERSION;
 use crate::source::policy::ENUMERATION_POLICY_VERSION;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -49,7 +50,10 @@ impl AnalysisVersionVector {
             // above quotes its policy's constant rather than repeating its value.
             resolution_profile: RESOLUTION_PROFILE_VERSION,
             documentation: 1,
-            localization_interpretation: 1,
+            // Read from `crate::localization`, which owns locale identity, the line grammar,
+            // and the merge order this number versions — the same reason the two components
+            // above quote their own module's constant rather than repeating its value.
+            localization_interpretation: LOCALIZATION_INTERPRETATION_VERSION,
             search: 1,
             canonical_encoding: ENCODING_VERSION,
             hidden_route_identity: 1,
@@ -92,6 +96,17 @@ mod tests {
     }
 
     #[test]
+    fn current_reads_the_localization_interpretation_version() {
+        // Same coupling as the two components below, for the same reason: the next Phase 5
+        // ticket must not be able to change what a localization source means without the
+        // change reaching this vector.
+        assert_eq!(
+            AnalysisVersionVector::current().localization_interpretation,
+            LOCALIZATION_INTERPRETATION_VERSION
+        );
+    }
+
+    #[test]
     fn current_reads_the_enumeration_policy_version() {
         // The Phase 2B fork resolution: `source::policy` owns the version of the policy,
         // and this vector quotes it. Two literals could drift apart in the commit that
@@ -110,7 +125,7 @@ mod tests {
         // exists to prevent (docs/technical-design.md:651; precedent state/model.rs:67).
         let minimal: AnalysisVersionVector = serde_json::from_str(
             r#"{"source_enumeration":3,"parsed_model":1,"resolution_profile":9,
-                "documentation":1,"localization_interpretation":1,"search":1,
+                "documentation":1,"localization_interpretation":2,"search":1,
                 "canonical_encoding":1,"hidden_route_identity":1,
                 "analysis_issue_propagation":1}"#,
         )
@@ -136,13 +151,14 @@ mod tests {
     fn pinned_current_digest() {
         // Pinned regression value: any component bump changes this and must re-pin it,
         // which is exactly the review moment the version vector exists to force.
-        // Re-pinned for resolution_profile = 9 (STE-36 — the events row's references cell
-        // names Parameter as DetectedNotResolved for bare `$KEY$` localization references,
-        // the nomads.605 shape). Every prior pin stays reachable through this file's
-        // history; what matters is that the bump and the re-pin land together.
+        // Re-pinned for localization_interpretation = 2 (Phase 5A, STE-37 — the module
+        // interprets localization sources for the first time: locale identity, the `.yml`
+        // line grammar, and per-language effective tables with last-wins merge). Every prior
+        // pin stays reachable through this file's history; what matters is that the bump and
+        // the re-pin land together.
         assert_eq!(
             AnalysisVersionVector::current().digest().to_hex(),
-            "263eca1d39c695e1d5b086e15848c1467dfc53b6913ae92d511ee82469dd21c5"
+            "2be85f6f1225634fd9a87fba9292435a11d8a01202e9ce8ea2dd60427b6a94e4"
         );
     }
 

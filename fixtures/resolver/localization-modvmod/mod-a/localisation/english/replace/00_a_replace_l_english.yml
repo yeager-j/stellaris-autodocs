@@ -1,0 +1,6 @@
+l_english:
+# The SAME earlier-loading mod's replace/ file, restating r15's `giga_start_screen_alderson`
+# arrangement: it won anyway, from a mod that loads first. That is what separates replace/
+# being a genuine priority phase from replace/ merely riding the mod layer - the distinction
+# r13 structurally could not make.
+ loc_replace_subject:0 "Mod A replace value"

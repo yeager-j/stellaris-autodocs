@@ -1,0 +1,6 @@
+l_english:
+# The base-game side of r15's key-level restatement. loc_untouched is r15's `tech_engineering_1`
+# cross-check: a key no mod contests, which must keep this value however the mods are ordered.
+ loc_contested:0 "Vanilla value"
+ loc_replace_subject:0 "Vanilla value"
+ loc_untouched:0 "Untouched"

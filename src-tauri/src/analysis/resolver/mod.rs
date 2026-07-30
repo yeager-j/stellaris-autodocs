@@ -92,7 +92,7 @@ pub(in crate::analysis) use registry::Refusal;
 pub(in crate::analysis) use resolved::{
     ConstantFact, ConstantOutcome, FactKind, FactProvenance, FactSite, InlineOutcome,
     InlineScriptFact, LocalizationFile, LocalizationFileStream, ReferenceFact, ReferenceKind,
-    ResolvedDefinition, ResolvedRegistry, ResolvedSpriteTexture, ShadowedLocalizationFile,
+    Removal, ResolvedDefinition, ResolvedRegistry, ResolvedSpriteTexture, ShadowedLocalizationFile,
     SpriteReferenceEdge, SpriteResolution, SpriteTextureOutcome, StreamPosition,
     UnresolvedConstant, UnresolvedInline,
 };

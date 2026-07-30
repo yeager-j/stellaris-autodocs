@@ -7,6 +7,10 @@
 mod conformance;
 #[cfg(test)]
 mod corpora;
+/// The build stage that hands resolved localization bytes to `localization`. Dead until the
+/// Phase 6 driver calls it, for the same reason [`resolver`] is.
+#[allow(dead_code)]
+mod localization_stage;
 #[allow(dead_code)]
 mod parser;
 #[allow(dead_code)]

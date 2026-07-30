@@ -1,2 +1,6 @@
 l_english:
+# r14 method 2: the mod's file at the vanilla file's exact logical path. The collision removes
+# the vanilla file whole, and this file deliberately restates ONE of its four keys - so
+# tech_same_file_control, tech_lost_a and tech_lost_b become raw-key casualties, exactly as
+# `tech_society_1` rendered as `tech_society_1` in the record.
  tech_subject:0 "Target same-path value"

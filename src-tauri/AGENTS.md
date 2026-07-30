@@ -25,6 +25,13 @@ Run these from `src-tauri/` unless noted otherwise.
   per-cell visible-failure counts recorded rather than erroring. **Re-run it whenever the
   parser run re-runs, and additionally on an ACOT update or any Resolution Profile change.**
   Same record directory; see `src/analysis/resolver/conformance.rs` for the contract.
+- `cargo test --features test-support localization_lexical_census -- --ignored --nocapture` —
+  the localization lexical census against the same installed corpora: what `.yml` localization
+  actually looks like, and whether the rules `localization::syntax` chose still fit it. No
+  oracle record measures `.yml` lexis, so this is the only thing that re-checks the value rule,
+  the optional version suffix, and the closed language set. **Re-run it on a Stellaris build
+  change or an ACOT update, and on any edit to the line grammar or locale identity.** Counts
+  are printed, not pinned; the reading is `docs/spikes/localization-lexical-census.md`.
 - `cargo clippy --all-targets --features test-support -- -D warnings` — lint, matching CI.
 - `cargo fmt` — format.
 - `npm run app:dev` (from the repo root) — run the desktop app with hot reload, under the
