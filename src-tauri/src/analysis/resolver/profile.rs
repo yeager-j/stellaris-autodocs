@@ -61,7 +61,12 @@ use super::stream::{ContentFamily, FileScope};
 ///   5-ready byte stream. Surviving files load Vanilla, ordinary Target Mod, then `replace/`;
 ///   whole-file selection losses carry shadow provenance. Per-key LIOS and references remain
 ///   localization-module work.
-pub(in crate::analysis) const RESOLUTION_PROFILE_VERSION: u32 = 7;
+/// - 8 (Phase 4L follow-up, STE-35): the scripted-constants row's cross-source cell flips
+///   from `Pending` to `DecidedByStreamPosition` — `r19`'s matched pair measured both
+///   directions of a Vanilla-versus-Target repeat resolving to the first declaration in the
+///   one global path order. A contested symbol now resolves for consumers instead of
+///   carrying `CrossSourcePending`, and that variant retired with the cell.
+pub(in crate::analysis) const RESOLUTION_PROFILE_VERSION: u32 = 8;
 
 /// The Stellaris build every oracle record behind this profile was captured against.
 ///
@@ -307,14 +312,12 @@ const SCRIPTED_EFFECTS: RegistryPolicy = RegistryPolicy {
 /// - **Duplicates.** Reject on repeat: "redefined within one file" and "redefined across two
 ///   files in one layer" both resolve first-wins (`r1`, `r4`) — the opposite direction from
 ///   technologies, triggers, and effects.
-/// - **Cross-source.** `Pending`. "This yields a prediction the spike has not tested"
-///   (`docs/spikes/resolver-evaluation.md`, "There is no layer precedence"): a Target Mod
-///   redefining a vanilla constant should win only from an early-sorting file, exactly as
-///   events do, but no record measures it. Settled by the next capture, `r19`: a run
-///   redefining a vanilla scripted constant from an early-sorting Target Mod file. Asking
-///   this row for itself by name refuses wholesale the moment a repeat spans both sources;
-///   a *consumer* reading one contested symbol gets `CrossSourcePending` for that symbol
-///   alone while every clean symbol still resolves (`constants::Environment`).
+/// - **Cross-source.** Decided by stream position, measured directly by `r19`'s matched
+///   pair: a Target Mod redeclaring a vanilla constant won from an early-sorting file
+///   (`@speed_slow` observed `111_mod_early`) and lost from a late-sorting one
+///   (`@outpost_cost` observed `100_vanilla`), with the game's error log rejecting exactly
+///   the second registration each time. The prediction the spike derived from events holds:
+///   first declaration in the one global path order wins, and source never participates.
 /// - **Fields.** Whole-object, with no defaults — vacuous for a row whose body is always a
 ///   bare scalar, stated rather than left implicit.
 /// - **References.** None: a constant declaration's body is a bare scalar, so the field walk
@@ -341,12 +344,7 @@ const SCRIPTED_CONSTANTS: RegistryPolicy = RegistryPolicy {
         scope: constants::SCOPE,
     }),
     duplicates: CellStatus::Resolved(RepeatRule::RejectOnRepeat),
-    cross_source: CellStatus::Pending {
-        reason: "no record measures a scripted-constant repeat spanning Vanilla and the \
-                 Target Mod",
-        oracle_gap: "the next capture, r19: a run redefining a vanilla scripted constant \
-                     from an early-sorting Target Mod file",
-    },
+    cross_source: CellStatus::Resolved(CrossSourceRule::DecidedByStreamPosition),
     fields: CellStatus::Resolved(FieldRule {
         replacement: Replacement::WholeObject,
         defaults: &[],

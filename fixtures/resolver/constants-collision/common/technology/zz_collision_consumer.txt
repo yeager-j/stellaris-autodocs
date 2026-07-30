@@ -1,9 +1,9 @@
 # Original work; no Stellaris file is reproduced.
 #
-# `tech_collision_consumer` reads the colliding symbol, `@shared_symbol`; `tech_clean_consumer`
-# reads `@base_cost`, which only Vanilla declares here and so is not contested. The pair is
-# what proves the per-symbol marking: one consumer is pending, the other still resolves,
-# from the same corpus and the same technologies row.
+# `tech_collision_consumer` reads the cross-source-contested symbol, `@shared_symbol`;
+# `tech_clean_consumer` reads `@base_cost`, which only Vanilla declares here. Under `r19`'s
+# first-wins rule both resolve, and the contested read's provenance must name Vanilla's
+# winning declaration rather than the Target Mod's rejected one.
 
 tech_collision_consumer = {
 	cost = @shared_symbol

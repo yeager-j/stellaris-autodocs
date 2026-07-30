@@ -12,15 +12,17 @@
 //!   built by walking the constants scope's own stream once, plus the per-file local
 //!   declarations a consuming row collects during its own walk.
 //!
-//! # Two-path cross-source semantics (r5, r7, and the open cell)
+//! # Cross-source repeats are ordinary repeats (r19)
 //!
-//! Asking `registry("scripted-constants")` by name refuses wholesale on a cross-source
-//! repeat through the *existing* lazy consult on the row's `Pending` cross-source cell
-//! (`registry::resolve`'s repeat handling) — nothing new is needed for that path. The
-//! consuming path is different: [`Environment`] marks a symbol whose registrations span two
-//! sources as [`UnresolvedConstant::CrossSourcePending`] *per symbol*, so a clean symbol
-//! still resolves for a consumer even when a colliding one does not
-//! (`an_open_cell_marks_only_the_colliding_symbol`).
+//! `r19-constants-cross-source` measured a matched pair redefining two Vanilla constants
+//! from one Target Mod, one from an early-sorting file and one from a late-sorting file.
+//! Both directions resolved to the *first* declaration in the one global normalized-path
+//! stream — the early mod declaration won and the late one lost — with the game's error log
+//! rejecting exactly the second registration each time. Cross-source is therefore not a
+//! special case here: [`build_environment`]'s single first-wins pass over the stream already
+//! states the whole rule, and no source ever participates in the decision. (Until Phase 4L
+//! consumed `r19`, a contested symbol carried a per-symbol `CrossSourcePending` fact; the
+//! variant and the two bookkeeping passes that produced it retired with the cell.)
 //!
 //! # Why forward references and cycles need no special-case detection
 //!
@@ -35,11 +37,10 @@
 //! needed; the single pass terminates because it never revisits a symbol once its first
 //! declaration has been evaluated (`r5`, `r7`).
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use crate::canonical::numeric::SourceNumber;
 use crate::canonical::path::LogicalPath;
-use crate::source::SourceKind;
 
 use super::registry::{ReadDefinition, is_constant_declaration};
 use super::resolved::{
@@ -202,36 +203,18 @@ impl Environment {
 /// Builds the global [`Environment`] by walking the constants scope's own stream once, in
 /// the one path order every content family shares (`super::stream`).
 ///
-/// Three passes over the declarations found, not three passes over the files:
-///
-/// 1. The chain-evaluation pass (`evaluate_value`) evaluates each symbol's *first*
-///    registration in stream order, copying a referenced symbol's value when the body is a
-///    `@name` reference — a plain value copy, made before anything is known about which
-///    symbols will turn out to be contested.
-/// 2. A pure bookkeeping pass marks every symbol whose registrations spanned both sources as
-///    [`UnresolvedConstant::CrossSourcePending`] — overriding whatever pass 1 computed for
-///    *that* symbol, because the marking depends on having seen every registration, including
-///    ones the chain evaluator never revisits once first-wins has settled a symbol.
-/// 3. An alias-propagation pass. Pass 1's value copy is exactly what pass 2 does not reach:
-///    `@alias = @base` copies `@base`'s value before pass 2 can know `@base` is contested, so
-///    `@alias` would otherwise keep a value derived from an explicitly pending dependency —
-///    a resolved number a consumer would trust, built on a binding the row itself refuses to
-///    stand behind. Pass 1 also records each symbol's immediate reference dependency, and
-///    pass 3 walks that map to a fixpoint: any symbol whose dependency is (transitively)
-///    `CrossSourcePending` becomes `CrossSourcePending` too. Dependencies only ever point at a
-///    symbol already evaluated earlier in the same stream order, so this can never cycle and
-///    a loop-until-no-change always converges.
+/// One chain-evaluation pass (`evaluate_value`) over the declarations found: each symbol's
+/// *first* registration in stream order is evaluated, copying a referenced symbol's value
+/// when the body is a `@name` reference, and every later registration of the same symbol is
+/// skipped without re-evaluation. First-wins is the whole rule for repeats within one file,
+/// across files, and across sources alike — `r19`'s matched pair measured the cross-source
+/// directions directly, so the source of a registration never participates.
 pub(super) fn build_environment<R>(selection: &FileSelection, read: &R) -> Environment
 where
     R: Fn(&StreamEntry) -> Option<ParsedFile>,
 {
     let stream = super::stream::build(selection, ContentFamily::Script, SCOPE);
     let mut resolved: BTreeMap<String, ConstantOutcome> = BTreeMap::new();
-    let mut sources_seen: BTreeMap<String, BTreeSet<SourceKind>> = BTreeMap::new();
-    // Each symbol's immediate `@name` reference dependency, recorded only for the first
-    // registration — a later, rejected registration's body never contributes a value and so
-    // never contributes a dependency either.
-    let mut dependency: BTreeMap<String, String> = BTreeMap::new();
 
     for entry in &stream {
         let Some(file) = read(entry) else {
@@ -240,13 +223,10 @@ where
         };
         for declaration in constant_declarations(&file) {
             let symbol = declaration.key.as_str().to_owned();
-            sources_seen
-                .entry(symbol.clone())
-                .or_default()
-                .insert(entry.source);
             if resolved.contains_key(&symbol) {
                 // First registration wins (`RepeatRule::RejectOnRepeat`); a later one is
-                // still counted above for cross-source marking, but never re-evaluated.
+                // never re-evaluated. The registry engine, not this map, is what records
+                // the rejected registration as a duplicate fact.
                 continue;
             }
             let site = FactSite::Stream(StreamPosition {
@@ -255,68 +235,14 @@ where
                 logical: entry.logical.clone(),
                 ordinal: declaration.ordinal,
             });
-            if let Some(target) = referenced_symbol(&declaration.body) {
-                dependency.insert(symbol.clone(), target);
-            }
             let outcome = evaluate_value(&declaration.body, site, &resolved);
             resolved.insert(symbol, outcome);
-        }
-    }
-
-    for (symbol, sources) in &sources_seen {
-        if sources.len() > 1 {
-            resolved.insert(
-                symbol.clone(),
-                ConstantOutcome::Unresolved(UnresolvedConstant::CrossSourcePending),
-            );
-        }
-    }
-
-    loop {
-        let mut changed = false;
-        for (symbol, target) in &dependency {
-            let already_pending = is_cross_source_pending(resolved.get(symbol));
-            if already_pending {
-                continue;
-            }
-            if is_cross_source_pending(resolved.get(target)) {
-                resolved.insert(
-                    symbol.clone(),
-                    ConstantOutcome::Unresolved(UnresolvedConstant::CrossSourcePending),
-                );
-                changed = true;
-            }
-        }
-        if !changed {
-            break;
         }
     }
 
     Environment {
         global: resolved,
         locals: BTreeMap::new(),
-    }
-}
-
-fn is_cross_source_pending(outcome: Option<&ConstantOutcome>) -> bool {
-    matches!(
-        outcome,
-        Some(ConstantOutcome::Unresolved(
-            UnresolvedConstant::CrossSourcePending
-        ))
-    )
-}
-
-/// The symbol a declaration's value directly names, when that value is a `@name` reference —
-/// `None` for a literal, an expression, or a non-scalar body. Used only to build the
-/// alias-dependency map [`build_environment`] propagates `CrossSourcePending` through; it
-/// does not itself decide whether the reference resolves.
-fn referenced_symbol(body: &Value) -> Option<String> {
-    match body {
-        Value::Scalar(scalar) if matches!(scalar.kind, ScalarKind::VariableRef) => {
-            Some(scalar.text().into_owned())
-        }
-        Value::Scalar(_) | Value::Container(_) | Value::Tagged { .. } => None,
     }
 }
 
@@ -657,35 +583,50 @@ mod tests {
     }
 
     #[test]
-    fn an_open_cell_marks_only_the_colliding_symbol() {
-        // `@shared_symbol` is declared by both `registration-vanilla/` and
-        // `constants-collision/`; `@base_cost` is declared only by Vanilla. The two-path
-        // semantics: the by-name registry ask over this corpus refuses wholesale (proved at
-        // the oracle seam), while this environment marks only the colliding symbol and still
-        // answers for the clean one.
-        let vanilla = crate::analysis::resolver::trial::registration_vanilla();
-        let target = crate::analysis::resolver::trial::corpus(
-            SourceKind::TargetMod,
-            crate::analysis::resolver::trial::CONSTANTS_COLLISION,
-        );
+    fn global_first_wins_across_sources_in_both_directions() {
+        // The `r19` matched pair at the environment: one Vanilla symbol is redeclared from an
+        // early-sorting Target Mod file and one from a late-sorting file, and each direction
+        // resolves to whichever declaration came first in the one global path order —
+        // never to a source.
+        let vanilla = FixtureCorpus::new(SourceKind::VanillaContent)
+            .with_file(
+                "common/scripted_variables/00_pair.txt",
+                b"@early_contested = 100\n@late_contested = 100\n",
+            )
+            .build()
+            .expect("a well-formed fixture corpus");
+        let target = FixtureCorpus::new(SourceKind::TargetMod)
+            .with_file("descriptor.mod", b"name=\"cross-source-pair\"")
+            .with_file(
+                "common/scripted_variables/!!!_pair_early.txt",
+                b"@early_contested = 111\n",
+            )
+            .with_file(
+                "common/scripted_variables/zz_pair_late.txt",
+                b"@late_contested = 111\n",
+            )
+            .build()
+            .expect("a well-formed fixture corpus");
         let environment = environment_over_snapshots(&vanilla, &target);
+
         assert_eq!(
-            environment.declaration_outcome("@shared_symbol"),
-            ConstantOutcome::Unresolved(UnresolvedConstant::CrossSourcePending)
+            exact(&environment.declaration_outcome("@early_contested")).as_deref(),
+            Some("111"),
+            "the mod's early-sorting declaration wins (r19: @speed_slow observed 111_mod_early)"
         );
         assert_eq!(
-            exact(&environment.declaration_outcome("@base_cost")).as_deref(),
-            Some("20"),
-            "a clean symbol must still answer while a colliding one is pending"
+            exact(&environment.declaration_outcome("@late_contested")).as_deref(),
+            Some("100"),
+            "Vanilla's earlier declaration wins (r19: @outpost_cost observed 100_vanilla)"
         );
     }
 
     #[test]
-    fn cross_source_invalidation_propagates_through_an_alias() {
-        // `@alias` never itself collides across sources — only `@base` does — but its value
-        // was copied from `@base` during the chain-evaluation pass, before that pass could
-        // know `@base` would end up contested. Without propagation, `@alias` would keep the
-        // value it copied even though the symbol it depends on is explicitly pending.
+    fn an_alias_of_a_cross_source_contested_symbol_keeps_the_first_value() {
+        // `@alias` copies `@base`'s value during the chain pass. Before Phase 4L a later
+        // cross-source redeclaration of `@base` retroactively marked both pending; under
+        // `r19`'s first-wins rule the copied value is simply correct, because the later
+        // registration never contributes a value to anything.
         let vanilla = FixtureCorpus::new(SourceKind::VanillaContent)
             .with_file(
                 "common/scripted_variables/00_alias.txt",
@@ -701,16 +642,15 @@ mod tests {
         let environment = environment_over_snapshots(&vanilla, &target);
 
         assert_eq!(
-            environment.declaration_outcome("@base"),
-            ConstantOutcome::Unresolved(UnresolvedConstant::CrossSourcePending),
-            "the directly-contested symbol"
+            exact(&environment.declaration_outcome("@base")).as_deref(),
+            Some("5"),
+            "the directly-contested symbol resolves to its first declaration"
         );
         assert_eq!(
-            environment.declaration_outcome("@alias"),
-            ConstantOutcome::Unresolved(UnresolvedConstant::CrossSourcePending),
-            "the alias must not keep the value it copied before @base's collision was known"
+            exact(&environment.declaration_outcome("@alias")).as_deref(),
+            Some("5"),
+            "the alias keeps the value it copied from the winning declaration"
         );
-        // The per-symbol honesty control: an independent literal symbol still resolves.
         assert_eq!(
             exact(&environment.declaration_outcome("@clean")).as_deref(),
             Some("7")

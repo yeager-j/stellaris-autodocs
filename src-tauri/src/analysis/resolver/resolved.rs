@@ -250,9 +250,12 @@ pub(in crate::analysis) struct LocalizationFileStream {
 /// [`Expression`](Self::Expression)), file-local scoping can fail in ways only a *consumer*
 /// can observe ([`LocalDeclarationFollowsConsumer`](Self::LocalDeclarationFollowsConsumer),
 /// [`DuplicateLocalDeclaration`](Self::DuplicateLocalDeclaration)), and the symbol can be
-/// missing entirely ([`UndeclaredSymbol`](Self::UndeclaredSymbol)) or contested across
-/// sources in a way no oracle record settles
-/// ([`CrossSourcePending`](Self::CrossSourcePending)).
+/// missing entirely ([`UndeclaredSymbol`](Self::UndeclaredSymbol)).
+///
+/// A cross-source repeat is deliberately *not* here: `r19` measured it, and the first
+/// declaration in the one global stream wins exactly as a same-source repeat does, so a
+/// contested symbol resolves rather than carrying a pending fact (Phase 4L, STE-35; the
+/// `CrossSourcePending` variant retired with the cell).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::analysis) enum UnresolvedConstant {
     /// No declaration of this symbol was found — not locally, not globally.
@@ -277,11 +280,6 @@ pub(in crate::analysis) enum UnresolvedConstant {
     /// and resolving it against other locals is equally unmeasured — so it stays
     /// typed-unresolved rather than either guess.
     LocalReferenceUnmeasured,
-    /// This symbol's registrations span both Vanilla and the Target Mod. No oracle record
-    /// measures a cross-source scripted-constant repeat (the next capture, `r19`, would),
-    /// so a consumer reading this specific symbol is refused even when the constants row
-    /// overall resolves for every symbol that does not collide.
-    CrossSourcePending,
 }
 
 /// A scripted constant's evaluated chain outcome: its own value, or why it does not have one.

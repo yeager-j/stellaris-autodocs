@@ -155,8 +155,8 @@ pub(in crate::analysis) enum RowOutcome {
         /// `domain.Variant`.
         facts: BTreeMap<String, usize>,
         /// The subset of `facts` that are typed visible failures: unresolved constants,
-        /// omitted inclusions, sprites without an effective texture. A hit on an open profile
-        /// cell — `constants.CrossSourcePending` — lands here rather than failing the run.
+        /// omitted inclusions, sprites without an effective texture — each recorded here
+        /// rather than failing the run.
         visible_failures: BTreeMap<String, usize>,
     },
     Refused {
@@ -699,7 +699,7 @@ mod tests {
     fn an_identical_observation_reports_no_drift() {
         let rows = vec![resolved_row(
             "technologies",
-            &[("constants.CrossSourcePending", 4)],
+            &[("constants.DeclarationNeverResolves", 4)],
         )];
         let manifest = recorded(
             vec![corpus("vanilla", "aa")],
@@ -740,12 +740,12 @@ mod tests {
             Vec::new(),
             Some(resolution(vec![resolved_row(
                 "technologies",
-                &[("constants.CrossSourcePending", 4)],
+                &[("constants.DeclarationNeverResolves", 4)],
             )])),
         );
         let observed = resolution(vec![resolved_row(
             "technologies",
-            &[("constants.CrossSourcePending", 6)],
+            &[("constants.DeclarationNeverResolves", 6)],
         )]);
         let reasons = drift(
             &manifest,
@@ -757,7 +757,7 @@ mod tests {
         assert!(
             reasons.iter().any(|reason| {
                 reason.contains("row technologies")
-                    && reason.contains("visible failure constants.CrossSourcePending 4 -> 6")
+                    && reason.contains("visible failure constants.DeclarationNeverResolves 4 -> 6")
             }),
             "{reasons:?}"
         );
