@@ -49,9 +49,12 @@
 //! 2. **The corpus at large carries many.** This is the census's own negative control: the
 //!    same detector that reports zero above finds hundreds elsewhere, so the zero is a fact
 //!    about reachability and not a detector that quietly matches nothing.
-//! 3. **The reachable set contains the whole-token `$TECHNOLOGY$` `r11` measured.** Without
+//! 3. **The reachable set still states `$TECHNOLOGY$` as a `ScalarKind::Parameter`.** Without
 //!    it, a reachability computation that returned nothing at all would satisfy claim 1 by
-//!    finding no fragments to look in.
+//!    finding no fragments to look in. Stated as a claim about the *kind* rather than the
+//!    token's shape, because a quoted `"$TECHNOLOGY$"` is a whole token that `substitute`
+//!    cannot see — so a shape-only guard would survive the loss of the very case `r11`
+//!    measured.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -112,11 +115,22 @@ impl Census {
             .sum()
     }
 
-    /// Every whole-token parameter the set states, by name.
-    fn whole_token_names(&self) -> BTreeSet<&str> {
+    /// Every *substitutable* parameter the set states, by name: the tokens the lexer classified
+    /// [`ScalarKind::Parameter`], which is exactly the set `substitute` acts on.
+    ///
+    /// Filtered on kind, not on [`Placement::WholeToken`], because those are not the same
+    /// claim. A quoted `"$TECHNOLOGY$"` is a whole token by shape and `ScalarKind::Quoted` by
+    /// classification, so a placement-only filter would keep reporting `r11`'s subject after
+    /// the corpus turned it into a shape `substitute` cannot see — the gate staying green over
+    /// the disappearance of the one measured case it exists to witness.
+    ///
+    /// The kind is compared through [`kind_name`] rather than a literal, so the two spellings
+    /// of "Parameter" cannot drift apart.
+    fn substitutable_names(&self) -> BTreeSet<&str> {
+        let parameter = kind_name(ScalarKind::Parameter);
         self.distinct
             .iter()
-            .filter(|occurrence| occurrence.placement == Placement::WholeToken)
+            .filter(|occurrence| occurrence.kind == parameter)
             .map(|occurrence| occurrence.token.as_str())
             .collect()
     }
@@ -404,10 +418,11 @@ fn embedded_parameter_census() {
         "every reached fragment must also be in the surviving stream the census walks"
     );
     assert!(
-        reachable.whole_token_names().contains("$TECHNOLOGY$"),
-        "the reachable set no longer contains the whole-token $TECHNOLOGY$ that `r11` \
-         measured, so reachability is measuring something other than what it did: {:?}",
-        reachable.whole_token_names()
+        reachable.substitutable_names().contains("$TECHNOLOGY$"),
+        "the reachable set no longer states $TECHNOLOGY$ as a `ScalarKind::Parameter`, so \
+         either reachability is measuring something other than what it did or `r11`'s \
+         subject has become a shape `substitute` cannot see: {:?}",
+        reachable.substitutable_names()
     );
     // Claim 2: the detector finds the shape where the shape is.
     assert!(
@@ -488,6 +503,31 @@ mod tests {
         assert_eq!(
             census.occurrences.get(&("Quoted", Placement::Embedded)),
             Some(&1)
+        );
+    }
+
+    #[test]
+    fn a_quoted_whole_token_parameter_is_not_substitutable() {
+        // The negative control for the r11 guard. `"$TECHNOLOGY$"` is a whole token by shape
+        // and `Quoted` by classification, so `substitute` cannot see it; a guard filtering on
+        // placement would accept it as the measured subject and stay green while literal
+        // parameter text passed into an effective field.
+        let quoted = census_of("any_member = { has_technology = \"$TECHNOLOGY$\" }\n");
+        assert_eq!(
+            quoted.total(Placement::WholeToken),
+            1,
+            "the shape is a whole token, which is why placement alone cannot discriminate"
+        );
+        assert!(
+            quoted.substitutable_names().is_empty(),
+            "a quoted parameter is not substitutable: {:?}",
+            quoted.substitutable_names()
+        );
+
+        let unquoted = census_of("any_member = { has_technology = $TECHNOLOGY$ }\n");
+        assert!(
+            unquoted.substitutable_names().contains("$TECHNOLOGY$"),
+            "the unquoted form is r11's measured subject and must be recognised"
         );
     }
 

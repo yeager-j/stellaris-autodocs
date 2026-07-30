@@ -83,7 +83,7 @@ The counts above are printed, not pinned: they are a property of whichever build
 
 1. **No technology-reachable fragment carries an embedded shape.** The finding. If it fails, the pass-through is live for a shipped row.
 2. **The corpus at large carries many.** The census's own negative control: the same detector that reports zero above finds hundreds elsewhere, so the zero is a fact about reachability rather than a detector matching nothing.
-3. **The reachable set contains the whole-token `$TECHNOLOGY$` `r11` measured.** Without it, a reachability computation that returned nothing would satisfy claim 1 by having no fragments to look in.
+3. **The reachable set still states `$TECHNOLOGY$` as a `ScalarKind::Parameter`.** Without it, a reachability computation that returned nothing would satisfy claim 1 by having no fragments to look in. The claim is about the lexer's *kind*, not the token's shape: a quoted `"$TECHNOLOGY$"` is a whole token by shape and `Quoted` by classification, so a shape-only guard would stay green after the corpus turned `r11`'s subject into something `substitute` cannot see. Pinned by its own unit test.
 
 Claim 1 has been shown to go red. Widening the reachable set to every surviving fragment — one edit, reverted — produces:
 
