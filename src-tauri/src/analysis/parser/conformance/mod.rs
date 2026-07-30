@@ -87,17 +87,16 @@ mod tape;
 
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use super::ranges::{RangeFault, verify_ranges};
 use super::{ParsedFile, SourceIdentity, digest};
+use crate::analysis::corpora::{self, Corpus, establish_corpus, install_root, repo_root};
 use crate::canonical::encode::DigestBytes;
 use crate::discovery::proposals;
 use crate::source::fingerprint::ContentHash;
 use crate::source::policy::FileFamily;
-use crate::source::snapshot::{
-    Established, LiveSource, SourceBytes, SourceKind, SourceSnapshot, establish,
-};
+use crate::source::snapshot::{SourceBytes, SourceKind, SourceSnapshot};
 use record::{CorpusIdentity, CorpusRecord};
 use tape::{Divergence, Pairing};
 
@@ -113,77 +112,10 @@ opinion — and it is the only detector for a misread that leaves the source syn
 valid. The corpus digest is recomputed under a reversed fold and under serial execution, \
 because an identity that depended on scheduling would not be an identity.";
 
-/// ACOT's Workshop identifier. The Workshop addresses mods by number, and the number is what
-/// a record can be reproduced from; the title is for humans.
-const ACOT_WORKSHOP_ID: &str = "1419304439";
-
-struct Corpus {
-    id: &'static str,
-    title: &'static str,
-    kind: SourceKind,
-    root: PathBuf,
-}
-
-fn repo_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .expect("the crate directory has a parent")
-        .to_path_buf()
-}
-
-/// An environment override, or a `~`-expanded default. An empty value counts as unset, so
-/// exporting the variable empty does not silently point the run at `/`.
-fn env_path(name: &str, default: &str) -> PathBuf {
-    match std::env::var(name) {
-        Ok(value) if !value.trim().is_empty() => PathBuf::from(value),
-        _ => expand_home(default),
-    }
-}
-
-fn expand_home(raw: &str) -> PathBuf {
-    match raw.strip_prefix("~/") {
-        Some(rest) => match std::env::var("HOME") {
-            Ok(home) => PathBuf::from(home).join(rest),
-            Err(_) => PathBuf::from(raw),
-        },
-        None => PathBuf::from(raw),
-    }
-}
-
-fn install_root() -> PathBuf {
-    env_path(
-        "STELLARIS_INSTALL_ROOT",
-        "~/Library/Application Support/Steam/steamapps/common/Stellaris",
-    )
-}
-
-fn workshop_root() -> PathBuf {
-    env_path(
-        "STELLARIS_WORKSHOP_ROOT",
-        "~/Library/Application Support/Steam/steamapps/workshop/content/281990",
-    )
-}
-
-/// The two local corpora, in the order records report them.
-///
-/// Vanilla is the content every mod is documented against; ACOT is the Target Mod the
-/// product's golden cases are built around, and the corpus that produced the stray-token
-/// finding the cross-check exists for.
+/// The two local corpora, in the order records report them. Located by
+/// [`crate::analysis::corpora`], which both corpus-facing harnesses share.
 fn local_corpora() -> Vec<Corpus> {
-    vec![
-        Corpus {
-            id: "vanilla",
-            title: "Stellaris base game",
-            kind: SourceKind::VanillaContent,
-            root: install_root(),
-        },
-        Corpus {
-            id: "acot",
-            title: "Ancient Cache of Technologies",
-            kind: SourceKind::TargetMod,
-            root: workshop_root().join(ACOT_WORKSHOP_ID),
-        },
-    ]
+    vec![corpora::vanilla(), corpora::acot()]
 }
 
 /// The committed fixture tree, shaped like a mod so it establishes through exactly the
@@ -331,32 +263,6 @@ fn run(corpus: &Corpus, pairing: Pairing) -> Conformance {
         }
     }
     conformance
-}
-
-fn establish_corpus(corpus: &Corpus) -> (LiveSource, Vec<String>) {
-    assert!(
-        corpus.root.is_dir(),
-        "corpus {} is not installed at {}. Set STELLARIS_INSTALL_ROOT / \
-         STELLARIS_WORKSHOP_ROOT, or do not ask for this run: a missing corpus is a failed \
-         run, never a silent pass.",
-        corpus.id,
-        corpus.root.display()
-    );
-    let established = establish(corpus.kind, &corpus.root)
-        .unwrap_or_else(|error| panic!("corpus {} could not be established: {error}", corpus.id));
-    match established {
-        Established::Complete(source) => (source, Vec::new()),
-        // Publishable, and worth recording: a gap is content the observation could not see,
-        // so a run over an incomplete corpus is measuring slightly less than it claims.
-        Established::Incomplete(source) => {
-            let warning = format!(
-                "corpus {} established incomplete: {:?}",
-                corpus.id,
-                source.snapshot().gaps()
-            );
-            (source, vec![warning])
-        }
-    }
 }
 
 /// The script files of a snapshot, in canonical order, paired with the exact bytes that were

@@ -399,6 +399,13 @@ fn parse_call(value: &Value) -> Option<Call> {
 /// never touches it. That is the measured shape (`r11`'s `factor = $F$`) rather than a
 /// text-substitution rule invented on top of the parser's decision.
 ///
+/// An embedded shape therefore passes through as literal text with no fact recorded, which is
+/// the one silence in this mechanism. It is bounded rather than unexamined: the census
+/// (`super::census`, `docs/spikes/inline-parameter-census.md`) measured 789 embedded
+/// occurrences across the fragment corpus and **none** in any fragment the technologies row
+/// reaches, and its run fails if that changes. D-132 decides that the shape earns
+/// `UnresolvedInline::EmbeddedParameterUnmeasured`, in the follow-up ticket that adds it.
+///
 /// A binding no fragment references is simply never matched. `r11` supplied one and the game
 /// accepted it, so an unused binding is a fact about the call rather than a fault.
 fn substitute(items: &mut [Item], bindings: &[(String, Scalar)]) {
