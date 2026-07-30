@@ -1,2 +1,6 @@
 l_english:
+# r13 method 1b: an ordinary mod file whose name sorts BEFORE the vanilla file it contests.
+# Under the one global path order that decides script registries it would be read first and
+# lose; the record measured it winning (`ORACLE_EARLY_FILE`). This is the key whose winner
+# proves the localization stream is layer-ordered rather than filename-ordered.
  tech_subject:0 "Early ordinary mod value"

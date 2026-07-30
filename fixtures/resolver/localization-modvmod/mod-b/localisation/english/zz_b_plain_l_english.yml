@@ -1,0 +1,6 @@
+l_english:
+# The LATER-loading mod's ordinary file: Gigastructural Engineering's side of r15. It beats
+# mod A's plain file on load order, and loses to mod A's replace/ file anyway. A late-sorting
+# filename, so it cannot be confused with mod A's early one under a filename rule.
+ loc_contested:0 "Mod B plain value"
+ loc_replace_subject:0 "Mod B plain value"

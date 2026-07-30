@@ -1,2 +1,13 @@
 l_english:
+# The file nothing collides with: r14's natural control, where `tech_bio_reactor` still
+# rendered its real name because vanilla defines it outside the shadowed file.
+#
+# tech_plain and tech_replace are vanilla keys the methods mod contests, which is what makes
+# r13 a key-level claim rather than only a file-order one. tech_untouched is contested by
+# nothing and must keep its vanilla value in every localization expectation.
+#
+# CRLF line endings and no byte-order mark: the shape nine Gigastructural Engineering files
+# ship, and the pair to technology_l_english.yml's mark.
  tech_untouched:0 "Untouched"
+ tech_plain:0 "Vanilla plain subject"
+ tech_replace:0 "Vanilla replace subject"

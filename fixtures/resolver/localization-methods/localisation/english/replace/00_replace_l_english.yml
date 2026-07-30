@@ -1,2 +1,5 @@
 l_english:
+# r13 method 3: the replace/ subfolder (`ORACLE_REPLACE_FOLDER`). Vanilla ships no replace/
+# directory; mods use it for exactly this. r15 is what proves it a genuine priority phase
+# rather than a mod-layer artifact, by putting a later-loading mod on the other side.
  tech_replace:0 "Replace value"

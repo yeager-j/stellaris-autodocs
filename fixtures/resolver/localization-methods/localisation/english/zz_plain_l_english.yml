@@ -1,2 +1,5 @@
 l_english:
+# r13 method 1: an ordinary mod file sorting after the vanilla file it contests
+# (`ORACLE_PLAIN_FILE`). The undisputed half of the pair - it wins under either rule, which is
+# what makes its early-sorting partner a delta rather than a lone reading.
  tech_plain:0 "Late ordinary mod value"

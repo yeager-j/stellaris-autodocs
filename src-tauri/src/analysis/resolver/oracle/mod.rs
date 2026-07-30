@@ -354,6 +354,35 @@
 //! - The drift gate consumes `r13`, `r14`, and `r15`. It deliberately does not consume
 //!   `r16-loc-reference`, whose reference-resolution claim stays with Phase 5 `.yml`
 //!   interpretation.
+//!
+//! Phase 5A (STE-37) reads the key-level half of those same three records, through the
+//! ingestion stage. They are here rather than beside the `localization` module because a
+//! record's evidence belongs where the record is consumed: `EXPECTATIONS` is the one ledger of
+//! what the oracle says, the drift gate already covers these three, and the restated corpora
+//! live in `trial`. Its controls:
+//!
+//! - `script_order_produces_the_wrong_key_winner` rebuilds r13's input from the script
+//!   family's global path order — the construction `global_path_order_fails_the_r13_early_
+//!   sorting_case` already uses — and proves the contested key resolves to Vanilla instead.
+//!   Wrong file order, wrong key winner, which is what says the key-level assertion reads the
+//!   ordering rule rather than any order at all.
+//! - `merging_a_shadowed_file_by_key_would_hide_every_casualty` computes the merge-by-key
+//!   reading of r14 in the test and proves it disagrees: the three keys the winning file omits
+//!   would keep their Vanilla values instead of rendering raw. That is the reading r14 was run
+//!   to exclude, and it is invisible in any corpus where the winning file restates nothing.
+//! - `swapping_the_two_mod_ranks_flips_the_ordinary_winner` and
+//!   `moving_the_replace_file_out_of_the_replace_phase_makes_it_lose` isolate r15's two halves
+//!   at the key level.
+//! - The fold was inverted to first-wins by hand once. The two winner expectations failed
+//!   (`r13_a_mod_key_line_beats_a_vanilla_one_regardless_of_filename`,
+//!   `r15_the_later_mod_wins_an_ordinary_key_and_an_earlier_mod_s_replace_file_wins_anyway`),
+//!   along with both r15 halves and the merge control's winner assertion — while
+//!   `r14_every_key_the_winning_file_omits_becomes_a_raw_key_casualty_scoped_to_that_file`
+//!   stayed green, because which statement wins and which keys disappear with a removed file
+//!   are genuinely different mechanisms. Then the fold was restored.
+//! - The byte-order-mark strip was removed by hand once. `r13` and `r14` both failed, because
+//!   `localization-vanilla`'s colliding file is committed with a mark — which is what makes
+//!   the corpus, and not only an inline literal, exercise that rule in ordinary CI.
 
 mod record;
 
@@ -366,17 +395,21 @@ use super::trial::{
     self, BUILDINGS, COMPONENTS, COMPONENTS_REPEAT, CONSTANTS_A_BODY, CONSTANTS_A_FLIPPED_BODY,
     CONSTANTS_B_BODY, CONSTANTS_B_FLIPPED_BODY, CONSTANTS_COLLISION, CONSTANTS_CROSS_SOURCE,
     CONSTANTS_CROSS_SOURCE_VANILLA, EARLY_MOD, EVENTS, EVENTS_EARLY, INLINE, INLINE_MISSING,
-    LOCALIZATION_METHODS, LOCALIZATION_SAME_PATH, LOCALIZATION_VANILLA, NO_REDEFINITION,
-    PARAMETERIZED, PATH_COLLISION, REDEFINITION, REDEFINITION_BODY, REDEFINITION_FLIPPED,
-    REDEFINITION_FLIPPED_BODY, REGISTRATION, REGISTRATION_FLIPPED, REPLACE_PATH, RISKY_CONSTANTS,
-    SPRITES, SPRITES_EARLY, TRIGGERS_A_BODY, TRIGGERS_A_FLIPPED_BODY, TRIGGERS_B_BODY,
-    TRIGGERS_B_FLIPPED_BODY, buildings_vanilla, corpus, events_vanilla, inline_vanilla,
-    localization_vanilla, named, redefinition_vanilla, registration_vanilla, sprites_vanilla,
-    vanilla,
+    LOCALIZATION_METHODS, LOCALIZATION_MODVMOD_STREAM, LOCALIZATION_SAME_PATH,
+    LOCALIZATION_VANILLA, NO_REDEFINITION, PARAMETERIZED, PATH_COLLISION, REDEFINITION,
+    REDEFINITION_BODY, REDEFINITION_FLIPPED, REDEFINITION_FLIPPED_BODY, REGISTRATION,
+    REGISTRATION_FLIPPED, REPLACE_PATH, RISKY_CONSTANTS, SPRITES, SPRITES_EARLY, TRIGGERS_A_BODY,
+    TRIGGERS_A_FLIPPED_BODY, TRIGGERS_B_BODY, TRIGGERS_B_FLIPPED_BODY, buildings_vanilla, corpus,
+    events_vanilla, inline_vanilla, localization_vanilla, named, redefinition_vanilla,
+    registration_vanilla, sprites_vanilla, vanilla,
 };
 use super::{Resolution, profile, resolve};
+use crate::analysis::localization_stage;
 use crate::analysis::parser::{ScalarKind, Value};
 use crate::canonical::path::LogicalPath;
+use crate::localization::{
+    self, EffectiveTables, FileLoss, FileOrigin, LanguageTag, LocalizationInput, StreamedFile,
+};
 use crate::source::fixture::FixtureCorpus;
 use crate::source::{SourceKind, SourceSnapshot};
 
@@ -396,17 +429,25 @@ const EXPECTATIONS: &[Expectation] = &[
     Expectation {
         run: "r13-loc-methods",
         rule: "ordinary Target Mod localization files load after every surviving Vanilla file \
-               regardless of filename, and replace files load in the final phase",
+               regardless of filename, and replace files load in the final phase — so at the \
+               key level a mod's value wins from an early-sorting filename, from a \
+               late-sorting one, and from replace, while a key no mod states keeps its \
+               Vanilla value",
     },
     Expectation {
         run: "r14-loc-samepath",
         rule: "an exact-path localization collision removes the whole losing Vanilla file \
-               while an uncollided Vanilla localization file remains in the stream",
+               while an uncollided Vanilla localization file remains in the stream — so every \
+               key the winning file omits becomes a raw-key casualty scoped to that shadowed \
+               file, and keys in other Vanilla files are untouched",
     },
     Expectation {
         run: "r15-loc-modvmod",
         rule: "ordinary mod localization files follow enabled-mod order, then every replace \
-               file loads in a final phase regardless of its mod's position",
+               file loads in a final phase regardless of its mod's position — so at the key \
+               level the later mod wins an ordinary key and the earlier mod's replace file \
+               wins anyway. The ordering half and the key-level half are asserted separately, \
+               because production supplies one Target Mod rank and the record measured two",
     },
     Expectation {
         run: "r17-sprites",
@@ -1585,6 +1626,294 @@ fn localization_file_selection_returns_uninterpreted_bytes() {
         stream.files[0].bytes.as_slice(),
         b"\xff\0not Clausewitz and not YAML"
     );
+}
+
+// --- Phase 5A (STE-37): the key-level half of r13, r14, and r15 ---
+
+fn english_tag() -> LanguageTag {
+    LanguageTag::parse("l_english").expect("a well-formed language token")
+}
+
+/// The effective English value of a key, or the panic that names what was missing instead.
+fn english(tables: &EffectiveTables, key: &str) -> String {
+    tables
+        .get(&english_tag(), key)
+        .unwrap_or_else(|| panic!("{key} has no effective English value"))
+        .winner()
+        .value
+        .as_str()
+        .to_owned()
+}
+
+/// The English keys that render as their own identifiers, and the file each was lost with.
+fn casualties(tables: &EffectiveTables) -> Vec<(String, Vec<String>)> {
+    tables
+        .casualties_by_file()
+        .into_iter()
+        .map(|(index, by_language)| {
+            (
+                tables.file(index).logical.as_str().to_owned(),
+                by_language
+                    .get(&english_tag())
+                    .map(|keys| keys.iter().map(|key| (*key).to_owned()).collect())
+                    .unwrap_or_default(),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn r13_a_mod_key_line_beats_a_vanilla_one_regardless_of_filename() {
+    let vanilla = localization_vanilla();
+    let target = corpus(SourceKind::TargetMod, LOCALIZATION_METHODS);
+    let tables = localization_stage::tables(&resolve(&vanilla, &target))
+        .expect("the localization stage resolves");
+
+    // The record's four readings, key for key. `tech_subject` is the decisive one: its mod
+    // file sorts before the Vanilla file it contests, so a filename rule predicts it loses.
+    assert_eq!(english(&tables, "tech_subject"), "Early ordinary mod value");
+    assert_eq!(english(&tables, "tech_plain"), "Late ordinary mod value");
+    assert_eq!(english(&tables, "tech_replace"), "Replace value");
+    assert_eq!(
+        english(&tables, "tech_untouched"),
+        "Untouched",
+        "the in-run control: a key no mod states keeps its Vanilla value, which is what \
+         separates 'the mod won' from 'localization broke'"
+    );
+
+    // Losing is recorded, not merely overridden: every contested key keeps the Vanilla
+    // statement it displaced, with the file and line it came from.
+    let subject = tables.get(&english_tag(), "tech_subject").unwrap();
+    assert_eq!(subject.shadowed().len(), 1);
+    assert_eq!(subject.shadowed()[0].value.as_str(), "Vanilla subject");
+    let displaced = tables.file(subject.shadowed()[0].file);
+    assert_eq!(
+        displaced.logical.as_str(),
+        "localisation/english/technology_l_english.yml"
+    );
+    assert_eq!(displaced.source, SourceKind::VanillaContent);
+    assert!(
+        casualties(&tables).is_empty(),
+        "nothing collided, so no key renders raw"
+    );
+}
+
+#[test]
+fn script_order_produces_the_wrong_key_winner() {
+    // The negative control for the key-level half of r13, built the way the file-level one is:
+    // the same selected files, ordered by the script family's rule. Under that order the
+    // early-sorting mod file is read before Vanilla and loses the contested key. A key-level
+    // assertion that passed under both orders would not be reading the ordering rule at all.
+    let vanilla = localization_vanilla();
+    let target = corpus(SourceKind::TargetMod, LOCALIZATION_METHODS);
+    let selection = super::selection::select(&vanilla, &target);
+    let wrong = super::stream::build(
+        &selection,
+        super::stream::ContentFamily::Script,
+        super::stream::LOCALIZATION_SCOPE,
+    );
+
+    let sources = [&vanilla, &target];
+    let streamed = wrong
+        .iter()
+        .map(|entry| StreamedFile {
+            source: entry.source,
+            logical: entry.logical.clone(),
+            bytes: sources
+                .iter()
+                .find(|snapshot| snapshot.kind() == entry.source)
+                .and_then(|snapshot| snapshot.read(&entry.logical))
+                .expect("a selected file is readable"),
+        })
+        .collect();
+
+    let tables = localization::ingest(LocalizationInput {
+        streamed,
+        removed: Vec::new(),
+    });
+    assert_eq!(
+        english(&tables, "tech_subject"),
+        "Vanilla subject",
+        "the negative control must disagree with the r13 key-level expectation"
+    );
+}
+
+#[test]
+fn r14_every_key_the_winning_file_omits_becomes_a_raw_key_casualty_scoped_to_that_file() {
+    let vanilla = localization_vanilla();
+    let target = corpus(SourceKind::TargetMod, LOCALIZATION_SAME_PATH);
+    let tables = localization_stage::tables(&resolve(&vanilla, &target))
+        .expect("the localization stage resolves");
+
+    // The one key the winning file restates: `ORACLE_SAME_PATH`.
+    assert_eq!(english(&tables, "tech_subject"), "Target same-path value");
+    let restated = tables.get(&english_tag(), "tech_subject").unwrap();
+    assert_eq!(restated.shadowed().len(), 1);
+    assert_eq!(restated.shadowed()[0].value.as_str(), "Vanilla subject");
+    assert_eq!(
+        tables.file(restated.shadowed()[0].file).origin,
+        FileOrigin::Removed {
+            loss: FileLoss::ShadowedByPathCollision {
+                winner: SourceKind::TargetMod
+            }
+        },
+        "the resolver's reason for removing the file reaches the key it displaced"
+    );
+
+    // Every key the winning file omits: the record's three self-resolving readings.
+    assert_eq!(
+        casualties(&tables),
+        [(
+            "localisation/english/technology_l_english.yml".to_owned(),
+            vec![
+                "tech_lost_a".to_owned(),
+                "tech_lost_b".to_owned(),
+                "tech_same_file_control".to_owned(),
+            ]
+        )],
+        "the damage is scoped to the colliding file"
+    );
+    let english_table = tables.table(&english_tag()).unwrap();
+    for lost in ["tech_lost_a", "tech_lost_b", "tech_same_file_control"] {
+        assert!(
+            english_table.get(lost).is_none(),
+            "{lost} has no effective value, so it renders as its own identifier"
+        );
+        assert!(english_table.casualty(lost).is_some());
+    }
+
+    // r14's natural control: the keys of the file nothing collided with are untouched.
+    for kept in ["tech_untouched", "tech_plain", "tech_replace"] {
+        assert!(english_table.get(kept).is_some(), "{kept} survives");
+        assert!(english_table.casualty(kept).is_none());
+    }
+}
+
+#[test]
+fn merging_a_shadowed_file_by_key_would_hide_every_casualty() {
+    // The negative control for r14 at the key level. Merge-by-key is the reading the record
+    // was run to exclude: a same-named file could plausibly have merged its keys into the
+    // stream rather than displacing the vanilla file whole. Computed here by feeding the
+    // removed file back in as a stream member, which is exactly what merging would mean.
+    let vanilla = localization_vanilla();
+    let target = corpus(SourceKind::TargetMod, LOCALIZATION_SAME_PATH);
+    let resolution = resolve(&vanilla, &target);
+    let stream = resolution
+        .localization_files()
+        .expect("the file-level localization row resolves");
+
+    let mut streamed: Vec<_> = stream
+        .files
+        .iter()
+        .map(|file| StreamedFile {
+            source: file.source,
+            logical: file.logical.clone(),
+            bytes: file.bytes.clone(),
+        })
+        .collect();
+    // The shadowed Vanilla file, spliced back in ahead of the mod file that displaced it.
+    streamed.insert(
+        0,
+        StreamedFile {
+            source: SourceKind::VanillaContent,
+            logical: LogicalPath::parse("localisation/english/technology_l_english.yml")
+                .expect("a fixture path"),
+            bytes: stream.shadowed_files[0].bytes.clone(),
+        },
+    );
+
+    let merged = localization::ingest(LocalizationInput {
+        streamed,
+        removed: Vec::new(),
+    });
+    assert_eq!(english(&merged, "tech_subject"), "Target same-path value");
+    assert_eq!(
+        english(&merged, "tech_same_file_control"),
+        "Vanilla same-file control",
+        "under merge-by-key the omitted keys keep their Vanilla values"
+    );
+    assert!(
+        casualties(&merged).is_empty(),
+        "and no key renders raw — the reading r14 excluded, and one that is invisible in any \
+         corpus where the winning file restates nothing"
+    );
+}
+
+#[test]
+fn r15_the_later_mod_wins_an_ordinary_key_and_an_earlier_mod_s_replace_file_wins_anyway() {
+    // Asserted at the ingestion seam, not through a `Resolution`, and that split is deliberate.
+    // The record measured two mods; production supplies one Target Mod rank, so no resolution
+    // can hold the stream this asserts about. What is checked here is what ingestion does with
+    // an r15-shaped stream. That the phase sorter *produces* that stream from two ordered
+    // ranks is checked separately, against the same production sorter, by
+    // `stream::tests::r15_preserves_enabled_mod_order_and_moves_every_replace_file_last`.
+    // The record's claim is the composition of the two halves; neither may be read as the
+    // other, and neither is asserted through a path production does not have.
+    let tables = modvmod([0, 1, 2, 3]);
+
+    assert_eq!(
+        english(&tables, "loc_contested"),
+        "Mod B plain value",
+        "r15's `name_alderson`: the later-loading mod wins an ordinary file"
+    );
+    assert_eq!(
+        english(&tables, "loc_replace_subject"),
+        "Mod A replace value",
+        "r15's `giga_start_screen_alderson`: replace wins from the earlier-loading mod"
+    );
+    assert_eq!(
+        english(&tables, "loc_untouched"),
+        "Untouched",
+        "r15's `tech_engineering_1` cross-check"
+    );
+}
+
+#[test]
+fn swapping_the_two_mod_ranks_flips_the_ordinary_winner() {
+    // Half one of r15, isolated: enabled-mod order is what decides an ordinary file, so
+    // exchanging the two mods' positions must exchange the winner.
+    let tables = modvmod([0, 2, 1, 3]);
+    assert_eq!(english(&tables, "loc_contested"), "Mod A plain value");
+    assert_eq!(
+        english(&tables, "loc_replace_subject"),
+        "Mod A replace value",
+        "the replace phase is unaffected by mod order, which is the point of half two"
+    );
+}
+
+#[test]
+fn moving_the_replace_file_out_of_the_replace_phase_makes_it_lose() {
+    // Half two of r15, isolated: the earlier mod's replace file wins from a mod that loads
+    // first. Placed in that mod's ordinary position instead, it loses to the later mod — so
+    // the win is the phase and not the file.
+    let tables = modvmod([0, 1, 3, 2]);
+    assert_eq!(english(&tables, "loc_replace_subject"), "Mod B plain value");
+}
+
+/// Ingest r15's four files in the given order, by position in [`LOCALIZATION_MODVMOD_STREAM`].
+fn modvmod(order: [usize; 4]) -> EffectiveTables {
+    let streamed = order
+        .into_iter()
+        .map(|position| {
+            let (logical, bytes) = LOCALIZATION_MODVMOD_STREAM[position];
+            StreamedFile {
+                // Position in the stream is what decides a winner; the contributor is
+                // provenance. Naming both mods `TargetMod` states that the rule under test is
+                // order and never source identity.
+                source: if position == 0 {
+                    SourceKind::VanillaContent
+                } else {
+                    SourceKind::TargetMod
+                },
+                logical: LogicalPath::parse(logical).expect("a fixture path"),
+                bytes: bytes.into(),
+            }
+        })
+        .collect();
+    localization::ingest(LocalizationInput {
+        streamed,
+        removed: Vec::new(),
+    })
 }
 
 // --- Phase 4I (STE-30): sprite definitions ---

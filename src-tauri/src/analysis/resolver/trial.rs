@@ -468,6 +468,37 @@ pub(super) fn localization_vanilla() -> SourceSnapshot {
     corpus(SourceKind::VanillaContent, LOCALIZATION_VANILLA)
 }
 
+// --- Phase 5A: the mod-versus-mod localization stream ---
+
+/// `r15-loc-modvmod`'s arrangement, as the four files an ordered stream would hold.
+///
+/// Not a corpus: production supplies one Target Mod rank, so no [`SourceSnapshot`] pair can
+/// hold two mods. These are fed to localization ingestion in the order the record measured —
+/// Vanilla, the earlier mod's ordinary file, the later mod's ordinary file, then the earlier
+/// mod's `replace/` file — which is the seam where the key-level half of the record is
+/// checkable. The half that says the phase sorter *produces* that order from two ranks is
+/// pinned separately by `stream::tests::r15_preserves_enabled_mod_order_and_moves_every_replace_file_last`.
+pub(super) const LOCALIZATION_MODVMOD_STREAM: &[(&str, &[u8])] = &[
+    (
+        "localisation/english/00_vanilla_l_english.yml",
+        fixture!("localization-modvmod/vanilla/localisation/english/00_vanilla_l_english.yml"),
+    ),
+    (
+        "localisation/english/00_a_plain_l_english.yml",
+        fixture!("localization-modvmod/mod-a/localisation/english/00_a_plain_l_english.yml"),
+    ),
+    (
+        "localisation/english/zz_b_plain_l_english.yml",
+        fixture!("localization-modvmod/mod-b/localisation/english/zz_b_plain_l_english.yml"),
+    ),
+    (
+        "localisation/english/replace/00_a_replace_l_english.yml",
+        fixture!(
+            "localization-modvmod/mod-a/localisation/english/replace/00_a_replace_l_english.yml"
+        ),
+    ),
+];
+
 // --- Phase 4G: inline scripts ---
 
 /// The base-game side [`INLINE`] expands against: the inline script whose path the mod

@@ -1,0 +1,6 @@
+l_english:
+# The EARLIER-loading mod's ordinary file, restating `r15-loc-modvmod`'s `name_alderson`
+# arrangement: our fixture mod loaded before Gigastructural Engineering, and lost. An
+# early-sorting filename, so filename order and load order disagree - the same method r13 used.
+ loc_contested:0 "Mod A plain value"
+ loc_replace_subject:0 "Mod A plain value"
