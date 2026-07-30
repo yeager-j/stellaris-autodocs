@@ -1,4 +1,5 @@
 # row technologies: resolved — 1436 definitions, 0 files removed by selection
+  semantic digest 8e397a026e62e5b59a77dab6cb826c5f7400a784d49a76afefa429a09552b516
   fact constants.Resolved: 3075
   fact inline.Expanded: 158
   fact provenance.Contributed: 14657
@@ -9,10 +10,12 @@
 # row scripted-effects: refused at unresolved references
   registry `scripted-effects` has no policy for its unresolved references cell: no record measures $PARAM$ substitution in a trigger or effect body. Settled by: a capture exercising a parameterised scripted trigger/effect call
 # row scripted-constants: resolved — 3367 definitions, 0 files removed by selection
+  semantic digest 2a39cf0d613a48e8dd340702d03ef868e8a9d385e5fb23b145e0e016339563f1
   fact constants.Resolved: 3367
 # row events: refused at undeclared reference kind
   registry `events` claims its definitions carry no Parameter reference, but `nomads.605` carries one in `title`
 # row buildings: resolved — 602 definitions, 1 files removed by selection
+  semantic digest a69a4304d2e4be21dfc5b14a7b8b8c0963129369b389f700c4c36e5981e370ad
   fact provenance.Contributed: 8770
   fact provenance.Duplicate: 3
   fact provenance.Shadowed: 58
@@ -23,6 +26,7 @@
 # row ship-components: refused at duplicate within one semantic stream
   registry `ship-components` has no policy for its duplicate within one semantic stream cell: no runtime observation names the winner of a repeated ship-component key. Settled by: STE-22 stretch: a runtime observable for a repeated component key
 # row sprites: resolved — 9593 definitions, 0 files removed by selection
+  semantic digest 138d63997ab5c150cb67c61932681290d41709225a4b2a6f7924f47e53941c6c
   fact provenance.Contributed: 27360
   fact provenance.Duplicate: 36
   fact provenance.Shadowed: 111
@@ -33,4 +37,4 @@
   fact sprite.texture.Resolved: 6807
   visible failure sprite.edge.MissingTexture: 214
   visible failure sprite.texture.MissingTexture: 2786
-# localization: Streamed { files: 2364, shadowed_files: 0 }
+# localization: Streamed { files: 2364, shadowed_files: 0, stream_digest: "60ef18c3835ed3e16d00c4ce81b325328dff4967368fba9ed75d8d1f4d789f66" }

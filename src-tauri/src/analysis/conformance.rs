@@ -144,6 +144,12 @@ pub(in crate::analysis) enum RowOutcome {
         definitions: usize,
         /// Whole files this row's scope lost to common file selection.
         removed_files: usize,
+        /// A deterministic digest of the row's complete resolved output — every definition's
+        /// position, body, effective fields, provenance, and typed facts. The counts below
+        /// are diagnostics; this is the identity, for the same reason the parser run records
+        /// `parsed_corpus_digest`: a winner swap or a moved provenance site can leave every
+        /// count unchanged while the documentation input differs.
+        semantic_digest: String,
         /// Every typed count the resolution produced — provenance kinds, detected references,
         /// constant and inline and sprite outcomes — resolved and unresolved alike, keyed
         /// `domain.Variant`.
@@ -166,8 +172,17 @@ pub(in crate::analysis) enum RowOutcome {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub(in crate::analysis) enum LocalizationOutcome {
-    Streamed { files: usize, shadowed_files: usize },
-    Refused { message: String },
+    Streamed {
+        files: usize,
+        shadowed_files: usize,
+        /// A deterministic digest over order, source, path, and exact bytes of every
+        /// surviving and shadowed file — the counts' identity, as `semantic_digest` is for
+        /// a registry row.
+        stream_digest: String,
+    },
+    Refused {
+        message: String,
+    },
 }
 
 pub(in crate::analysis) fn records_root() -> PathBuf {
@@ -501,12 +516,14 @@ fn row_drift(
             RowOutcome::Resolved {
                 definitions: recorded_definitions,
                 removed_files: recorded_removed,
+                semantic_digest: recorded_digest,
                 facts: recorded_facts,
                 visible_failures: recorded_failures,
             },
             RowOutcome::Resolved {
                 definitions,
                 removed_files,
+                semantic_digest,
                 facts,
                 visible_failures,
             },
@@ -529,6 +546,14 @@ fn row_drift(
                 visible_failures,
                 reasons,
             );
+            if recorded_digest != semantic_digest {
+                reasons.push(format!(
+                    "row {registry}: semantic digest {recorded_digest} -> {semantic_digest}. \
+                     The source is unchanged if no fingerprint drifted above, so this is the \
+                     resolver producing different output from the same bytes — a winner swap \
+                     or a policy change can move this while every count holds still.",
+                ));
+            }
         }
         (
             RowOutcome::Refused {
@@ -629,6 +654,7 @@ mod tests {
             outcome: RowOutcome::Resolved {
                 definitions: 5,
                 removed_files: 0,
+                semantic_digest: "aa".to_owned(),
                 facts: failures
                     .iter()
                     .map(|(key, count)| ((*key).to_owned(), *count))
@@ -648,6 +674,7 @@ mod tests {
             localization: LocalizationOutcome::Streamed {
                 files: 3,
                 shadowed_files: 1,
+                stream_digest: "ll".to_owned(),
             },
         }
     }
@@ -731,6 +758,39 @@ mod tests {
             reasons.iter().any(|reason| {
                 reason.contains("row technologies")
                     && reason.contains("visible failure constants.CrossSourcePending 4 -> 6")
+            }),
+            "{reasons:?}"
+        );
+    }
+
+    #[test]
+    fn a_changed_semantic_digest_is_named_even_when_every_count_matches() {
+        // The comparison Codex's PR #22 review asked for: a winner swap changes no count, so
+        // the digest must be drift-compared in its own right. The corpus-level twin — the
+        // digest actually moving under a swapped winner — is
+        // `resolver::conformance::the_semantic_digest_observes_a_winner_swap_the_counts_cannot`.
+        let manifest = recorded(
+            Vec::new(),
+            Some(resolution(vec![resolved_row("technologies", &[])])),
+        );
+        let mut observed_row = resolved_row("technologies", &[]);
+        let RowOutcome::Resolved {
+            semantic_digest, ..
+        } = &mut observed_row.outcome
+        else {
+            unreachable!("resolved_row builds a resolved outcome");
+        };
+        *semantic_digest = "bb".to_owned();
+        let reasons = drift(
+            &manifest,
+            &environment(BTreeMap::new()),
+            &[],
+            Some(&resolution(vec![observed_row])),
+            &[],
+        );
+        assert!(
+            reasons.iter().any(|reason| {
+                reason.contains("row technologies") && reason.contains("semantic digest aa -> bb")
             }),
             "{reasons:?}"
         );
@@ -859,6 +919,7 @@ mod tests {
             localization: LocalizationOutcome::Streamed {
                 files: 4,
                 shadowed_files: 1,
+                stream_digest: "ll".to_owned(),
             },
         };
         let reasons = drift(

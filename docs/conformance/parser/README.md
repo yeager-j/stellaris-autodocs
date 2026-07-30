@@ -56,7 +56,7 @@ a file that was not produced.
 | `corpora[]` | What each corpus *is*: `id`, `title`, the number of script files parsed, their total bytes, and the production `/v3` source `fingerprint`. |
 | `corpora[].files` | Per-file digests — **only** for corpora inside this repository. A licensed local installation is identified by its fingerprint and counts; listing a shipped product's files here would add nothing verifiable. |
 | `corpora[].outcome` | `c1` only — what the run *got* from that corpus: the `parsed_corpus_digest`, and how the cross-check resolved — compared, agreed, diverged, tape-rejected, adapter-recovered, plus range faults. `c2` records identity-only corpora, because resolution is an answer about the *pair*. |
-| `resolution` | `c2` only — the Resolution Profile version, one row per declared registry (`resolved` with definition, typed-fact, and visible-failure counts, or `refused` with the policy cell and typed reason), and the localization file stream's outcome. |
+| `resolution` | `c2` only — the Resolution Profile version, one row per declared registry (`resolved` with a `semantic_digest` over the row's complete resolved output plus definition, typed-fact, and visible-failure counts, or `refused` with the policy cell and typed reason), and the localization file stream's outcome with its own `stream_digest`. The digests are the identity and the counts are diagnostics: a duplicate-winner swap or a moved provenance site can leave every count unchanged, exactly the gap `parsed_corpus_digest` closes for `c1`. |
 | `artifacts` | Artifact name to SHA-256 of the bytes on disk. |
 | `warnings` | Anything the run wants a reader to know but did not fail on, such as a corpus that established incomplete. |
 

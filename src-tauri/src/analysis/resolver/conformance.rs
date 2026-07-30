@@ -55,22 +55,31 @@
 //!                                                   1120 files, 18521931 bytes observed)
 //! row scripted-constants: definitions 3367 -> 3368
 //! row scripted-constants: fact constants.Resolved 3367 -> 3368
+//! row scripted-constants: semantic digest 2a39cf0d… -> cc7e4527…. The source is unchanged
+//!   if no fingerprint drifted above, so this is the resolver producing different output
+//!   from the same bytes — a winner swap or a policy change can move this while every
+//!   count holds still.
 //! artifact resolution.txt: this run produced different content
 //! ```
 //!
 //! — the corpus identity moved, and the resolver's outcome moved with it, each named
-//! separately.
+//! separately. The count-blind case — a swapped winner that changes *no* count — is covered
+//! in ordinary CI by [`the_semantic_digest_observes_a_winner_swap_the_counts_cannot`].
 
 use std::collections::BTreeMap;
 
 use crate::analysis::conformance as record;
 use crate::analysis::corpora::{self, establish_corpus};
+use crate::canonical::encode::CanonicalDigest;
+use crate::source::SourceKind;
+use crate::source::fingerprint::ContentHash;
 
 use record::{CorpusRecord, LocalizationOutcome, ResolutionRecord, RowOutcome, RowRecord};
 
 use super::registry::Refusal;
 use super::resolved::{
-    ConstantOutcome, InlineOutcome, ResolvedRegistry, SpriteTextureOutcome, UnresolvedInline,
+    ConstantOutcome, InlineOutcome, LocalizationFileStream, ResolvedRegistry, SpriteTextureOutcome,
+    UnresolvedInline,
 };
 use super::{profile, resolve};
 
@@ -125,12 +134,69 @@ fn refusal_cell(refusal: &Refusal) -> String {
     }
 }
 
+/// A deterministic digest of one resolved registry's complete semantic output.
+///
+/// The counts a [`RowOutcome`] carries are diagnostics; this is the identity. A resolver
+/// change that swaps a duplicate winner, moves a provenance site, or rewrites an expanded
+/// field can leave every count untouched — same definitions, same fact totals — while the
+/// documentation input is different, and only a digest over the output itself notices
+/// (the same gap `parsed_corpus_digest` closes for the parser run).
+///
+/// Definitions are folded in `BTreeMap` key order through their `Debug` rendering, which
+/// covers every semantic field — position, body, effective fields, displaced provenance,
+/// references, constant, inline, and sprite outcomes. `Debug` rather than a bespoke
+/// encoding, deliberately: this digest gates a developer-run record, not a shipped
+/// identity, and the only thing that changes a `Debug` rendering besides the output itself
+/// is an edit to the resolved model — which is exactly a change this gate should surface
+/// for re-capture.
+fn row_digest(registry: &ResolvedRegistry) -> String {
+    let mut digest = CanonicalDigest::new("stellaris-docs/conformance/resolved-registry/v1");
+    digest.text(registry.registry);
+    digest.begin_seq(registry.definitions.len());
+    for (key, definition) in &registry.definitions {
+        digest.text(key.as_str());
+        digest.text(&format!("{definition:?}"));
+    }
+    digest.begin_seq(registry.removed_files.len());
+    for provenance in &registry.removed_files {
+        digest.text(&format!("{provenance:?}"));
+    }
+    digest.finish().to_hex()
+}
+
+/// The localization stream's counterpart to [`row_digest`]: order, source, path, and exact
+/// bytes of every surviving and shadowed file. Counts alone would miss a reordering or a
+/// swap of which file survived selection.
+fn stream_digest(stream: &LocalizationFileStream) -> String {
+    let mut digest = CanonicalDigest::new("stellaris-docs/conformance/localization-stream/v1");
+    let source_ordinal = |source: SourceKind| match source {
+        SourceKind::VanillaContent => 1u64,
+        SourceKind::TargetMod => 2u64,
+    };
+    digest.begin_seq(stream.files.len());
+    for file in &stream.files {
+        digest
+            .u64(u64::from(file.order))
+            .u64(source_ordinal(file.source))
+            .text(file.logical.as_str())
+            .text(&ContentHash::of(&file.bytes).to_hex());
+    }
+    digest.begin_seq(stream.shadowed_files.len());
+    for shadowed in &stream.shadowed_files {
+        digest
+            .text(&format!("{:?}", shadowed.provenance))
+            .text(&ContentHash::of(&shadowed.bytes).to_hex());
+    }
+    digest.finish().to_hex()
+}
+
 /// One row's outcome as the record holds it.
 ///
 /// Every typed count lands in `facts`; the unresolved subset is *also* counted in
 /// `visible_failures`, keyed identically, so "what did this row fail to finish, and how
 /// often" is a map a reader takes in at a glance rather than a filter they run over the
-/// fact names. Both maps are drift-compared.
+/// fact names. Both maps are drift-compared, and [`row_digest`] pins the output they
+/// summarize.
 fn summarize(registry: &ResolvedRegistry) -> RowOutcome {
     let mut facts: BTreeMap<String, usize> = BTreeMap::new();
     let mut visible_failures: BTreeMap<String, usize> = BTreeMap::new();
@@ -182,6 +248,7 @@ fn summarize(registry: &ResolvedRegistry) -> RowOutcome {
     RowOutcome::Resolved {
         definitions: registry.definitions.len(),
         removed_files: registry.removed_files.len(),
+        semantic_digest: row_digest(registry),
         facts,
         visible_failures,
     }
@@ -192,12 +259,13 @@ fn row_lines(row: &RowRecord) -> String {
         RowOutcome::Resolved {
             definitions,
             removed_files,
+            semantic_digest,
             facts,
             visible_failures,
         } => {
             let mut lines = format!(
                 "# row {}: resolved — {definitions} definitions, {removed_files} files removed \
-                 by selection\n",
+                 by selection\n  semantic digest {semantic_digest}\n",
                 row.registry
             );
             for (key, count) in facts {
@@ -260,6 +328,7 @@ fn parse_and_resolve_conformance() {
         Ok(stream) => LocalizationOutcome::Streamed {
             files: stream.files.len(),
             shadowed_files: stream.shadowed_files.len(),
+            stream_digest: stream_digest(&stream),
         },
         Err(refusal) => LocalizationOutcome::Refused {
             message: refusal.to_string(),
@@ -358,4 +427,77 @@ fn parse_and_resolve_conformance() {
         .expect("the record directory is writable");
         println!("captured {}", written.display());
     }
+}
+
+/// The negative control for [`row_digest`], and the reason it exists at all: `r4`'s method —
+/// identical definition bodies under swapped filenames — moves the duplicate winner while
+/// leaving **every count identical**. Definitions, removed files, provenance totals,
+/// reference totals, and visible failures all match, so the diagnostic maps alone would let
+/// a winner swap pass the drift gate; the semantic digest is the one value that moves.
+#[test]
+fn the_semantic_digest_observes_a_winner_swap_the_counts_cannot() {
+    use crate::source::fixture::FixtureCorpus;
+
+    let vanilla = FixtureCorpus::new(SourceKind::VanillaContent)
+        .with_file(
+            "common/technology/mm_swap_tech.txt",
+            b"tech_swap = {\n\ttier = 1\n}\n",
+        )
+        .build()
+        .expect("a well-formed fixture corpus");
+    let contested = |filename: &str| {
+        FixtureCorpus::new(SourceKind::TargetMod)
+            .with_file("descriptor.mod", b"name=\"swap\"")
+            .with_file(
+                &format!("common/technology/{filename}"),
+                b"tech_swap = {\n\ttier = 2\n}\n",
+            )
+            .build()
+            .expect("a well-formed fixture corpus")
+    };
+
+    let late = contested("zz_swap_tech.txt");
+    let early = contested("!!!_swap_tech.txt");
+    let mod_wins = summarize(
+        &resolve(&vanilla, &late)
+            .registry("technologies")
+            .expect("the declared row resolves"),
+    );
+    let vanilla_wins = summarize(
+        &resolve(&vanilla, &early)
+            .registry("technologies")
+            .expect("the declared row resolves"),
+    );
+
+    let (
+        RowOutcome::Resolved {
+            definitions: left_definitions,
+            removed_files: left_removed,
+            semantic_digest: left_digest,
+            facts: left_facts,
+            visible_failures: left_failures,
+        },
+        RowOutcome::Resolved {
+            definitions: right_definitions,
+            removed_files: right_removed,
+            semantic_digest: right_digest,
+            facts: right_facts,
+            visible_failures: right_failures,
+        },
+    ) = (&mod_wins, &vanilla_wins)
+    else {
+        panic!("both corpora resolve: {mod_wins:?} / {vanilla_wins:?}");
+    };
+
+    // The precondition that makes this a control: everything the record counts is identical.
+    assert_eq!(left_definitions, right_definitions);
+    assert_eq!(left_removed, right_removed);
+    assert_eq!(left_facts, right_facts, "the counts must not discriminate");
+    assert_eq!(left_failures, right_failures);
+    // And the digest still tells them apart, because the winning definition differs.
+    assert_ne!(
+        left_digest, right_digest,
+        "a swapped winner left the semantic digest unchanged, so the gate observes counts \
+         rather than resolved output"
+    );
 }
