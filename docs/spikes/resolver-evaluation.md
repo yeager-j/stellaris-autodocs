@@ -101,7 +101,7 @@ probabilistic reading into a decisive one.
 | Events | Namespace plus number | Same-path replacement also works | **First** registration wins; the later one is rejected | **Overridable by identifier when the mod's file sorts before vanilla's.** A `!!!_`-prefixed file wins (`r10`); a `zz_`-prefixed one loses (`r9`) | Not applicable — the rejected definition is discarded whole | Same, including shadowed event bodies | **Resolved** — `r8`, `r9`, `r10` |
 | Scripted triggers | Scripted trigger identifier | Follows file-path and directory rules above | Last in enumeration order wins, within a file and across files | Decided by path order, not by layer: whichever definition the registry's accept/reject rule selects from the one global enumeration. A Target Mod wins only when its filename sorts on the winning side | Whole replacement; the shadowed body never evaluates | Definition and every resolved call site | **Partial** — collision and replacement resolved by `r1`, `r4`; parameter behavior requires resolver-backed investigation |
 | Scripted effects | Scripted effect identifier | Follows file-path and directory rules above | Last in enumeration order wins; duplicates do not accumulate | Decided by path order, not by layer: whichever definition the registry's accept/reject rule selects from the one global enumeration. A Target Mod wins only when its filename sorts on the winning side | Whole replacement; only the winning body executes | Definition and every resolved call site | **Partial** — collision and replacement resolved by `r1`, `r4`; parameter behavior requires resolver-backed investigation |
-| Scripted constants | Constant symbol, global with file-local override | Follows file-path and directory rules above | **First** in enumeration order wins; later ones are rejected | Pending for Vanilla-versus-Target | A file-local declaration overrides the global for that file; forward references and cycles do not resolve; decimal arithmetic is exact | Every definition and resolution edge | **Partial** — arithmetic and same-source behavior resolved by `r1`, `r4`, `r5`, `r7`; cross-source behavior requires resolver-backed investigation |
+| Scripted constants | Constant symbol, global with file-local override | Follows file-path and directory rules above | **First** in enumeration order wins; later ones are rejected | Decided by path order, not by layer: the first declaration in the global stream wins. A Target Mod wins only when its file sorts before Vanilla's declaration | A file-local declaration overrides the global for that file; forward references and cycles do not resolve; decimal arithmetic is exact | Every definition and resolution edge | **Resolved** — `r1`, `r4`, `r5`, `r7`, `r19` |
 | Inline scripts | Normalized path under `common/inline_scripts`, one script per file, extension dropped | Same-path replacement is the ONLY collision mode; there is no declared identifier to collide on | Not applicable — one script per file | A mod file at a vanilla script's path replaces its content entirely | Textual expansion into the consuming definition before it is registered. Whole-token `$PARAM$` substitution works; inclusion nests and must be expanded recursively. An unresolved reference is diagnosed with consuming file and line, but the definition still registers with the inclusion silently omitted | Every expansion site, its resolved source path, and its parameter bindings | **Resolved** — `r11`, `r12`. Substitution of an *embedded* `$PARAM$` (`tech_$TIER$`) is unmeasured and measured-absent from every fragment the technologies row reaches ([census](./inline-parameter-census.md), D-132) |
 | Localization | Language plus localization key | Exact path collision shadows the whole vanilla file: every key the winning file omits renders as its raw key. Scoped to that file — keys in other vanilla files are untouched | Last loaded wins (LIOS) | One ordered stream over surviving files: Vanilla, then mod files in `enabled_mods` order, then every `replace/` file. A mod beats Vanilla regardless of filename; an earlier mod loses to a later one; `replace/` wins from any position | No fallback language — a missing key renders as the raw key. References resolve against the EFFECTIVE post-collision value and propagate into strings owned by other sources | Winning and shadowed values per language, each reference edge with the source of the value it resolved to, and every key lost to a shadowed file | **Resolved** — `r13`, `r14`, `r15`, `r16` |
 | Sprite definitions | Sprite name inside a `spriteTypes` block, across all `interface/*.gfx` | Follows the file-path and directory rules above | Last in enumeration order wins, within a file and across files | Decided by path order, not layer, exactly as script registries: a mod file sorting after vanilla's wins (`r17`), one sorting before it loses (`r18`) | Whole replacement of the named sprite. `sprite_sheet_sprite_type` references resolve to the winning definition, so overriding one sprite changed the resolved texture of 54 vanilla sprites that referenced it | Winning and shadowed definition, the resolved texture path, and every sprite referencing the changed one | **Resolved** — `r17`, `r18` |
@@ -236,6 +236,25 @@ directory*, not *this directory now contains only what I ship and nothing resolv
 | Cycle | Does not resolve | Load time |
 | `0.1 + 0.2` compared against `0.3` | Exactly equal | Runtime |
 | Vanilla `@tier5cost3` read from a mod file | Resolves | Runtime |
+| Vanilla-versus-Target duplicate, mod file before Vanilla | First declaration wins | Both, `r19` |
+| Vanilla-versus-Target duplicate, mod file after Vanilla | First declaration wins | Both, `r19` |
+
+`r19-constants-cross-source` varies only the mod declaration's path position. Both subjects
+start at `100` in Vanilla's
+`common/scripted_variables/03_scripted_variables_ships.txt`, and both mod declarations use
+the treatment value `111`:
+
+| Symbol | Semantic stream | Effective value and provenance | Rejected duplicate |
+| --- | --- | --- | --- |
+| `@speed_slow` | Target `!!!_oracle_constants_early.txt:9` = `111`; Vanilla `03_scripted_variables_ships.txt:10` = `100` | `111`, contributed by the Target Mod's early declaration | Vanilla's later declaration; named by `error.log` |
+| `@outpost_cost` | Vanilla `03_scripted_variables_ships.txt:35` = `100`; Target `zz_oracle_constants_late.txt:8` = `111` | `100`, contributed by Vanilla's earlier declaration | Target Mod's later declaration; named by `error.log` |
+
+The runtime reporter observed `111_mod_early` and `100_vanilla`, bracketed by its start and
+completion canaries. The independent load-time channel rejected exactly the second
+declaration in each row. Scripted constants therefore have one cross-source policy: retain
+the first declaration in the normalized-path and definition-ordinal stream, record every
+later declaration as a rejected duplicate, and do not add source-layer precedence. These
+scalar definitions contribute one value each; neither inheritance nor defaulting applies.
 
 The exact-decimal result supports the design's requirement that binary floating point never
 participate in source equality or displayed Base Values (`docs/technical-design.md:324`):
@@ -373,11 +392,11 @@ Combined with the path-order finding above, the complete model is:
 Nothing in that model mentions a layer except step 1. A resolver that ranks sources before
 paths will get steps 2 and 4 wrong in opposite directions for the two registry groups.
 
-**This yields a prediction the spike has not tested.** Scripted constants reject later
-registrations, so a Target Mod redefining a vanilla `@` constant should win only from an
-early-sorting file, exactly as events do. The constants cross-source cell stays `Pending`:
-deriving a cell from a neighbouring result is what this spike exists to avoid. It is
-recorded as the next thing to measure, not as policy.
+`r19` tests the scripted-constant consequence directly rather than deriving it from events.
+A Target Mod redefining a Vanilla `@` constant wins from an early-sorting file and loses
+from a late-sorting file. Runtime values and rejected-registration diagnostics agree for
+both sides of the matched pair, so the cross-source cell is resolved by the same global
+stream and first-registration rule.
 
 ### Events override by identifier only from an early-sorting file
 
@@ -849,8 +868,8 @@ The resolver module must consume the resolved policies, reproduce the captured o
 | Dimension | Standing |
 | --- | --- |
 | Pre-implementation evidence collection | **Complete.** Every row has been investigated as far as the current external observables permit. |
-| Complete Resolution Profile | **Partial.** Named open cells include megastructure field behavior, ship-component duplicate selection, scripted trigger and effect parameter behavior, and scripted-constant cross-source behavior. |
-| Controlled resolver reproduces every oracle result | **Partial.** The Phase 4D core reproduces `r3`, `r6`, and `r10` — file selection, the one global path order, and both repeat rules. Phase 4E's technologies row adds `r0`, `r1`, and `r4`, including golden case 5 at the resolver seam: whole-object replacement, the omitted-`potential` case, and per-field provenance naming both definitions. All six are machine-checked expectations over restated license-clean fixtures. The remaining row-specific records (`r8`, `r9`, `r11`–`r18`) are consumed by their own row tickets. |
+| Complete Resolution Profile | **Partial.** Named open cells include megastructure field behavior, ship-component duplicate selection, and scripted trigger and effect parameter behavior. |
+| Controlled resolver reproduces every oracle result | **Partial.** The Phase 4D core reproduces `r3`, `r6`, and `r10` — file selection, the one global path order, and both repeat rules. Phase 4E's technologies row adds `r0`, `r1`, and `r4`, including golden case 5 at the resolver seam: whole-object replacement, the omitted-`potential` case, and per-field provenance naming both definitions. All six are machine-checked expectations over restated license-clean fixtures. The remaining row-specific records (`r8`, `r9`, `r11`–`r19`) are consumed by their own row tickets. |
 | Provenance distinguishes fact kinds and semantic order | **Implemented.** Contributed, inherited, defaulted, duplicate, and shadowed, each carrying stream position, source identity, logical path, and definition ordinal; a file removed by selection records the mechanism that removed it rather than a fabricated position. |
 | Deterministic enumeration | **Evidence established, and implemented for the core.** Streams are built from normalized logical paths, never from filesystem enumeration order. |
 | Unsupported content types fail visibly | **Implemented.** An undeclared registry and an unresolved policy cell are typed refusals naming the cell and the observation that would settle it. A cell may be open conditionally: a row measured within one source resolves same-source collisions and refuses cross-source ones. |
@@ -867,8 +886,8 @@ knows the policy — no record settles what the game does. It is *not* the way a
 policy is unimplemented: the technologies row declares that it detects `@` constant and
 `inline_script` references and does not resolve them, so an effective value carrying one is
 marked as unfinished rather than published as a literal. The rows that resolve those references
-are still their own tickets, and the scripted-constant cross-source cell above stays `Pending`
-for the reason it always did — the cross-source behaviour is unmeasured.
+are still their own tickets. `r19` now settles the scripted-constant cross-source behavior;
+consuming that known policy in the resolver remains Phase 4F work rather than a `Pending` cell.
 
 ## Captured records
 
@@ -892,6 +911,7 @@ for the reason it always did — the cross-source behaviour is unmeasured.
 | `r16-loc-reference` | 2 | Whether localisation references see effective values; log-only |
 | `r17-sprites` | 1 | Sprite collisions, read from missing-texture diagnostics |
 | `r18-sprites-early` | 1 | Sprite ordering model: early-sorting mod file |
+| `r19-constants-cross-source` | 2 | Scripted-constant collisions before and after Vanilla's declaration |
 
 Each record holds a manifest with the installed build, activation scope, fixture tree
 hashes, and artifact checksums, plus the extracted oracle facts, the normalized `error.log`,

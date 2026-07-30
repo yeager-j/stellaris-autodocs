@@ -11,6 +11,7 @@ is visible rather than silently mixed in.
 | Marketing version | `Pegasus v4.4.6` |
 | Raw version | `v4.4.6` |
 | Mods compatibility version | `4.4` |
+| Executable SHA-256 (`r19` onward) | `e230b7bf167c76645428639ed7215e503395b6e12e522fdebb730dfe9caf3220` |
 | Distribution | Steam |
 | Operating system | macOS, Darwin 25.5.0 |
 | Architecture | arm64 |

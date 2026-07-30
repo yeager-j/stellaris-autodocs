@@ -1,0 +1,77 @@
+{
+  "activation": {
+    "dlc_load": {
+      "disabled_dlcs": [],
+      "enabled_mods": [
+        "mod/oracle_probe.mod",
+        "mod/oracle_target-constants-cross-source.mod"
+      ]
+    },
+    "enabled_mods": [
+      "mod/oracle_probe.mod",
+      "mod/oracle_target-constants-cross-source.mod"
+    ]
+  },
+  "artifacts": {
+    "error.normalized.txt": "0e7cded9dcde596af1d4abe20b8993ce35d0b2e670a1120b5170206b7ce283ca",
+    "oracle-facts.txt": "a964a64a5ba3cd8c364dc18667975a052df4a73cd692691aed8abc04a50c181b",
+    "tech-status.json": "2df94e10a1b1a76abd1d5ac880d0c10d0e594113422c5922ce7a22f4adfa220a"
+  },
+  "canaries": {
+    "constants_cross_source_complete": true,
+    "constants_cross_source_loaded": true,
+    "probe_complete": true,
+    "probe_loaded": true
+  },
+  "error_log": {
+    "distinct_messages": 16,
+    "raw_lines": 16,
+    "raw_sha256": "4de759d20768cc8b8d54469d063e9d51a18b15c3260b5dc6e13542eadade7369"
+  },
+  "fact_count": 10,
+  "fixture_hashes": {
+    "probe": {
+      "common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+      "descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+      "events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda"
+    },
+    "target-constants-cross-source": {
+      "common/on_actions/zz_oracle_constants_cross_source_on_actions.txt": "28fa2febd3a3f4ed866404c9af503b27e30fed555cdf78454d87fcb5ca61a03a",
+      "common/scripted_variables/!!!_oracle_constants_early.txt": "d1eb22cbfa7af1d56629cf20062fac826471a5f19e1c1468de2b7900df3fb54f",
+      "common/scripted_variables/zz_oracle_constants_late.txt": "cf92ab52ae972758e7efbccea40205b47826e20b49d2e10162df2c1dd2669108",
+      "descriptor.mod": "0276c5cdee49c01690a1db1fe53716533f6bdc3a923845ffdfc55c7ba9128aca",
+      "events/zz_oracle_constants_cross_source.txt": "6ab91c547c0740f1406f9132ead686818297ad36ac66591913557458949599e4"
+    }
+  },
+  "game_log_banner": "[20:52:46][game_application.cpp:248]: Game Version: Pegasus v4.4.6",
+  "purpose": "Cross-source scripted constants. A matched pair redefines two Vanilla constants that have the same original value and source file. One mod declaration sorts before Vanilla and one after it, so both the runtime values and rejected-registration diagnostics discriminate first-wins from last-wins or layer precedence.",
+  "run": "r19-constants-cross-source",
+  "save": {
+    "bytes": 460056,
+    "name": "oracle_r19-constants-cross-source.sav",
+    "relative": "unitednationsofearth10_1406643023/oracle_r19-constants-cross-source.sav",
+    "sha256": "563c4a1d2e523022dca3d3f035a7d76577034122fe3bdde7b68d7953b0ff06db"
+  },
+  "staging_hashes": {
+    "activation.json": "932937ebf4ca3d24f7314a1a5f0c33c321a115311dbcf22da542e2ec0bddf142",
+    "probe/common/on_actions/zz_oracle_probe_on_actions.txt": "115bec01f407b80aad618caeea72d87882b5c024e1e9bf4795cb3915cccaea80",
+    "probe/descriptor.mod": "e6832145c52320105bbd0a8db0fd20ad5bbe3708cc958c3161a92ffdca524297",
+    "probe/events/zz_oracle_probe.txt": "4c83482a936a8dfe544fc4a6b6bbe0df77bd886ddd8e0682e31e0ef3a8b7bfda",
+    "target-constants-cross-source/common/on_actions/zz_oracle_constants_cross_source_on_actions.txt": "28fa2febd3a3f4ed866404c9af503b27e30fed555cdf78454d87fcb5ca61a03a",
+    "target-constants-cross-source/common/scripted_variables/!!!_oracle_constants_early.txt": "d1eb22cbfa7af1d56629cf20062fac826471a5f19e1c1468de2b7900df3fb54f",
+    "target-constants-cross-source/common/scripted_variables/zz_oracle_constants_late.txt": "cf92ab52ae972758e7efbccea40205b47826e20b49d2e10162df2c1dd2669108",
+    "target-constants-cross-source/descriptor.mod": "0276c5cdee49c01690a1db1fe53716533f6bdc3a923845ffdfc55c7ba9128aca",
+    "target-constants-cross-source/events/zz_oracle_constants_cross_source.txt": "6ab91c547c0740f1406f9132ead686818297ad36ac66591913557458949599e4"
+  },
+  "stellaris": {
+    "architecture": "arm64",
+    "distPlatform": "steam",
+    "executableSha256": "e230b7bf167c76645428639ed7215e503395b6e12e522fdebb730dfe9caf3220",
+    "modsCompatibilityVersion": "4.4",
+    "operatingSystem": "Darwin",
+    "rawVersion": "v4.4.6",
+    "version": "Pegasus v4.4.6 (fdde)"
+  },
+  "tier": 2,
+  "warnings": []
+}

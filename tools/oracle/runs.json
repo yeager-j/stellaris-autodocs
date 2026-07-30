@@ -276,6 +276,26 @@
         "diagnostic for oracle_missing_vanilla.dds -> layer-ordered, mod always wins",
         "silence -> path-ordered, the early file registered first and lost"
       ]
+    },
+    "r19-constants-cross-source": {
+      "mods": [
+        "probe",
+        "target-constants-cross-source"
+      ],
+      "tier": 2,
+      "purpose": "Cross-source scripted constants. A matched pair redefines two Vanilla constants that have the same original value and source file. One mod declaration sorts before Vanilla and one after it, so both the runtime values and rejected-registration diagnostics discriminate first-wins from last-wins or layer precedence.",
+      "expect": [
+        "canary constants_cross_source_loaded and constants_cross_source_complete present",
+        "speed_slow -> 111_mod_early if first registration wins; 100_vanilla if a later Vanilla declaration replaces it",
+        "outpost_cost -> 100_vanilla if first registration wins; 111_mod_late if a later mod declaration replaces it",
+        "error.log rejects Vanilla's 03_scripted_variables_ships.txt declaration of speed_slow and the mod's zz_oracle_constants_late.txt declaration of outpost_cost if first registration wins"
+      ],
+      "canaries": [
+        "probe_loaded",
+        "probe_complete",
+        "constants_cross_source_loaded",
+        "constants_cross_source_complete"
+      ]
     }
   },
   "tiers": {

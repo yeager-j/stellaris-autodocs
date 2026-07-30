@@ -1,0 +1,8 @@
+# Late side of the cross-source matched pair.
+#
+# Vanilla declares @outpost_cost = 100 in the same file that declares @speed_slow. This
+# file sorts after Vanilla and uses the same treatment value as the early side. A first-wins
+# registry therefore keeps Vanilla's 100 and diagnoses this declaration as rejected. A
+# last-wins registry instead exposes 111.
+
+@outpost_cost = 111

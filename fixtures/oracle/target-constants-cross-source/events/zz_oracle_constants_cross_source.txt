@@ -1,0 +1,75 @@
+namespace = oracle_constants_cross_source
+
+# Runtime channel for the cross-source scripted-constant result.
+#
+# The pair deliberately starts from two Vanilla constants with the same value (100), from
+# the same Vanilla file, and gives both mod declarations the same treatment value (111).
+# The only designed difference is whether the mod file sorts before or after Vanilla.
+
+event = {
+	id = oracle_constants_cross_source.1
+	hide_window = yes
+	is_triggered_only = yes
+
+	trigger = {
+		is_ai = no
+	}
+
+	immediate = {
+		log = "ORACLE|canary|constants_cross_source_loaded|1"
+
+		set_variable = {
+			which = oracle_v_constant_early
+			value = @speed_slow
+		}
+		if = {
+			limit = {
+				check_variable = {
+					which = oracle_v_constant_early
+					value = 111
+				}
+			}
+			log = "ORACLE|const_cross_source|speed_slow|111_mod_early"
+		}
+		else_if = {
+			limit = {
+				check_variable = {
+					which = oracle_v_constant_early
+					value = 100
+				}
+			}
+			log = "ORACLE|const_cross_source|speed_slow|100_vanilla"
+		}
+		else = {
+			log = "ORACLE|const_cross_source|speed_slow|UNEXPECTED"
+		}
+
+		set_variable = {
+			which = oracle_v_constant_late
+			value = @outpost_cost
+		}
+		if = {
+			limit = {
+				check_variable = {
+					which = oracle_v_constant_late
+					value = 111
+				}
+			}
+			log = "ORACLE|const_cross_source|outpost_cost|111_mod_late"
+		}
+		else_if = {
+			limit = {
+				check_variable = {
+					which = oracle_v_constant_late
+					value = 100
+				}
+			}
+			log = "ORACLE|const_cross_source|outpost_cost|100_vanilla"
+		}
+		else = {
+			log = "ORACLE|const_cross_source|outpost_cost|UNEXPECTED"
+		}
+
+		log = "ORACLE|canary|constants_cross_source_complete|1"
+	}
+}

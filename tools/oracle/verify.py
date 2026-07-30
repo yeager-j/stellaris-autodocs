@@ -11,7 +11,8 @@ longer exists. This reports that drift instead of letting it pass unnoticed.
 Drift is not always wrong. Deliberately changing a fixture means the affected runs must be
 re-run, and this names exactly which ones.
 
-Exit status is non-zero when any record drifts, so it can gate a commit.
+Exit status is non-zero when any fixture or recorded build identity drifts, so it can gate
+a commit.
 """
 
 from __future__ import annotations
@@ -69,11 +70,25 @@ def verify() -> int:
                 problems.append(f"added since capture {fixture}/{extra}")
 
         # A record captured against another build documents that build's behavior, not this
-        # one. The design requires a changed Stellaris version to invalidate oracle results
-        # rather than quietly carry them forward.
-        recorded = manifest.get("stellaris", {}).get("version")
-        if recorded != current["version"]:
-            build_mismatch.append(f"{record.name}: captured on {recorded}")
+        # one. Version text identifies the published build; the executable checksum catches
+        # a binary change under unchanged metadata. Older records predate executable
+        # checksums, so they retain their version gate without claiming evidence they did
+        # not capture.
+        recorded_environment = manifest.get("stellaris", {})
+        recorded_version = recorded_environment.get("version")
+        mismatches = []
+        if recorded_version != current["version"]:
+            mismatches.append(f"captured on {recorded_version}")
+
+        recorded_executable = recorded_environment.get("executableSha256")
+        if (
+            recorded_executable is not None
+            and recorded_executable != current["executableSha256"]
+        ):
+            mismatches.append("executable checksum changed")
+
+        if mismatches:
+            build_mismatch.append(f"{record.name}: {'; '.join(mismatches)}")
 
         status = "DRIFT" if problems else "ok"
         print(f"  {status:5s} {record.name}")
@@ -94,6 +109,9 @@ def verify() -> int:
         print(f"{len(drifted)} record(s) no longer match the committed fixtures: "
               f"{', '.join(drifted)}")
         print("Re-run them, or restore the fixtures to the state they were captured against.")
+        return 1
+
+    if build_mismatch:
         return 1
 
     print(f"All {len(records)} record(s) match the committed fixtures.")

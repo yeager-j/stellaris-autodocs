@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import platform
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -118,8 +119,11 @@ def installed_version() -> dict:
     """
     settings = json.loads(LAUNCHER_SETTINGS.read_text())
     return {
+        "architecture": platform.machine(),
         "version": settings.get("version"),
         "rawVersion": settings.get("rawVersion"),
         "modsCompatibilityVersion": settings.get("modsCompatibilityVersion"),
         "distPlatform": settings.get("distPlatform"),
+        "executableSha256": sha256_file(EXECUTABLE),
+        "operatingSystem": platform.system(),
     }

@@ -1,0 +1,9 @@
+# Early side of the cross-source matched pair.
+#
+# Vanilla declares @speed_slow = 100 in
+# common/scripted_variables/03_scripted_variables_ships.txt. This file sorts before that
+# path and declares the distinct treatment value 111. If scripted constants reject repeat
+# registrations, this declaration survives and Vanilla's later declaration is diagnosed as
+# rejected. If later registrations replace earlier ones, the effective value is 100.
+
+@speed_slow = 111

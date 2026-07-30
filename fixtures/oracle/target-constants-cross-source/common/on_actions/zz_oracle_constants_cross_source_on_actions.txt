@@ -1,0 +1,9 @@
+# Run the reporter automatically for every player country created by the pinned setup.
+# Automatic delivery avoids making the result depend on a console command; the reporter
+# has its own start and completion canaries so a partial or absent event is not interpreted.
+
+on_game_start_country = {
+	events = {
+		oracle_constants_cross_source.1
+	}
+}
