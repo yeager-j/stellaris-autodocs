@@ -4,6 +4,8 @@
 //! submodules (docs/technical-design.md, "Analysis module"). Populated from Phase 4.
 
 #[cfg(test)]
+mod conformance;
+#[cfg(test)]
 mod corpora;
 #[allow(dead_code)]
 mod parser;

@@ -82,19 +82,16 @@
 //! ```
 
 mod expected;
-mod record;
 mod tape;
 
-use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
 use super::ranges::{RangeFault, verify_ranges};
 use super::{ParsedFile, SourceIdentity, digest};
-use crate::analysis::corpora::{self, Corpus, establish_corpus, install_root, repo_root};
+use crate::analysis::conformance as record;
+use crate::analysis::corpora::{self, Corpus, establish_corpus, repo_root};
 use crate::canonical::encode::DigestBytes;
-use crate::discovery::proposals;
-use crate::source::fingerprint::ContentHash;
 use crate::source::policy::FileFamily;
 use crate::source::snapshot::{SourceBytes, SourceKind, SourceSnapshot};
 use record::{CorpusIdentity, CorpusRecord};
@@ -198,7 +195,7 @@ impl Conformance {
     fn record(&self) -> CorpusRecord {
         CorpusRecord {
             identity: self.identity.clone(),
-            outcome: record::Outcome {
+            outcome: Some(record::Outcome {
                 parsed_corpus_digest: self.digest.to_hex(),
                 compared: self.compared,
                 agreed: self.agreed,
@@ -206,7 +203,7 @@ impl Conformance {
                 tape_rejected: self.tape_rejections.len(),
                 adapter_recovered: self.recoveries.len(),
                 range_faults: self.range_faults.len(),
-            },
+            }),
         }
     }
 }
@@ -224,7 +221,7 @@ fn run(corpus: &Corpus, pairing: Pairing) -> Conformance {
 
     let mut conformance = Conformance {
         id: corpus.id,
-        identity: identify(corpus, snapshot, &files),
+        identity: record::script_identity(corpus, snapshot),
         compared: 0,
         agreed: 0,
         digest: digest::corpus_of(entries.iter().cloned()),
@@ -308,31 +305,6 @@ fn digest_serial(files: &[(SourceIdentity, SourceBytes)]) -> DigestBytes {
         let parsed = super::parse(identity.clone(), bytes);
         (identity.clone(), super::parsed_file_digest(&parsed))
     }))
-}
-
-fn identify(
-    corpus: &Corpus,
-    snapshot: &SourceSnapshot,
-    files: &[(SourceIdentity, SourceBytes)],
-) -> CorpusIdentity {
-    CorpusIdentity {
-        id: corpus.id.to_owned(),
-        title: corpus.title.to_owned(),
-        file_count: files.len(),
-        total_bytes: files.iter().map(|(_, bytes)| bytes.len() as u64).sum(),
-        fingerprint: snapshot.fingerprint().to_hex(),
-        files: record::is_committed(&corpus.root).then(|| {
-            files
-                .iter()
-                .map(|(identity, bytes)| {
-                    (
-                        identity.logical.as_str().to_owned(),
-                        ContentHash::of(bytes).to_hex(),
-                    )
-                })
-                .collect()
-        }),
-    }
 }
 
 /// The digest of the fixture tree copied to a different absolute path.
@@ -513,7 +485,7 @@ fn corpus_conformance() {
     let failures = failures(&runs);
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 
-    let stellaris = installed_build();
+    let stellaris = record::installed_build();
     let environment = record::environment(stellaris);
     let records: Vec<CorpusRecord> = runs.iter().map(Conformance::record).collect();
     // Built once and used twice, so the bytes the drift check compares are the bytes a
@@ -526,11 +498,11 @@ fn corpus_conformance() {
     // unreachable, and a record could never be brought back into step with an updated game.
     // The conformance checks above are unconditional either way: a failing run is never
     // recorded.
-    let capturing = record::capture_requested();
+    let capturing = record::capture_requested("PARSER_CONFORMANCE_CAPTURE");
     let recorded = record::read(RUN);
     match &recorded {
         Some(recorded) => {
-            let drift = record::drift(recorded, &environment, &records, &artifacts);
+            let drift = record::drift(recorded, &environment, &records, None, &artifacts);
             let location = record::records_root().join(RUN);
             assert!(
                 drift.is_empty() || capturing,
@@ -553,25 +525,18 @@ fn corpus_conformance() {
     }
 
     if capturing {
-        let written = record::write(RUN, PURPOSE, environment, records, &artifacts, warnings)
-            .expect("the record directory is writable");
+        let written = record::write(
+            RUN,
+            PURPOSE,
+            environment,
+            records,
+            None,
+            &artifacts,
+            warnings,
+        )
+        .expect("the record directory is writable");
         println!("captured {}", written.display());
     }
-}
-
-fn installed_build() -> BTreeMap<String, String> {
-    let install = proposals::read_installed_build(install_root());
-    [
-        ("version", install.version),
-        ("rawVersion", install.raw_version),
-        (
-            "modsCompatibilityVersion",
-            install.mods_compatibility_version,
-        ),
-    ]
-    .into_iter()
-    .filter_map(|(key, value)| value.map(|value| (key.to_owned(), value)))
-    .collect()
 }
 
 /// The listing artifacts, and every warning the runs raised.

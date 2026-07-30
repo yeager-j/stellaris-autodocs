@@ -1,0 +1,156 @@
+{
+  "run": "c2-parse-and-resolve",
+  "purpose": "Resolve every declared Resolution Profile row, and the localization file stream, over the installed Vanilla and ACOT corpora through the production resolver — common file selection, per-family semantic streams, repeat and cross-source rules, constant evaluation, inline-script expansion, and sprite reference resolution, over the production adapter's parse of every file each row's scope selects. Each row's outcome is recorded on equal terms: definition and typed-fact counts for a row that resolves, and the typed refusal — the policy cell it stopped at — for a row that does not. A hit on an unresolved cell is a recorded visible failure, never an error and never a fallback, so the record states exactly which open cells the real corpora reach and how often.",
+  "environment": {
+    "stellaris": {
+      "modsCompatibilityVersion": "4.4",
+      "rawVersion": "v4.4.6",
+      "version": "Pegasus v4.4.6 (fdde)"
+    },
+    "jomini": "0.35",
+    "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+    "os": "macos",
+    "arch": "aarch64"
+  },
+  "corpora": [
+    {
+      "id": "vanilla",
+      "title": "Stellaris base game",
+      "file_count": 4578,
+      "total_bytes": 56085735,
+      "fingerprint": "ee02b65f04eec7b45316af77c0d8edef28102478928636292bc55249410eb387"
+    },
+    {
+      "id": "acot",
+      "title": "Ancient Cache of Technologies",
+      "file_count": 1120,
+      "total_bytes": 18521905,
+      "fingerprint": "6f6095c22464583f4576fa6fade4de28dae717a399b9a2cc1fd8e541071835eb"
+    }
+  ],
+  "resolution": {
+    "profile_version": 7,
+    "rows": [
+      {
+        "registry": "technologies",
+        "outcome": {
+          "status": "resolved",
+          "definitions": 1436,
+          "removed_files": 0,
+          "semantic_digest": "8e397a026e62e5b59a77dab6cb826c5f7400a784d49a76afefa429a09552b516",
+          "facts": {
+            "constants.Resolved": 3075,
+            "inline.Expanded": 158,
+            "provenance.Contributed": 14657,
+            "provenance.Duplicate": 4,
+            "provenance.Shadowed": 43
+          },
+          "visible_failures": {}
+        }
+      },
+      {
+        "registry": "scripted-triggers",
+        "outcome": {
+          "status": "refused",
+          "cell": "unresolved references",
+          "message": "registry `scripted-triggers` has no policy for its unresolved references cell: no record measures $PARAM$ substitution in a trigger or effect body. Settled by: a capture exercising a parameterised scripted trigger/effect call"
+        }
+      },
+      {
+        "registry": "scripted-effects",
+        "outcome": {
+          "status": "refused",
+          "cell": "unresolved references",
+          "message": "registry `scripted-effects` has no policy for its unresolved references cell: no record measures $PARAM$ substitution in a trigger or effect body. Settled by: a capture exercising a parameterised scripted trigger/effect call"
+        }
+      },
+      {
+        "registry": "scripted-constants",
+        "outcome": {
+          "status": "resolved",
+          "definitions": 3367,
+          "removed_files": 0,
+          "semantic_digest": "2a39cf0d613a48e8dd340702d03ef868e8a9d385e5fb23b145e0e016339563f1",
+          "facts": {
+            "constants.Resolved": 3367
+          },
+          "visible_failures": {}
+        }
+      },
+      {
+        "registry": "events",
+        "outcome": {
+          "status": "refused",
+          "cell": "undeclared reference kind",
+          "message": "registry `events` claims its definitions carry no Parameter reference, but `nomads.605` carries one in `title`"
+        }
+      },
+      {
+        "registry": "buildings",
+        "outcome": {
+          "status": "resolved",
+          "definitions": 602,
+          "removed_files": 1,
+          "semantic_digest": "a69a4304d2e4be21dfc5b14a7b8b8c0963129369b389f700c4c36e5981e370ad",
+          "facts": {
+            "provenance.Contributed": 8770,
+            "provenance.Duplicate": 3,
+            "provenance.Shadowed": 58,
+            "reference.InlineScript": 800,
+            "reference.ScriptedConstant": 2571
+          },
+          "visible_failures": {}
+        }
+      },
+      {
+        "registry": "megastructures",
+        "outcome": {
+          "status": "refused",
+          "cell": "field replacement, inheritance, and defaults",
+          "message": "registry `megastructures` has no policy for its field replacement, inheritance, and defaults cell: r8 cannot distinguish whole replacement from inherited fields for a megastructure redefinition. Settled by: STE-22 stretch: a runtime observable comparing a redefinition's omitted field"
+        }
+      },
+      {
+        "registry": "ship-components",
+        "outcome": {
+          "status": "refused",
+          "cell": "duplicate within one semantic stream",
+          "message": "registry `ship-components` has no policy for its duplicate within one semantic stream cell: no runtime observation names the winner of a repeated ship-component key. Settled by: STE-22 stretch: a runtime observable for a repeated component key"
+        }
+      },
+      {
+        "registry": "sprites",
+        "outcome": {
+          "status": "resolved",
+          "definitions": 9593,
+          "removed_files": 0,
+          "semantic_digest": "138d63997ab5c150cb67c61932681290d41709225a4b2a6f7924f47e53941c6c",
+          "facts": {
+            "provenance.Contributed": 27360,
+            "provenance.Duplicate": 36,
+            "provenance.Shadowed": 111,
+            "reference.ScriptedConstant": 74,
+            "sprite.edge.MissingTexture": 214,
+            "sprite.edge.Resolved": 190,
+            "sprite.texture.MissingTexture": 2786,
+            "sprite.texture.Resolved": 6807
+          },
+          "visible_failures": {
+            "sprite.edge.MissingTexture": 214,
+            "sprite.texture.MissingTexture": 2786
+          }
+        }
+      }
+    ],
+    "localization": {
+      "status": "streamed",
+      "files": 2364,
+      "shadowed_files": 0,
+      "stream_digest": "60ef18c3835ed3e16d00c4ce81b325328dff4967368fba9ed75d8d1f4d789f66"
+    }
+  },
+  "artifacts": {
+    "resolution.txt": "06867a5515fc89c80fc996b1ae09d8ddbeef4072d52de7dd0d5b467a12d1d8c5"
+  },
+  "warnings": []
+}
